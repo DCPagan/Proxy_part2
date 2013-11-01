@@ -21,19 +21,19 @@ int main(int argc, char **argv){
 			port=get_port(argv[1]);
 			//	Set up a socket to listen to clients' connection requests.
 			if((listenfd=open_listenfd(port))<0){
-				perror("error opening ethernet device\n");
-				exit(1);
+				perror("error opening listening socket\n");
+				exit(-1);
 			}
 			//	Accept a connection request.
 			if((tp.ethfd=accept(listenfd, &clientaddr,
 				sizeof(clientaddr)))<0){
-				perror("error accepting client.\n");
-				exit(1);
+				perror("error opening socket to client\n");
+				exit(-1);
 			}
 			//	Set up the tap device.
 			if((tp.tapfd=allocate_tunnel(argv[2], IFF_TAP|IFF_NO_PI))<0){
 				perror("error opening tap device\n");
-				exit(1);
+				exit(-1);
 			}
 			break;
 
@@ -44,17 +44,17 @@ int main(int argc, char **argv){
 			//	Connect to the server.
 			if((tp.ethfd=open_clientfd(argv[1], port))<0){
 				perror("error opening ethernet device\n");
-				exit(1);
+				exit(-1);
 			}
 			//	Set up the tap device.
 			if((tp.tapfd=allocate_tunnel(argv[3], IFF_TAP|IFF_NO_PI))<0){
 				perror("error opening tap device\n");
-				exit(1);
+				exit(-1);
 			}
 			break;
 		default:
 			perror("ERROR: invalid parameters.\n");
-			exit(1);
+			exit(-1);
 	}
 	/**
 	  * 1st thread listens to TCP socket

@@ -35,7 +35,7 @@ unsigned short get_port(char *s){
 	x=strtoul(s, NULL, 10);
 	if(x==ULONG_MAX&&errno==ERANGE
 		||x<1024||x>65535){
-		fprintf(stderr, "error: invalid port parameter.\n");
+		fprintf(stderr, "error: invalid port parameter\n");
 		exit(1);
 	}
 	port=(unsigned short)x;
@@ -44,8 +44,8 @@ unsigned short get_port(char *s){
 
 int open_listenfd(unsigned short port){
 	int listenfd;
-	int optval = 1;
 	struct sockaddr_in serveraddr;
+	int optval=1;
 	if((listenfd=socket(AF_INET, SOCK_STREAM, 0))<0){
 		perror("error creating socket\n");
 		return -1;
@@ -56,10 +56,6 @@ int open_listenfd(unsigned short port){
 		perror("setsockopt()");
 		exit(-1);
 	}
-	if(listen(listenfd, BACKLOG)<0){
-		perror("error making socket a listening socket\n");
-		return -1;
-	}
 	memset(&serveraddr, 0, sizeof(struct sockaddr_in));
 	serveraddr.sin_family=AF_INET;
 	serveraddr.sin_addr.s_addr=htonl(INADDR_ANY);
@@ -67,6 +63,10 @@ int open_listenfd(unsigned short port){
 	if(bind(listenfd, (struct sockaddr *)&serveraddr,
 		sizeof(struct sockaddr_in))<0){
 		perror("error binding socketfd to port\n");
+		return -1;
+	}
+	if(listen(listenfd, BACKLOG)<0){
+		perror("error making socket a listening socket\n");
 		return -1;
 	}
 	return listenfd;
