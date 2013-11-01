@@ -21,20 +21,7 @@ int main(int argc, char **argv){
 		// 1st proxy
 		case 3:
 			for(c=argv[1]; isdigit(*c)||*c=='\0'; c++);
-			if(*c=='\0'){
-				tp.ethfd=atoi(argv[1]);
-				if(tp.ethfd<1024||tp.ethfd>65535){
-					perror("ERROR: port must be from "
-						"1024-65535.\n");
-					exit(1);
-				}
-				port=(unsigned short)tp.ethfd;
-			}
-			else{
-				perror("ERROR: port parameter "
-					"not a decimal number.\n");
-				exit(1);
-			}
+			port=get_port(argv[1]);
 			if((tp.ethfd=open_listenfd(port))<0){
 				perror("error opening ethernet device\n");
 				exit(1);

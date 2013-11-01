@@ -29,6 +29,19 @@ int allocate_tunnel(char *dev, int flags) {
 	return fd;
 }
 
+unsigned short get_port(char *s){
+	unsigned short port;
+	unsigned long x;
+	x=strtoul(s, NULL, 10);
+	if(x==ULONG_MAX&&errno==ERANGE
+		||x<1024||x>65535){
+		fprintf(stderr, "error: invalid port parameter.\n");
+		exit(1);
+	}
+	port=(unsigned short)x;
+	return port;
+}
+
 int open_listenfd(unsigned short port){
 	int listenfd;
 	int optval = 1;

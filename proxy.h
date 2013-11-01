@@ -76,6 +76,7 @@ typedef struct proxy_header{
 } proxy_header;
 
 extern int allocate_tunnel(char *, int);
+extern unsigned short get_port(char *s);
 extern int open_listenfd(unsigned short);
 extern int open_clientfd(char *, unsigned short);
 extern void *eth_thread(thread_param *tp);
