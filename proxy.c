@@ -77,12 +77,13 @@ int open_clientfd(char *hostname, unsigned short port){
 	struct hostent *hp;
 	struct in_addr addr;
 	struct sockaddr_in serveraddr;
+	int optval=1;
 	if((clientfd=socket(AF_INET, SOCK_STREAM, 0))<0){
 		perror("error opening socket\n");
 		return -1;
 	}
 	/* avoid EADDRINUSE error on bind() */
-	if(setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR,
+	if(setsockopt(clientfd, SOL_SOCKET, SO_REUSEADDR,
 		(char *)&optval, sizeof(optval)) < 0) {
 		perror("setsockopt()");
 		exit(-1);
@@ -92,10 +93,14 @@ int open_clientfd(char *hostname, unsigned short port){
 	  * then parse it via gethostbyaddr().
 	  * Otherwise, parse the hostname via gethostbyname().
 	  */
-	if(inet_aton(hostname, &addr)!=0
-		&&(hp=gethostbyaddr((const char *)&addr,
-			sizeof(struct in_addr), AF_INET))==NULL
-		||(hp=gethostbyname(hostname))==NULL){
+	if(inet_aton(hostname, &addr)!=0){
+		if(hp=gethostbyaddr((const char *)&addr,
+			sizeof(struct in_addr), AF_INET)==NULL){
+			perror("error retrieving host information\n");
+			return -1;
+		}
+	}
+	else if((hp=gethostbyname(hostname))==NULL){
 		perror("error retrieving host information\n");
 		return -1;
 	}
