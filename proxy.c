@@ -96,6 +96,8 @@ int open_clientfd(char *hostname, unsigned short port){
 		perror("error connecting to server\n");
 		return -1;
 	}
+	printf("Successfully connected to server at %s (%s).\n",
+		hp->h_aliases[0], inet_ntoa(serveraddr.sin_addr));
 	return clientfd;
 }
 

@@ -4,6 +4,7 @@ int main(int argc, char **argv){
 	int listenfd;
 	unsigned short port;
 	struct sockaddr_in clientaddr;
+	struct hostent hostinfo;
 	thread_param tp;
 	pthread_t eth_tid, tap_tid;
 	if(argc!=3&&argc!=4){
@@ -30,6 +31,8 @@ int main(int argc, char **argv){
 				perror("error opening socket to client\n");
 				exit(-1);
 			}
+			printf("Successfully connected to client at I.P. address %s.\n",
+				inet_ntoa(clientaddr.sin_addr));
 			//	Set up the tap device.
 			if((tp.tapfd=allocate_tunnel(argv[2], IFF_TAP|IFF_NO_PI))<0){
 				perror("error opening tap device\n");
