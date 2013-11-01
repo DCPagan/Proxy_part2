@@ -1,4 +1,4 @@
-cc=gcc -m32 -g 2>proxy.err
+cc=gcc -Wall -m32 -g 2>proxy.err
 proxy: main.o rio.o proxy.o
 	$(cc) -pthread -o proxy main.o rio.o proxy.o
 main.o: main.c proxy.h

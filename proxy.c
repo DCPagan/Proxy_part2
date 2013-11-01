@@ -81,15 +81,30 @@ int open_clientfd(char *hostname, unsigned short port){
 		perror("error opening socket\n");
 		return -1;
 	}
-	if((inet_aton(hostname, &addr))!=0)
-		hp=gethostbyaddr((const char *)&addr, sizeof(struct in_addr), AF_INET);
-	else if((hp=gethostbyname(hostname))==NULL){
+	/* avoid EADDRINUSE error on bind() */
+	if(setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR,
+		(char *)&optval, sizeof(optval)) < 0) {
+		perror("setsockopt()");
+		exit(-1);
+	}
+	/**
+	  * If the given hostname is an I.P. address in dotted decimal notation,
+	  * then parse it via gethostbyaddr().
+	  * Otherwise, parse the hostname via gethostbyname().
+	  */
+	if(inet_aton(hostname, &addr)!=0
+		&&(hp=gethostbyaddr((const char *)&addr,
+			sizeof(struct in_addr), AF_INET))==NULL
+		||(hp=gethostbyname(hostname))==NULL){
 		perror("error retrieving host information\n");
 		return -1;
 	}
+	printf("Connecting to host %s (%s)...\n",
+		hp->h_aliases[0], inet_ntoa(serveraddr.sin_addr));
 	memset(&serveraddr, 0, sizeof(struct sockaddr_in));
 	serveraddr.sin_family=AF_INET;
-	memcpy(&serveraddr.sin_addr, hp->h_addr_list, hp->h_length);
+	memcpy(&serveraddr.sin_addr, *hp->h_addr_list,
+		hp->h_length);
 	serveraddr.sin_port=htons(port);
 	if(connect(clientfd, (struct sockaddr *)&serveraddr,
 		sizeof(struct sockaddr_in))<0){
