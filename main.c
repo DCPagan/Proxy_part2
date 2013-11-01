@@ -9,9 +9,11 @@ int main(int argc, char **argv){
 	char *remote_host;
 	int remote_port;
 	char *local_interface;
-
-	if(argc != 4 || argc != 3){
-		printf("Error\n\t Usage for first proxy:\n\t\t cs352proxy <port> <local interface> \n\t Usage for second proxy: \n\t\t cs352proxy <remote host> <remote port> <local interface>\n");
+	if(argc!=3&&argc!=4){
+		printf("Error\n\t Usage for first proxy:\n\t\t"
+			"cs352proxy <port> <local interface> \n\t"
+			"Usage for second proxy: \n\t\t"
+			"cs352proxy <remote host> <remote port> <local interface>\n");
 	return -1;
 	}
 
