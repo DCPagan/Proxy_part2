@@ -113,7 +113,8 @@ int open_clientfd(char *hostname, unsigned short port){
 	serveraddr.sin_port=htons(port);
 	if(connect(clientfd, (struct sockaddr *)&serveraddr,
 		sizeof(serveraddr))<0){
-		fprintf(stderr, "error connecting to server\n");
+		fprintf(stderr, "error connecting to server: %s\n",
+			strerror(errno));
 		close(clientfd);
 		return -1;
 	}
