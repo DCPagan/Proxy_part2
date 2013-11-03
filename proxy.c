@@ -105,7 +105,7 @@ int open_clientfd(char *hostname, unsigned short port){
 		close(clientfd);
 		return -1;
 	}
-	printf("Connecting to host at I.P. address %s...\n", *hp->h_aliases,
+	printf("Connecting to host at I.P. address %s...\n",
 		inet_ntoa(**(struct in_addr **)hp->h_addr_list));
 	memset(&serveraddr, 0, sizeof(struct sockaddr_in));
 	serveraddr.sin_family=AF_INET;
