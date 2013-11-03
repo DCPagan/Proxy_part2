@@ -28,7 +28,8 @@ int main(int argc, char **argv){
 			//	Accept a connection request.
 			if((tp.ethfd=accept(listenfd, &clientaddr,
 				sizeof(clientaddr)))<0){
-				fprintf(stderr, "error opening socket to client\n");
+				fprintf(stderr, "error opening socket to client: %s\n",
+					strerror(errno));
 				exit(-1);
 			}
 			printf("Successfully connected to client at I.P. address %s.\n",
