@@ -2,6 +2,7 @@
 
 int main(int argc, char **argv){
 	int listenfd;
+	int addrlen=sizeof(struct sockaddr_in);
 	unsigned short port;
 	struct sockaddr_in clientaddr;
 	struct hostent hostinfo;
@@ -27,12 +28,12 @@ int main(int argc, char **argv){
 			}
 			//	Accept a connection request.
 			if((tp.ethfd=accept(listenfd, (struct sockaddr *)&clientaddr,
-				sizeof(clientaddr)))<0){
+				&addrlen))<0){
 				fprintf(stderr, "error opening socket to client: %s\n",
 					strerror(errno));
 				exit(-1);
 			}
-			printf("Successfully connected to client at I.P. address %s.\n",
+			printf("Successfully connected to host at I.P. address %s.\n",
 				inet_ntoa(clientaddr.sin_addr));
 			//	Set up the tap device.
 			if((tp.tapfd=allocate_tunnel(argv[2], IFF_TAP|IFF_NO_PI))<0){
