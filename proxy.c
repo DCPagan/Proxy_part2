@@ -134,17 +134,19 @@ int open_clientfd(char *hostname, unsigned short port){
 }
 
 void *eth_thread(thread_param *tp){
-	rio_t *rio_eth, *rio_tap;
+	rio_t rio_eth, rio_tap;
 	ssize_t size;
 	unsigned int short type, length;
 	char buffer[MTU_L2];
 	void *bufptr;
 	proxy_header prxyhdr;
+	rio_readinit(&rio_eth, tp->ethfd);
+	rio_readinit(&rio_tap, tp->tapfd);
 	while(1){
 		bufptr=buffer;
 		memset(buffer, 0, MTU_L2);
 		//	Read the proxy header first.
-		if((size=rio_read(rio_eth, bufptr, PROXY_HEADER_SIZE))<0){
+		if((size=rio_read(&rio_eth, bufptr, PROXY_HEADER_SIZE))<0){
 			fprintf(stderr, "error reading from the tap device.\n");
 			close(tp->ethfd);
 			close(tp->tapfd);
@@ -162,33 +164,33 @@ void *eth_thread(thread_param *tp){
 			exit(-1);
 		}
 		//	Read the rest of the payload.
-		if((size=rio_read(rio_eth, bufptr, prxyhdr.length))<0){
+		if((size=rio_read(&rio_eth, bufptr, prxyhdr.length))<0){
 			fprintf(stderr, "error reading from the tap device.\n");
 			close(tp->ethfd);
 			close(tp->tapfd);
 			exit(-1);
 		}
 		write(tp->tapfd, bufptr, prxyhdr.length);
-		rio_resetBuffer(rio_eth);
-		rio_resetBuffer(rio_tap);
+		rio_resetBuffer(&rio_eth);
+		rio_resetBuffer(&rio_tap);
 	}
 }
 
 void *tap_thread(thread_param *tp){
-	rio_t *rio_eth, *rio_tap;
+	rio_t rio_eth, rio_tap;
 	ssize_t size;
 	char buffer[MTU_L2+PROXY_HEADER_SIZE];
 	void *bufptr;
 	unsigned short length;
 	proxy_header prxyhdr;
 	int optval;
-	rio_readinit(rio_eth, tp->ethfd);
-	rio_readinit(rio_tap, tp->tapfd);
+	rio_readinit(&rio_eth, tp->ethfd);
+	rio_readinit(&rio_tap, tp->tapfd);
 	while(1){
 		bufptr=buffer;
 		memset(buffer, 0, MTU_L2);
 		//	Get the ethernet header first.
-		if((size=rio_read(rio_tap, bufptr, FRAME_HEADER_SIZE))<0){
+		if((size=rio_read(&rio_tap, bufptr, FRAME_HEADER_SIZE))<0){
 			fprintf(stderr, "error reading from the tap device.\n");
 			close(tp->ethfd);
 			close(tp->tapfd);
@@ -196,7 +198,7 @@ void *tap_thread(thread_param *tp){
 		}
 		bufptr+=FRAME_HEADER_SIZE;
 		//	Get the IP header. Assume IPv4.
-		if((size=rio_read(rio_tap, bufptr, IPv4_HEADER_SIZE))<0){
+		if((size=rio_read(&rio_tap, bufptr, IPv4_HEADER_SIZE))<0){
 			fprintf(stderr, "error reading from the tap device.\n");
 			close(tp->ethfd);
 			close(tp->tapfd);
@@ -213,7 +215,7 @@ void *tap_thread(thread_param *tp){
 		  * the IPv4 packet if necessary.
 		  */
 		if(((struct iphdr *)bufptr)->ihl>5&&
-			(size=rio_read(rio_tap, bufptr,
+			(size=rio_read(&rio_tap, bufptr,
 				((struct iphdr *)bufptr)->ihl-size))<0){
 			fprintf(stderr, "error reading from the tap.\n");
 			close(tp->ethfd);
@@ -263,7 +265,7 @@ void *tap_thread(thread_param *tp){
 		memcpy(bufptr, &prxyhdr, PROXY_HEADER_SIZE);
 		bufptr+=PROXY_HEADER_SIZE;
 		//	Get the rest of the frame payload, and the frame footer.
-		if((size=rio_read(rio_tap, bufptr, length+FRAME_FOOTER_SIZE))<0){
+		if((size=rio_read(&rio_tap, bufptr, length+FRAME_FOOTER_SIZE))<0){
 			fprintf(stderr, "error reading from the tap device.\n");
 			close(tp->ethfd);
 			close(tp->tapfd);
@@ -272,7 +274,7 @@ void *tap_thread(thread_param *tp){
 		bufptr-=PROXY_HEADER_SIZE;
 		//	Write the modified IP payload to the ethernet socket.
 		write(tp->ethfd, bufptr, length+PROXY_HEADER_SIZE);
-		rio_resetBuffer(rio_eth);
-		rio_resetBuffer(rio_tap);
+		rio_resetBuffer(&rio_eth);
+		rio_resetBuffer(&rio_tap);
 	}
 } 
