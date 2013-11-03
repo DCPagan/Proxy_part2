@@ -171,6 +171,7 @@ void *eth_thread(thread_param *tp){
 			exit(-1);
 		}
 		write(tp->tapfd, bufptr, prxyhdr.length);
+		printf("received %d bytes\n");
 		rio_resetBuffer(&rio_eth);
 		rio_resetBuffer(&rio_tap);
 	}
@@ -274,6 +275,7 @@ void *tap_thread(thread_param *tp){
 		bufptr-=PROXY_HEADER_SIZE;
 		//	Write the modified IP payload to the ethernet socket.
 		write(tp->ethfd, bufptr, length+PROXY_HEADER_SIZE);
+		printf("sent %d bytes\n");
 		rio_resetBuffer(&rio_eth);
 		rio_resetBuffer(&rio_tap);
 	}
