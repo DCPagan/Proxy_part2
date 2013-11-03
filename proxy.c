@@ -250,13 +250,15 @@ void *tap_thread(thread_param *tp){
 		  * construct are implied by the TCP/IP protocol that this program
 		  * uses to send packets between proxies.
 		  */
-		//	The type field of the proxy header is always set to 0xABCD.
-		prxyhdr.type=htons(0xABCD);
+		//	
 		/**
+		  * Write the proxy header.
+		  * The type field of the proxy header is always set to 0xABCD.
 		  * The length of the IP payload is equal to the value of the total
 		  * length field of the IPv4 header minus the length of the IPv4
 		  * header in bytes. The IHL field valued in 4-byte words.
 		  */
+		prxyhdr.type=htons(0xABCD);
 		prxyhdr.length=length=((struct iphdr *)bufptr)->tot_len
 			-4*((struct iphdr *)bufptr)->ihl;
 		/**
@@ -275,7 +277,7 @@ void *tap_thread(thread_param *tp){
 		bufptr-=PROXY_HEADER_SIZE;
 		//	Write the modified IP payload to the ethernet socket.
 		write(tp->ethfd, bufptr, length+PROXY_HEADER_SIZE);
-		printf("sent %d bytes\n");
+			printf("sent %d bytes\n");
 		rio_resetBuffer(&rio_eth);
 		rio_resetBuffer(&rio_tap);
 	}
