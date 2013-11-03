@@ -26,7 +26,7 @@ int main(int argc, char **argv){
 				exit(-1);
 			}
 			//	Accept a connection request.
-			if((tp.ethfd=accept(listenfd, &clientaddr,
+			if((tp.ethfd=accept(listenfd, (struct sockaddr *)&clientaddr,
 				sizeof(clientaddr)))<0){
 				fprintf(stderr, "error opening socket to client: %s\n",
 					strerror(errno));
