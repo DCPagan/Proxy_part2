@@ -13,7 +13,7 @@ int allocate_tunnel(char *dev, int flags) {
 	struct ifreq ifr;
 	char *device_name = "/dev/net/tun";
 	if( (fd = open(device_name , O_RDWR)) < 0 ) {
-		fprintf(stderr, "error opening /dev/net/tun");
+		fprintf(stderr, "error opening /dev/net/tun\n");
 		return fd;
 	}
 	memset(&ifr, 0, sizeof(ifr));
@@ -21,7 +21,7 @@ int allocate_tunnel(char *dev, int flags) {
 	if (*dev) {
 		strncpy(ifr.ifr_name, dev, IFNAMSIZ);
 	}if( (error = ioctl(fd, TUNSETIFF, (void *)&ifr)) < 0 ) {
-		fprintf(stderr, "ioctl on tap failed");
+		fprintf(stderr, "ioctl on tap failed\n");
 		close(fd);
 		return error;
 	}
@@ -33,6 +33,7 @@ unsigned short get_port(char *s){
 	unsigned short port;
 	unsigned long x;
 	x=strtoul(s, NULL, 10);
+	//	Check for overflow error
 	if(x==ULONG_MAX&&errno==ERANGE
 		||x<1024||x>65535){
 		fprintf(stderr, "error: invalid port parameter\n");
