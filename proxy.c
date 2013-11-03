@@ -120,7 +120,7 @@ int open_clientfd(char *hostname, unsigned short port){
 		return -1;
 	}
 	printf("Successfully connected to host at I.P. address %s.\n",
-		hp->h_aliases[0], inet_ntoa(serveraddr.sin_addr));
+		inet_ntoa(serveraddr.sin_addr));
 	return clientfd;
 }
 
