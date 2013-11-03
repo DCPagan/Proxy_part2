@@ -31,6 +31,7 @@ int main(int argc, char **argv){
 				&addrlen))<0){
 				fprintf(stderr, "error opening socket to client: %s\n",
 					strerror(errno));
+				close(listenfd);
 				exit(-1);
 			}
 			printf("Successfully connected to host at I.P. address %s.\n",
@@ -38,6 +39,8 @@ int main(int argc, char **argv){
 			//	Set up the tap device.
 			if((tp.tapfd=allocate_tunnel(argv[2], IFF_TAP|IFF_NO_PI))<0){
 				fprintf(stderr, "error opening tap device\n");
+				close(listenfd);
+				close(tp.ethfd);
 				exit(-1);
 			}
 			break;
@@ -54,6 +57,7 @@ int main(int argc, char **argv){
 			//	Set up the tap device.
 			if((tp.tapfd=allocate_tunnel(argv[3], IFF_TAP|IFF_NO_PI))<0){
 				fprintf(stderr, "error opening tap device\n");
+				close(tp.ethfd);
 				exit(-1);
 			}
 			break;
