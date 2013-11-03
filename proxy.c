@@ -57,12 +57,12 @@ int open_listenfd(unsigned short port){
 		close(listenfd);
 		exit(-1);
 	}
-	memset(&serveraddr, 0, sizeof(struct sockaddr_in));
+	memset(&serveraddr, 0, sizeof(serveraddr));
 	serveraddr.sin_family=AF_INET;
 	serveraddr.sin_addr.s_addr=htonl(INADDR_ANY);
-	serveraddr.sin_port=port;
+	serveraddr.sin_port=htons(port);
 	if(bind(listenfd, (struct sockaddr *)&serveraddr,
-		sizeof(struct sockaddr_in))<0){
+		sizeof(serveraddr))<0){
 		fprintf(stderr, "error binding socketfd to port\n");
 		close(listenfd);
 		return -1;
@@ -107,7 +107,7 @@ int open_clientfd(char *hostname, unsigned short port){
 	}
 	printf("Connecting to host at I.P. address %s...\n",
 		inet_ntoa(**(struct in_addr **)hp->h_addr_list));
-	memset(&serveraddr, 0, sizeof(struct sockaddr_in));
+	memset(&serveraddr, 0, sizeof(serveraddr));
 	serveraddr.sin_family=AF_INET;
 	memcpy(&serveraddr.sin_addr, *hp->h_addr_list, hp->h_length);
 	serveraddr.sin_port=htons(port);
