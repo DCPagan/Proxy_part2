@@ -8,7 +8,7 @@ int main(int argc, char **argv){
 	thread_param tp;
 	pthread_t eth_tid, tap_tid;
 	if(argc!=3&&argc!=4){
-		printf("Error\n\t Usage for first proxy:\n\t\t"
+		fprintf(stderr, "Error\n\t Usage for first proxy:\n\t\t"
 			"cs352proxy <port> <local interface> \n\t"
 			"Usage for second proxy: \n\t\t"
 			"cs352proxy <remote host> <remote port> <local interface>\n");
@@ -22,20 +22,20 @@ int main(int argc, char **argv){
 			port=get_port(argv[1]);
 			//	Set up a socket to listen to clients' connection requests.
 			if((listenfd=open_listenfd(port))<0){
-				perror("error opening listening socket\n");
+				fprintf(stderr, "error opening listening socket\n");
 				exit(-1);
 			}
 			//	Accept a connection request.
 			if((tp.ethfd=accept(listenfd, &clientaddr,
 				sizeof(clientaddr)))<0){
-				perror("error opening socket to client\n");
+				fprintf(stderr, "error opening socket to client\n");
 				exit(-1);
 			}
 			printf("Successfully connected to client at I.P. address %s.\n",
 				inet_ntoa(clientaddr.sin_addr));
 			//	Set up the tap device.
 			if((tp.tapfd=allocate_tunnel(argv[2], IFF_TAP|IFF_NO_PI))<0){
-				perror("error opening tap device\n");
+				fprintf(stderr, "error opening tap device\n");
 				exit(-1);
 			}
 			break;
@@ -46,17 +46,17 @@ int main(int argc, char **argv){
 			port=get_port(argv[2]);
 			//	Connect to the server.
 			if((tp.ethfd=open_clientfd(argv[1], port))<0){
-				perror("error opening ethernet device\n");
+				fprintf(stderr, "error opening ethernet device\n");
 				exit(-1);
 			}
 			//	Set up the tap device.
 			if((tp.tapfd=allocate_tunnel(argv[3], IFF_TAP|IFF_NO_PI))<0){
-				perror("error opening tap device\n");
+				fprintf(stderr, "error opening tap device\n");
 				exit(-1);
 			}
 			break;
 		default:
-			perror("ERROR: invalid parameters.\n");
+			fprintf(stderr, "ERROR: invalid parameters.\n");
 			exit(-1);
 	}
 	/**

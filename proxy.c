@@ -13,7 +13,7 @@ int allocate_tunnel(char *dev, int flags) {
 	struct ifreq ifr;
 	char *device_name = "/dev/net/tun";
 	if( (fd = open(device_name , O_RDWR)) < 0 ) {
-		perror("error opening /dev/net/tun");
+		fprintf(stderr, "error opening /dev/net/tun");
 		return fd;
 	}
 	memset(&ifr, 0, sizeof(ifr));
@@ -21,7 +21,7 @@ int allocate_tunnel(char *dev, int flags) {
 	if (*dev) {
 		strncpy(ifr.ifr_name, dev, IFNAMSIZ);
 	}if( (error = ioctl(fd, TUNSETIFF, (void *)&ifr)) < 0 ) {
-		perror("ioctl on tap failed");
+		fprintf(stderr, "ioctl on tap failed");
 		close(fd);
 		return error;
 	}
@@ -47,13 +47,14 @@ int open_listenfd(unsigned short port){
 	struct sockaddr_in serveraddr;
 	int optval=1;
 	if((listenfd=socket(AF_INET, SOCK_STREAM, 0))<0){
-		perror("error creating socket\n");
+		fprintf(stderr, "error creating socket\n");
 		return -1;
 	}	
 	/* avoid EADDRINUSE error on bind() */
 	if(setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR,
 		(char *)&optval, sizeof(optval)) < 0) {
-		perror("setsockopt()");
+		fprintf(stderr, "setsockopt()");
+		close(listenfd);
 		exit(-1);
 	}
 	memset(&serveraddr, 0, sizeof(struct sockaddr_in));
@@ -62,11 +63,13 @@ int open_listenfd(unsigned short port){
 	serveraddr.sin_port=port;
 	if(bind(listenfd, (struct sockaddr *)&serveraddr,
 		sizeof(struct sockaddr_in))<0){
-		perror("error binding socketfd to port\n");
+		fprintf(stderr, "error binding socketfd to port\n");
+		close(listenfd);
 		return -1;
 	}
 	if(listen(listenfd, BACKLOG)<0){
-		perror("error making socket a listening socket\n");
+		fprintf(stderr, "error making socket a listening socket\n");
+		close(listenfd);
 		return -1;
 	}
 	return listenfd;
@@ -74,18 +77,19 @@ int open_listenfd(unsigned short port){
 
 int open_clientfd(char *hostname, unsigned short port){
 	int clientfd;
+	int optval=1;
 	struct hostent *hp;
 	struct in_addr addr;
 	struct sockaddr_in serveraddr;
-	int optval=1;
 	if((clientfd=socket(AF_INET, SOCK_STREAM, 0))<0){
-		perror("error opening socket\n");
+		fprintf(stderr, "error opening socket\n");
 		return -1;
 	}
 	/* avoid EADDRINUSE error on bind() */
 	if(setsockopt(clientfd, SOL_SOCKET, SO_REUSEADDR,
 		(char *)&optval, sizeof(optval)) < 0) {
-		perror("setsockopt()");
+		fprintf(stderr, "setsockopt()");
+		close(clientfd);
 		exit(-1);
 	}
 	/**
@@ -93,30 +97,27 @@ int open_clientfd(char *hostname, unsigned short port){
 	  * then parse it via gethostbyaddr().
 	  * Otherwise, parse the hostname via gethostbyname().
 	  */
-	if(inet_aton(hostname, &addr)!=0){
-		if(hp=gethostbyaddr((const char *)&addr,
-			sizeof(struct in_addr), AF_INET)==NULL){
-			perror("error retrieving host information\n");
-			return -1;
-		}
-	}
-	else if((hp=gethostbyname(hostname))==NULL){
-		perror("error retrieving host information\n");
+	if(inet_aton(hostname, &addr)!=0
+		&&(hp=gethostbyaddr((char *)&addr,
+			sizeof(struct in_addr), AF_INET)==NULL)
+		||((hp=gethostbyname(hostname))==NULL)){
+		fprintf(stderr, "error retrieving host information\n");
+		close(clientfd);
 		return -1;
 	}
-	printf("Connecting to host %s (%s)...\n",
-		hp->h_aliases[0], inet_ntoa(serveraddr.sin_addr));
+	printf("Connecting to host at I.P. address %s...\n", *hp->h_aliases,
+		inet_ntoa(**(struct in_addr **)hp->h_addr_list));
 	memset(&serveraddr, 0, sizeof(struct sockaddr_in));
 	serveraddr.sin_family=AF_INET;
-	memcpy(&serveraddr.sin_addr, *hp->h_addr_list,
-		hp->h_length);
+	memcpy(&serveraddr.sin_addr, *hp->h_addr_list, hp->h_length);
 	serveraddr.sin_port=htons(port);
 	if(connect(clientfd, (struct sockaddr *)&serveraddr,
-		sizeof(struct sockaddr_in))<0){
-		perror("error connecting to server\n");
+		sizeof(serveraddr))<0){
+		fprintf(stderr, "error connecting to server\n");
+		close(clientfd);
 		return -1;
 	}
-	printf("Successfully connected to server at %s (%s).\n",
+	printf("Successfully connected to host at I.P. address %s.\n",
 		hp->h_aliases[0], inet_ntoa(serveraddr.sin_addr));
 	return clientfd;
 }
