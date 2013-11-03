@@ -11,17 +11,19 @@
 int allocate_tunnel(char *dev, int flags) {
 	int fd, error;
 	struct ifreq ifr;
-	char *device_name = "/dev/net/tun";
-	if( (fd = open(device_name , O_RDWR)) < 0 ) {
-		fprintf(stderr, "error opening /dev/net/tun\n");
+	char *device_name="/dev/net/tun";
+	if((fd=open(device_name , O_RDWR))<0) {
+		fprintf(stderr, "error opening /dev/net/tun: %s\n",
+			strerror(errno));
 		return fd;
 	}
 	memset(&ifr, 0, sizeof(ifr));
-	ifr.ifr_flags = flags;
-	if (*dev) {
+	ifr.ifr_flags=flags;
+	if(*dev){
 		strncpy(ifr.ifr_name, dev, IFNAMSIZ);
-	}if( (error = ioctl(fd, TUNSETIFF, (void *)&ifr)) < 0 ) {
-		fprintf(stderr, "ioctl on tap failed\n");
+	}if((error=ioctl(fd, TUNSETIFF, (void *)&ifr))<0){
+		fprintf(stderr, "ioctl on tap failed: %s\n",
+			strerror(errno));
 		close(fd);
 		return error;
 	}
@@ -36,7 +38,8 @@ unsigned short get_port(char *s){
 	//	Check for overflow error
 	if(x==ULONG_MAX&&errno==ERANGE
 		||x<1024||x>65535){
-		fprintf(stderr, "error: invalid port parameter\n");
+		fprintf(stderr, "error: invalid port parameter: %s\n",
+			strerror(errno));
 		exit(1);
 	}
 	port=(unsigned short)x;
@@ -48,13 +51,15 @@ int open_listenfd(unsigned short port){
 	struct sockaddr_in serveraddr;
 	int optval=1;
 	if((listenfd=socket(AF_INET, SOCK_STREAM, 0))<0){
-		fprintf(stderr, "error creating socket\n");
+		fprintf(stderr, "error creating socket: %s\n",
+			strerror(errno));
 		return -1;
 	}	
 	/* avoid EADDRINUSE error on bind() */
 	if(setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR,
 		(char *)&optval, sizeof(optval)) < 0) {
-		fprintf(stderr, "setsockopt()");
+		fprintf(stderr, "setsockopt(): %s\n",
+			strerror(errno));
 		close(listenfd);
 		exit(-1);
 	}
@@ -64,12 +69,14 @@ int open_listenfd(unsigned short port){
 	serveraddr.sin_port=htons(port);
 	if(bind(listenfd, (struct sockaddr *)&serveraddr,
 		sizeof(serveraddr))<0){
-		fprintf(stderr, "error binding socketfd to port\n");
+		fprintf(stderr, "error binding socketfd to port: %s\n",
+			strerror(errno));
 		close(listenfd);
 		return -1;
 	}
 	if(listen(listenfd, BACKLOG)<0){
-		fprintf(stderr, "error making socket a listening socket\n");
+		fprintf(stderr, "error making socket a listening socket\n",
+			strerror(errno));
 		close(listenfd);
 		return -1;
 	}
@@ -83,13 +90,15 @@ int open_clientfd(char *hostname, unsigned short port){
 	struct in_addr addr;
 	struct sockaddr_in serveraddr;
 	if((clientfd=socket(AF_INET, SOCK_STREAM, 0))<0){
-		fprintf(stderr, "error opening socket\n");
+		fprintf(stderr, "error opening socket: %s\n",
+			strerror(errno));
 		return -1;
 	}
 	/* avoid EADDRINUSE error on bind() */
 	if(setsockopt(clientfd, SOL_SOCKET, SO_REUSEADDR,
 		(char *)&optval, sizeof(optval)) < 0) {
-		fprintf(stderr, "setsockopt()");
+		fprintf(stderr, "setsockopt(): %s\n",
+			strerror(errno));
 		close(clientfd);
 		exit(-1);
 	}

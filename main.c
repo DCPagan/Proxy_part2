@@ -13,7 +13,7 @@ int main(int argc, char **argv){
 			"cs352proxy <port> <local interface> \n\t"
 			"Usage for second proxy: \n\t\t"
 			"cs352proxy <remote host> <remote port> <local interface>\n");
-	return -1;
+		return -1;
 	}
 
 	switch(argc){
@@ -62,7 +62,7 @@ int main(int argc, char **argv){
 			}
 			break;
 		default:
-			fprintf(stderr, "ERROR: invalid parameters.\n");
+			fprintf(stderr, "error: invalid parameters\n");
 			exit(-1);
 	}
 	/**
