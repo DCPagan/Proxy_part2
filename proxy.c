@@ -250,7 +250,6 @@ void *tap_thread(thread_param *tp){
 		  * construct are implied by the TCP/IP protocol that this program
 		  * uses to send packets between proxies.
 		  */
-		//	
 		/**
 		  * Write the proxy header.
 		  * The type field of the proxy header is always set to 0xABCD.
