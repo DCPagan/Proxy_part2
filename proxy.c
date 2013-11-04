@@ -133,10 +133,8 @@ int open_clientfd(char *hostname, unsigned short port){
 void *eth_thread(thread_param *tp){
 	rio_t rio_eth, rio_tap;
 	ssize_t size;
-	unsigned int short type, length;
 	char buffer[MTU_L2];
 	void *bufptr;
-	proxy_header prxyhdr;
 	rio_readinit(&rio_eth, tp->ethfd);
 	rio_readinit(&rio_tap, tp->tapfd);
 	while(1){
@@ -152,16 +150,15 @@ void *eth_thread(thread_param *tp){
 		//	Increment the buffer pointer.
 		bufptr+=size;
 		//	Parse and evaluate the proxy header.
-		prxyhdr.type=ntohs(((proxy_header *)bufptr)->type);
-		prxyhdr.length=ntohs(((proxy_header *)bufptr)->length);
-		if(prxyhdr.type!=0xABCD){
+		if((proxy_header *)bufptr->type!=0xABCD){
 			fprintf(stderr, "error, incorrect type");
 			close(tp->ethfd);
 			close(tp->tapfd);
 			exit(-1);
 		}
 		//	Read the rest of the payload.
-		if((size=rio_read(&rio_eth, bufptr, prxyhdr.length))<0){
+		if((size=rio_read(&rio_eth, bufptr,
+			(proxy_header *)bufptr->length))<0){
 			fprintf(stderr, "error reading from the tap device.\n");
 			close(tp->ethfd);
 			close(tp->tapfd);
