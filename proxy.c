@@ -147,8 +147,6 @@ void *eth_thread(thread_param *tp){
 			close(tp->tapfd);
 			exit(-1);
 		}
-		//	Increment the buffer pointer.
-		bufptr+=size;
 		//	Parse and evaluate the proxy header.
 		if((proxy_header *)bufptr->type!=0xABCD){
 			fprintf(stderr, "error, incorrect type");
@@ -156,6 +154,7 @@ void *eth_thread(thread_param *tp){
 			close(tp->tapfd);
 			exit(-1);
 		}
+		bufptr+=size;
 		//	Read the rest of the payload.
 		if((size=rio_read(&rio_eth, bufptr,
 			(proxy_header *)bufptr->length))<0){
@@ -164,6 +163,7 @@ void *eth_thread(thread_param *tp){
 			close(tp->tapfd);
 			exit(-1);
 		}
+		//	Write the payload to the tap device.
 		writen(tp->tapfd, bufptr, prxyhdr.length);
 		printf("received %d bytes\n");
 		rio_resetBuffer(&rio_eth);
