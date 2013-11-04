@@ -1,8 +1,5 @@
 #include"proxy.h"
 
-//int tap_fd = -1;
-//int eth_fd = -1;
-
 /**************************************************
   * allocate_tunnel:
   * open a tun or tap device and returns the file
@@ -170,7 +167,7 @@ void *eth_thread(thread_param *tp){
 			close(tp->tapfd);
 			exit(-1);
 		}
-		write(tp->tapfd, bufptr, prxyhdr.length);
+		writen(tp->tapfd, bufptr, prxyhdr.length);
 		printf("received %d bytes\n");
 		rio_resetBuffer(&rio_eth);
 		rio_resetBuffer(&rio_tap);
@@ -197,7 +194,8 @@ void *tap_thread(thread_param *tp){
 			close(tp->tapfd);
 			exit(-1);
 		}
-		bufptr+=FRAME_HEADER_SIZE;
+		//	Parse MAC addresses here.
+		bufptr+=size;
 		//	Get the IP header. Assume IPv4.
 		if((size=rio_read(&rio_tap, bufptr, IPv4_HEADER_SIZE))<0){
 			fprintf(stderr, "error reading from the tap device.\n");
@@ -206,22 +204,29 @@ void *tap_thread(thread_param *tp){
 			exit(-1);
 		}
 		/**
-	  	  * Increment the buffer pointer by the amount read, which is the
-		  * IPv4 header size.
+		  *	Check whether the I.P. packet is IPv4.
+		  *	If the version is not 4, then terminate the program. This may
+		  * be editted later to accommodate IPv6 in the program.
 		  */
-		bufptr+=size;
-
+		if((struct iphdr *)bufptr->version!=4)
+			fprintf(stderr, "error: I.P. packet not version 4\n");
+			close(tp->ethfd);
+			close(tp->tapfd);
+			exit(-1);
+		}
 		/**
 		  * Check if the IHL field is greater than 5, and read the rest of
 		  * the IPv4 packet if necessary.
 		  */
-		if(((struct iphdr *)bufptr)->ihl>5&&
-			(size=rio_read(&rio_tap, bufptr,
+		if(((struct iphdr *)bufptr)->ihl>5){
+			bufptr+=size;
+			if((size=rio_read(&rio_tap, bufptr,
 				((struct iphdr *)bufptr)->ihl-size))<0){
-			fprintf(stderr, "error reading from the tap.\n");
-			close(tp->ethfd);
-			close(tp->tapfd);
-			exit(-1);
+				fprintf(stderr, "error reading from the tap.\n");
+				close(tp->ethfd);
+				close(tp->tapfd);
+				exit(-1);
+			}
 		}
 		bufptr+=size;
 		/**
@@ -275,9 +280,9 @@ void *tap_thread(thread_param *tp){
 		}
 		bufptr-=PROXY_HEADER_SIZE;
 		//	Write the modified IP payload to the ethernet socket.
-		write(tp->ethfd, bufptr, length+PROXY_HEADER_SIZE);
+		writen(tp->ethfd, bufptr, length+PROXY_HEADER_SIZE);
 			printf("sent %d bytes\n");
 		rio_resetBuffer(&rio_eth);
 		rio_resetBuffer(&rio_tap);
 	}
-} 
+}
