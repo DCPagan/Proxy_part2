@@ -72,7 +72,7 @@ int open_listenfd(unsigned short port){
 		return -1;
 	}
 	if(listen(listenfd, BACKLOG)<0){
-		fprintf(stderr, "error making socket a listening socket\n",
+		fprintf(stderr, "error making socket a listening socket: %s\n",
 			strerror(errno));
 		close(listenfd);
 		return -1;
@@ -106,8 +106,8 @@ int open_clientfd(char *hostname, unsigned short port){
 	  */
 	if(inet_aton(hostname, &addr)!=0
 		&&(hp=gethostbyaddr((char *)&addr,
-			sizeof(struct in_addr), AF_INET)==NULL)
-		||((hp=gethostbyname(hostname))==NULL)){
+			sizeof(struct in_addr), AF_INET))==NULL
+		||(hp=gethostbyname(hostname))==NULL){
 		fprintf(stderr, "error retrieving host information\n");
 		close(clientfd);
 		return -1;
@@ -148,7 +148,7 @@ void *eth_thread(thread_param *tp){
 			exit(-1);
 		}
 		//	Parse and evaluate the proxy header.
-		if((proxy_header *)bufptr->type!=0xABCD){
+		if(((proxy_header *)bufptr)->type!=0xABCD){
 			fprintf(stderr, "error, incorrect type");
 			close(tp->ethfd);
 			close(tp->tapfd);
@@ -157,15 +157,21 @@ void *eth_thread(thread_param *tp){
 		bufptr+=size;
 		//	Read the rest of the payload.
 		if((size=rio_read(&rio_eth, bufptr,
-			(proxy_header *)bufptr->length))<0){
+			((proxy_header *)bufptr)->length))<0){
 			fprintf(stderr, "error reading from the tap device.\n");
 			close(tp->ethfd);
 			close(tp->tapfd);
 			exit(-1);
 		}
 		//	Write the payload to the tap device.
-		writen(tp->tapfd, bufptr, prxyhdr.length);
-		printf("received %d bytes\n");
+		if((size=writen(tp->tapfd, bufptr,
+			((proxy_header *)bufptr)->length))<0){
+			fprintf(stderr, "error writing to tap device\n");
+			close(tp->ethfd);
+			close(tp->tapfd);
+			exit(-1);
+		}
+		printf("received %d bytes\n", size);
 		rio_resetBuffer(&rio_eth);
 		rio_resetBuffer(&rio_tap);
 	}
@@ -205,7 +211,7 @@ void *tap_thread(thread_param *tp){
 		  *	If the version is not 4, then terminate the program. This may
 		  * be editted later to accommodate IPv6 in the program.
 		  */
-		if((struct iphdr *)bufptr->version!=4)
+		if(((struct iphdr *)bufptr)->version!=4){
 			fprintf(stderr, "error: I.P. packet not version 4\n");
 			close(tp->ethfd);
 			close(tp->tapfd);
@@ -244,6 +250,7 @@ void *tap_thread(thread_param *tp){
 				close(tp->tapfd);
 				exit(-1);
 			}
+		}
 		  */
 		/**
 		  * All of that trouble, just for one bit. LOL.
@@ -277,8 +284,13 @@ void *tap_thread(thread_param *tp){
 		}
 		bufptr-=PROXY_HEADER_SIZE;
 		//	Write the modified IP payload to the ethernet socket.
-		writen(tp->ethfd, bufptr, length+PROXY_HEADER_SIZE);
-			printf("sent %d bytes\n");
+		if((size=writen(tp->ethfd, bufptr, length+PROXY_HEADER_SIZE))<0){
+			fprintf(stderr, "error writing to ethernet device\n");
+			close(tp->ethfd);
+			close(tp->tapfd);
+			exit(-1);
+		}
+		printf("sent %d bytes\n", size);
 		rio_resetBuffer(&rio_eth);
 		rio_resetBuffer(&rio_tap);
 	}
