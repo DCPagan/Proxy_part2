@@ -16,9 +16,13 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 	int cnt;
 	while(rp->cnt<=0){
 		rp->cnt=read(rp->fd, rp->buf, sizeof(rp->buf));
-		//	error case
-		if(rp->cnt<0&&errno!=EINTR)
-			return -1;
+		if(rp->cnt<0){
+			//	signal interrupt case
+			if(errno!=EINTR)
+				rp->cnt=0;
+			//	error case
+			else return -1;
+		}
 		//	EOF case
 		else if(rp->cnt==0)
 			return 0;

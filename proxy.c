@@ -142,14 +142,18 @@ void *eth_thread(thread_param *tp){
 		memset(buffer, 0, MTU_L2);
 		//	Read the proxy header first.
 		if((size=rio_read(&rio_eth, bufptr, PROXY_HEADER_SIZE))<0){
-			fprintf(stderr, "error reading from the tap device.\n");
+			if(size<0)
+				fprintf(stderr,
+					"error reading from the ethernet device.\n");
+			else
+				fprintf(stderr, "connection severed\n");
 			close(tp->ethfd);
 			close(tp->tapfd);
 			exit(-1);
 		}
 		//	Parse and evaluate the proxy header.
 		if(((proxy_header *)bufptr)->type!=0xABCD){
-			fprintf(stderr, "error, incorrect type");
+			fprintf(stderr, "error, incorrect type\n");
 			close(tp->ethfd);
 			close(tp->tapfd);
 			exit(-1);
@@ -157,8 +161,18 @@ void *eth_thread(thread_param *tp){
 		bufptr+=size;
 		//	Read the rest of the payload.
 		if((size=rio_read(&rio_eth, bufptr,
-			((proxy_header *)bufptr)->length))<0){
-			fprintf(stderr, "error reading from the tap device.\n");
+			((proxy_header *)bufptr)->length))<=0){
+			if(size<0)
+				fprintf(stderr,
+					"error reading from the ethernet device.\n");
+			else
+				fprintf(stderr, "connection severed\n");
+			close(tp->ethfd);
+			close(tp->tapfd);
+			exit(-1);
+		}
+		else if(size==0){
+			fprintf(stderr, "connection severed\n");
 			close(tp->ethfd);
 			close(tp->tapfd);
 			exit(-1);
@@ -192,7 +206,10 @@ void *tap_thread(thread_param *tp){
 		memset(buffer, 0, MTU_L2);
 		//	Get the ethernet header first.
 		if((size=rio_read(&rio_tap, bufptr, FRAME_HEADER_SIZE))<0){
-			fprintf(stderr, "error reading from the tap device.\n");
+			if(size<0)
+				fprintf(stderr, "error reading from the tap device.\n");
+			else
+				fprintf(stderr, "connection severed\n");
 			close(tp->ethfd);
 			close(tp->tapfd);
 			exit(-1);
@@ -201,7 +218,10 @@ void *tap_thread(thread_param *tp){
 		bufptr+=size;
 		//	Get the IP header. Assume IPv4.
 		if((size=rio_read(&rio_tap, bufptr, IPv4_HEADER_SIZE))<0){
-			fprintf(stderr, "error reading from the tap device.\n");
+			if(size<0)
+				fprintf(stderr, "error reading from the tap device.\n");
+			else
+				fprintf(stderr, "connection severed\n");
 			close(tp->ethfd);
 			close(tp->tapfd);
 			exit(-1);
@@ -276,8 +296,11 @@ void *tap_thread(thread_param *tp){
 		memcpy(bufptr, &prxyhdr, PROXY_HEADER_SIZE);
 		bufptr+=PROXY_HEADER_SIZE;
 		//	Get the rest of the frame payload, and the frame footer.
-		if((size=rio_read(&rio_tap, bufptr, length+FRAME_FOOTER_SIZE))<0){
-			fprintf(stderr, "error reading from the tap device.\n");
+		if((size=rio_read(&rio_tap, bufptr, length+FRAME_FOOTER_SIZE))<=0){
+			if(size<0)
+				fprintf(stderr, "error reading from the tap device.\n");
+			else
+				fprintf(stderr, "connection severed\n");
 			close(tp->ethfd);
 			close(tp->tapfd);
 			exit(-1);
