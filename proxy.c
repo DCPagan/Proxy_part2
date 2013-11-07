@@ -185,7 +185,6 @@ void *eth_thread(thread_param *tp){
 			close(tp->tapfd);
 			exit(-1);
 		}
-		printf("received %d bytes\n", size);
 		rio_resetBuffer(&rio_eth);
 		rio_resetBuffer(&rio_tap);
 	}
@@ -316,7 +315,6 @@ void *tap_thread(thread_param *tp){
 			close(tp->tapfd);
 			exit(-1);
 		}
-		printf("sent %d bytes\n", size);
 		rio_resetBuffer(&rio_eth);
 		rio_resetBuffer(&rio_tap);
 	}
