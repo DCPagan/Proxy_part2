@@ -245,7 +245,10 @@ void *tap_thread(thread_param *tp){
 			bufptr+=size;
 			if((size=rio_read(&rio_tap, bufptr,
 				((struct iphdr *)bufptr)->ihl-size))<0){
-				fprintf(stderr, "error reading from the tap.\n");
+				if(size<0)
+					fprintf(stderr, "error reading from the tap device.\n");
+				else
+					fprintf(stderr, "connection severed\n");
 				close(tp->ethfd);
 				close(tp->tapfd);
 				exit(-1);
