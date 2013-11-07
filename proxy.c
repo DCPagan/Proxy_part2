@@ -171,12 +171,6 @@ void *eth_thread(thread_param *tp){
 			close(tp->tapfd);
 			exit(-1);
 		}
-		else if(size==0){
-			fprintf(stderr, "connection severed\n");
-			close(tp->ethfd);
-			close(tp->tapfd);
-			exit(-1);
-		}
 		//	Write the payload to the tap device.
 		if((size=writen(tp->tapfd, bufptr,
 			((proxy_header *)bufptr)->length))<0){
