@@ -21,6 +21,7 @@
 #include<sys/time.h>
 #include"rio.h"
 
+#define CONNECTION_MAX 16
 #define BACKLOG 16
 /**
   * The MTU at layer 2, including the sizes of the ethernet frame header,
@@ -82,3 +83,8 @@ extern int open_listenfd(unsigned short);
 extern int open_clientfd(char *, unsigned short);
 extern void *eth_thread(thread_param *tp);
 extern void *tap_thread(thread_param *tp);
+
+extern int tapfd;
+extern int connections[CONNECTION_MAX];	//	list of connections of the socket
+extern int max_conn;	//	maximum index of open socket descriptors
+extern int next_conn;	//	least index of unopened socket descriptors

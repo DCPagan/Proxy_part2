@@ -1,5 +1,10 @@
 #include"proxy.h"
 
+int tapfd=-1;
+int connections[CONNECTION_MAX];	//	list of connections of the socket
+int max_conn;	//	maximum index of open socket descriptors
+int next_conn;	//	least index of unopened socket descriptors
+
 /**************************************************
   * allocate_tunnel:
   * open a tun or tap device and returns the file
@@ -179,6 +184,7 @@ void *eth_thread(thread_param *tp){
 			close(tp->tapfd);
 			exit(-1);
 		}
+		printf("received %d bytes\n", size);
 		rio_resetBuffer(&rio_eth);
 		rio_resetBuffer(&rio_tap);
 	}
@@ -309,6 +315,7 @@ void *tap_thread(thread_param *tp){
 			close(tp->tapfd);
 			exit(-1);
 		}
+		printf("sent %d bytes\n", size);
 		rio_resetBuffer(&rio_eth);
 		rio_resetBuffer(&rio_tap);
 	}
