@@ -81,8 +81,8 @@ extern int allocate_tunnel(char *, int);
 extern unsigned short get_port(char *s);
 extern int open_listenfd(unsigned short);
 extern int open_clientfd(char *, unsigned short);
-extern void *eth_thread(thread_param *tp);
-extern void *tap_thread(thread_param *tp);
+extern void *eth_handler(thread_param *tp);
+extern void *tap_handler(thread_param *tp);
 
 extern int tapfd;
 extern int connections[CONNECTION_MAX];	//	list of connections of the socket

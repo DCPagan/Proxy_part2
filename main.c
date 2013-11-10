@@ -23,7 +23,8 @@ int main(int argc, char **argv){
 		//	server case
 		case 3:
 			//	Set up the tap device.
-			if((tapfd=tp[0].tapfd=allocate_tunnel(argv[2], IFF_TAP|IFF_NO_PI))<0){
+			if((tapfd=tp[0].tapfd=
+				allocate_tunnel(argv[2], IFF_TAP|IFF_NO_PI))<0){
 				fprintf(stderr, "error opening tap device\n");
 				close(listenfd);
 				exit(-1);

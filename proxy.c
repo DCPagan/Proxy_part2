@@ -135,7 +135,7 @@ int open_clientfd(char *hostname, unsigned short port){
 	return clientfd;
 }
 
-void *eth_thread(thread_param *tp){
+void *eth_handler(thread_param *tp){
 	rio_t rio_eth, rio_tap;
 	ssize_t size;
 	char buffer[MTU_L2];
@@ -190,7 +190,7 @@ void *eth_thread(thread_param *tp){
 	}
 }
 
-void *tap_thread(thread_param *tp){
+void *tap_handler(thread_param *tp){
 	rio_t rio_eth, rio_tap;
 	ssize_t size;
 	char buffer[MTU_L2+PROXY_HEADER_SIZE];
