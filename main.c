@@ -94,14 +94,12 @@ int main(int argc, char **argv){
 		do{
 			printf("enter address and port of proxy to connect to.\n");
 			fgets(buf, 64, stdin);
-			j=strtoul(buf, bufp, 10);
 			strtok(buf, " \n");
 			bufp=strtok(NULL, " \n");
-			bufp=strtok(NULL, " \n");
+			j=strtoul(bufp, NULL, 10);
 			if(j==ULONG_MAX&&errno==ERANGE
 				||j<1024||j>65535){
-				fprintf(stderr, "error: invalid port parameter: %s\n",
-					strerror(errno));
+				fprintf(stderr, "error: invalid port parameter\n");
 				k=0;
 				continue;
 			}

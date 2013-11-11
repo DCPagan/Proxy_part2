@@ -196,7 +196,7 @@ void *eth_handler(int *ethfd){
 			*ethfd=-1;
 			if(*ethfd<next_conn)
 				next_conn=*ethfd;
-			exit(-1);
+			return NULL;
 		}
 		//	Parse and evaluate the proxy header.
 		if(((proxy_header *)bufptr)->type!=0xABCD){
@@ -205,7 +205,7 @@ void *eth_handler(int *ethfd){
 			*ethfd=-1;
 			if(*ethfd<next_conn)
 				next_conn=*ethfd;
-			exit(-1);
+			return NULL;
 		}
 		bufptr+=size;
 		//	Read the rest of the payload.
@@ -220,7 +220,7 @@ void *eth_handler(int *ethfd){
 			*ethfd=-1;
 			if(*ethfd<next_conn)
 				next_conn=*ethfd;
-			exit(-1);
+			return NULL;
 		}
 		//	Write the payload to the tap device.
 		if((size=writen(tapfd, bufptr,
@@ -230,7 +230,7 @@ void *eth_handler(int *ethfd){
 			*ethfd=-1;
 			if(*ethfd<next_conn)
 				next_conn=*ethfd;
-			exit(-1);
+			return NULL;
 		}
 		printf("received %d bytes\n", size);
 		rio_resetBuffer(&rio_eth);
@@ -256,7 +256,7 @@ void *tap_handler(int *tfd){
 				fprintf(stderr, "connection severed\n");
 			close(connections[0]);
 			connections[0]=-1;
-			exit(-1);
+			return NULL;
 		}
 		//	Parse MAC addresses here.
 		bufptr+=size;
@@ -268,7 +268,7 @@ void *tap_handler(int *tfd){
 				fprintf(stderr, "connection severed\n");
 			close(connections[0]);
 			connections[0]=-1;
-			exit(-1);
+			return NULL;
 		}
 		/**
 		  *	Check whether the I.P. packet is IPv4.
@@ -279,7 +279,7 @@ void *tap_handler(int *tfd){
 			fprintf(stderr, "error: I.P. packet not version 4\n");
 			close(connections[0]);
 			connections[0]=-1;
-			exit(-1);
+			return NULL;
 		}
 		/**
 		  * Check if the IHL field is greater than 5, and read the rest of
@@ -295,7 +295,7 @@ void *tap_handler(int *tfd){
 					fprintf(stderr, "connection severed\n");
 				close(connections[0]);
 				connections[0]=-1;
-				exit(-1);
+				return NULL;
 			}
 		}
 		bufptr+=size;
@@ -315,7 +315,7 @@ void *tap_handler(int *tfd){
 				fprintf(stderr, "error setting DF socket option.\n");
 				close(connections[0]);
 				;
-				exit(-1);
+				return NULL;
 			}
 		}
 		  */
@@ -350,15 +350,16 @@ void *tap_handler(int *tfd){
 				fprintf(stderr, "connection severed\n");
 			close(connections[0]);
 			connections[0]=-1;
-			exit(-1);
+			return NULL;
 		}
 		bufptr-=PROXY_HEADER_SIZE;
 		//	Write the modified IP payload to the ethernet socket.
-		if((size=writen(connections[0], bufptr, length+PROXY_HEADER_SIZE))<0){
+		if((size=writen(connections[0],
+			bufptr, length+PROXY_HEADER_SIZE))<0){
 			fprintf(stderr, "error writing to ethernet device\n");
 			close(connections[0]);
 			connections[0]=-1;
-			exit(-1);
+			return NULL;
 		}
 		printf("sent %d bytes\n", size);
 		rio_resetBuffer(&rio_eth);
