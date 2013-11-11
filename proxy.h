@@ -81,10 +81,15 @@ extern int allocate_tunnel(char *, int);
 extern unsigned short get_port(char *s);
 extern int open_listenfd(unsigned short);
 extern int open_clientfd(char *, unsigned short);
-extern void *eth_handler(thread_param *tp);
-extern void *tap_handler(thread_param *tp);
+extern void *eth_handler(int *);
+extern void *tap_handler(int *);
+extern void *listen_handler(int *);
 
+extern pthread_t tap_tid, listen_tid,
+	eth_tid[CONNECTION_MAX];	//	thread identifiers
 extern int tapfd;
-extern int connections[CONNECTION_MAX];	//	list of connections of the socket
+extern int connections[CONNECTION_MAX];	//	list of connections
 extern int max_conn;	//	maximum index of open socket descriptors
 extern int next_conn;	//	least index of unopened socket descriptors
+extern rio_t rio_tap;	//	Robust I/O struct for the tap device
+extern rio_t rio_eth[CONNECTION_MAX];	//	list of Robust I/O structs

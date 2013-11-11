@@ -1,9 +1,13 @@
 #include"proxy.h"
 
+pthread_t tap_tid, listen_tid,
+	eth_tid[CONNECTION_MAX];	//	thread identifiers
 int tapfd=-1;
 int connections[CONNECTION_MAX];	//	list of connections of the socket
 int max_conn;	//	maximum index of open socket descriptors
 int next_conn;	//	least index of unopened socket descriptors
+rio_t rio_tap;
+rio_t rio_eth[CONNECTION_MAX];
 
 /**************************************************
   * allocate_tunnel:
@@ -135,13 +139,49 @@ int open_clientfd(char *hostname, unsigned short port){
 	return clientfd;
 }
 
-void *eth_handler(thread_param *tp){
-	rio_t rio_eth, rio_tap;
+void *listen_handler(int *listenfd){
+	struct sockaddr_in clientaddr;
+	int addrlen=sizeof(struct sockaddr_in);
+	int i;
+	//	Store next_conn value into i to prevent a race.
+	for(i=next_conn; next_conn<CONNECTION_MAX;){
+		//	Accept a connection request.
+		if((connections[i]=accept(*listenfd,
+			(struct sockaddr *)&clientaddr, &addrlen))<0){
+			fprintf(stderr, "error opening socket to client: %s\n",
+				strerror(errno));
+			close(*listenfd);
+			*listenfd=-1;
+			exit(-1);
+		}
+		printf("Successfully connected to host at I.P. address %s.\n",
+			inet_ntoa(clientaddr.sin_addr));
+		pthread_create(&eth_tid[i], NULL, eth_handler, &connections[i]);
+		/**
+	  	  *	If this thread created a connection with a higher index than
+		  *	max_conn.
+		  */
+		if(i>max_conn)
+			max_conn=i;
+		//	If next_conn has not changed due to a client disconnection.
+		if(i==next_conn)
+			++i;
+	}
+	printf("maximum number of connections reached.\n");
+	return NULL;
+}
+
+void *eth_handler(int *ethfd){
+	/**
+  	  *	ethfd points to the socket descriptor to the ethernet device that
+	  *	only this thread can read from. It is set to -1 after the thread
+	  *	closes.
+	  */
 	ssize_t size;
 	char buffer[MTU_L2];
 	void *bufptr;
-	rio_readinit(&rio_eth, tp->ethfd);
-	rio_readinit(&rio_tap, tp->tapfd);
+	rio_readinit(&rio_eth, ethfd);
+	rio_readinit(&rio_tap, tapfd);
 	while(1){
 		bufptr=buffer;
 		memset(buffer, 0, MTU_L2);
@@ -152,15 +192,19 @@ void *eth_handler(thread_param *tp){
 					"error reading from the ethernet device.\n");
 			else
 				fprintf(stderr, "connection severed\n");
-			close(tp->ethfd);
-			close(tp->tapfd);
+			close(*ethfd);
+			*ethfd=-1;
+			if(*ethfd<next_conn)
+				next_conn=*ethfd;
 			exit(-1);
 		}
 		//	Parse and evaluate the proxy header.
 		if(((proxy_header *)bufptr)->type!=0xABCD){
 			fprintf(stderr, "error, incorrect type\n");
-			close(tp->ethfd);
-			close(tp->tapfd);
+			close(*ethfd);
+			*ethfd=-1;
+			if(*ethfd<next_conn)
+				next_conn=*ethfd;
 			exit(-1);
 		}
 		bufptr+=size;
@@ -172,16 +216,20 @@ void *eth_handler(thread_param *tp){
 					"error reading from the ethernet device.\n");
 			else
 				fprintf(stderr, "connection severed\n");
-			close(tp->ethfd);
-			close(tp->tapfd);
+			close(*ethfd);
+			*ethfd=-1;
+			if(*ethfd<next_conn)
+				next_conn=*ethfd;
 			exit(-1);
 		}
 		//	Write the payload to the tap device.
-		if((size=writen(tp->tapfd, bufptr,
+		if((size=writen(tapfd, bufptr,
 			((proxy_header *)bufptr)->length))<0){
 			fprintf(stderr, "error writing to tap device\n");
-			close(tp->ethfd);
-			close(tp->tapfd);
+			close(*ethfd);
+			*ethfd=-1;
+			if(*ethfd<next_conn)
+				next_conn=*ethfd;
 			exit(-1);
 		}
 		printf("received %d bytes\n", size);
@@ -190,16 +238,13 @@ void *eth_handler(thread_param *tp){
 	}
 }
 
-void *tap_handler(thread_param *tp){
-	rio_t rio_eth, rio_tap;
+void *tap_handler(int *tfd){
 	ssize_t size;
 	char buffer[MTU_L2+PROXY_HEADER_SIZE];
 	void *bufptr;
-	unsigned short length;
+	int length;
 	proxy_header prxyhdr;
 	int optval;
-	rio_readinit(&rio_eth, tp->ethfd);
-	rio_readinit(&rio_tap, tp->tapfd);
 	while(1){
 		bufptr=buffer;
 		memset(buffer, 0, MTU_L2);
@@ -209,8 +254,8 @@ void *tap_handler(thread_param *tp){
 				fprintf(stderr, "error reading from the tap device.\n");
 			else
 				fprintf(stderr, "connection severed\n");
-			close(tp->ethfd);
-			close(tp->tapfd);
+			close(connections[0]);
+			connections[0]=-1;
 			exit(-1);
 		}
 		//	Parse MAC addresses here.
@@ -221,8 +266,8 @@ void *tap_handler(thread_param *tp){
 				fprintf(stderr, "error reading from the tap device.\n");
 			else
 				fprintf(stderr, "connection severed\n");
-			close(tp->ethfd);
-			close(tp->tapfd);
+			close(connections[0]);
+			connections[0]=-1;
 			exit(-1);
 		}
 		/**
@@ -232,8 +277,8 @@ void *tap_handler(thread_param *tp){
 		  */
 		if(((struct iphdr *)bufptr)->version!=4){
 			fprintf(stderr, "error: I.P. packet not version 4\n");
-			close(tp->ethfd);
-			close(tp->tapfd);
+			close(connections[0]);
+			connections[0]=-1;
 			exit(-1);
 		}
 		/**
@@ -248,8 +293,8 @@ void *tap_handler(thread_param *tp){
 					fprintf(stderr, "error reading from the tap device.\n");
 				else
 					fprintf(stderr, "connection severed\n");
-				close(tp->ethfd);
-				close(tp->tapfd);
+				close(connections[0]);
+				connections[0]=-1;
 				exit(-1);
 			}
 		}
@@ -265,11 +310,11 @@ void *tap_handler(thread_param *tp){
 
 		if(optval=((struct iphdr *)bufptr)->frag_off&ntohs(0x4000)?1:0){
 			//	IP_DONTFRAG is only applicable to datagram and raw sockets.
-			if(setsockopt(tp->ethfd, IPPROTO_IP, IP_DONTFRAG,
+			if(setsockopt(ethfd, IPPROTO_IP, IP_DONTFRAG,
 				&optval, sizeof(optval))<0){
 				fprintf(stderr, "error setting DF socket option.\n");
-				close(tp->ethfd);
-				close(tp->tapfd);
+				close(connections[0]);
+				;
 				exit(-1);
 			}
 		}
@@ -303,16 +348,16 @@ void *tap_handler(thread_param *tp){
 				fprintf(stderr, "error reading from the tap device.\n");
 			else
 				fprintf(stderr, "connection severed\n");
-			close(tp->ethfd);
-			close(tp->tapfd);
+			close(connections[0]);
+			connections[0]=-1;
 			exit(-1);
 		}
 		bufptr-=PROXY_HEADER_SIZE;
 		//	Write the modified IP payload to the ethernet socket.
-		if((size=writen(tp->ethfd, bufptr, length+PROXY_HEADER_SIZE))<0){
+		if((size=writen(connections[0], bufptr, length+PROXY_HEADER_SIZE))<0){
 			fprintf(stderr, "error writing to ethernet device\n");
-			close(tp->ethfd);
-			close(tp->tapfd);
+			close(connections[0]);
+			connections[0]=-1;
 			exit(-1);
 		}
 		printf("sent %d bytes\n", size);
