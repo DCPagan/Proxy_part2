@@ -1,0 +1,5 @@
+rio.c: In function ‘rio_readinit’:
+rio.c:9:2: warning: implicit declaration of function ‘fcntl’ [-Wimplicit-function-declaration]
+rio.c:9:16: error: ‘F_SETFL’ undeclared (first use in this function)
+rio.c:9:16: note: each undeclared identifier is reported only once for each function it appears in
+rio.c:9:25: error: ‘O_NONBLOCK’ undeclared (first use in this function)

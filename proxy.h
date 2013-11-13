@@ -10,15 +10,15 @@
 #include<sys/types.h>
 #include<sys/socket.h>
 #include<sys/stat.h>
+#include<sys/ioctl.h>
+#include<sys/select.h>
+#include<sys/time.h>
+#include<poll.h>	//	for poll()
 #include<net/if.h>
 #include<arpa/inet.h>
 #include<linux/ip.h>	// for struct iphdr
 #include<linux/if_tun.h>
-#include<sys/socket.h>
 #include<netdb.h>
-#include<sys/ioctl.h>
-#include<sys/select.h>
-#include<sys/time.h>
 #include"rio.h"
 
 #define CONNECTION_MAX 16
@@ -61,12 +61,7 @@
   *	length of the payloads for the ethernet frames or the TCP/IP packets.
   */
 
-typedef struct thread_param{
-	int ethfd;
-	int tapfd;
-} thread_param;
-
-typedef struct frame_header{
+typedef struct{
 	unsigned long long srcMACAddr : 48;
 	unsigned long long dstMACAddr : 48;
 	unsigned short length;

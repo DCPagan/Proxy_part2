@@ -23,6 +23,8 @@ int main(int argc, char **argv){
 		eth_tid[i]=0;
 	}
 	i=0;
+	max_conn=-1;
+	next_conn=0;
 	switch(argc){
 		//	server case
 		case 3:
@@ -40,6 +42,10 @@ int main(int argc, char **argv){
 				close(tapfd);
 				exit(-1);
 			}
+			/**
+			  *	Same code as listen_handler, but the tap cannot be read from
+			  *	until the first connection is made.
+			  */
 			if((connections[0]=accept(listenfd,
 				(struct sockaddr *)&clientaddr, &addrlen))<0){
 				fprintf(stderr, "error opening socket to client: %s\n",
@@ -52,6 +58,8 @@ int main(int argc, char **argv){
 				inet_ntoa(clientaddr.sin_addr));
 			rio_readinit(&rio_tap, tapfd);
 			rio_readinit(&rio_eth[0], connections[0]);
+			++max_conn;
+			++next_conn;
 			break;
 
 		//	client case
@@ -75,13 +83,13 @@ int main(int argc, char **argv){
 				close(tapfd);
 				exit(-1);
 			}
+			++max_conn;
+			++next_conn;
 			break;
 		default:
 			fprintf(stderr, "error: invalid parameters\n");
 			exit(-1);
 	}
-	max_conn=0;
-	next_conn=1;
 	pthread_create(&tap_tid, NULL, tap_handler, &tapfd);
 	pthread_create(&eth_tid[0], NULL, eth_handler, connections);
 	pthread_create(&listen_tid, NULL, listen_handler, &listenfd);

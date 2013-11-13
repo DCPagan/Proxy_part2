@@ -5,6 +5,8 @@ void rio_readinit(rio_t *rp, int fd){
 	rp->cnt=0;
 	rp->bufp=rp->buf;
 	memset(rp->buf, 0, MTU_L2);
+	rp->pfd.fd=rp->fd;
+	fcntl(rp->fd, F_SETFL, O_NONBLOCK);
 }
 
 void rio_resetBuffer(rio_t *rp){
@@ -15,13 +17,25 @@ void rio_resetBuffer(rio_t *rp){
 ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 	int cnt;
 	while(rp->cnt<=0){
+		rp->pfd.events=POLLIN;
+		//	Wait indefinitely until the socket is ready for reading.
+		poll(&rp->pfd, 1, -1);
+		/**
+		  *	Receive the packet into the buffer.
+		  *	Returning from poll() implies that the socket has data to be
+		  *	received.
+		  *	read() terminates at the end of data with the tap device, but
+		  *	blocks with a socket.
+		  *	recv() does not work with non-sockets, such as tapfd.
+		  *	This code allows for non-blocking buffering.
+		  *
+		  *	EDIT: use fcntl() to set the socket to non-blocking instead.
+		  */
 		rp->cnt=read(rp->fd, rp->buf, sizeof(rp->buf));
 		if(rp->cnt<0){
 			//	signal interrupt case
 			if(errno!=EINTR)
-				rp->cnt=0;
-			//	error case
-			else return -1;
+				return -1;
 		}
 		//	EOF case
 		else if(rp->cnt==0)
@@ -42,6 +56,31 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 	rp->cnt-=cnt;
 	//	return number of bytes read
 	return cnt;
+}
+
+ssize_t rio_readnb(rio_t *rp, void *usrbuf, size_t n){
+	ssize_t nread;
+	size_t nleft=n;
+	void *bufp=usrbuf;
+	while(nleft>0){
+		if((nread=rio_read(rp, bufp, nleft))<0){
+			// signal handler interrupt
+			if(errno==EINTR)
+				nread=0;
+			// read() error
+			else
+				return -1;
+		}
+		// EOF
+		else if(nread==0)
+			break;
+		//	Decrement number of bytes left by number of bytes read.
+		nleft-=nread;
+		//	Increment buffer pointer by number of bytes read.
+		bufp+=nread;
+	}
+	//	return total number of bytes read
+	return (n-nleft);
 }
 
 ssize_t rio_write(rio_t *rp, void *usrbuf, size_t n){
@@ -89,31 +128,6 @@ ssize_t rio_readline(rio_t *rp, void *usrbuf, size_t n){
 	*bufp=0;
 	//	return number of bytes read, including null terminator
 	return i;
-}
-
-ssize_t readn(int fd, void *usrbuf, size_t n){
-	ssize_t nread;
-	size_t nleft=n;
-	char *bufp=usrbuf;
-	while(nleft>0){
-		if((nread=read(fd, bufp, nleft))<0){
-			// signal handler interrupt
-			if(errno==EINTR)
-				nread=0;
-			// read() error
-			else
-				return -1;
-		}
-		// EOF
-		else if(nread==0)
-			break;
-		//	Decrement number of bytes left by number of bytes read.
-		nleft-=nread;
-		//	Increment buffer pointer by number of bytes read.
-		bufp+=nread;
-	}
-	//	return total number of bytes read
-	return (n-nleft);
 }
 
 ssize_t writen(int fd, void *usrbuf, size_t n){

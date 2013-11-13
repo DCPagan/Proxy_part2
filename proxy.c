@@ -156,6 +156,7 @@ void *listen_handler(int *listenfd){
 		}
 		printf("Successfully connected to host at I.P. address %s.\n",
 			inet_ntoa(clientaddr.sin_addr));
+		rio_readinit(&rio_eth[i], connections[i]);
 		pthread_create(&eth_tid[i], NULL, eth_handler, &connections[i]);
 		/**
 	  	  *	If this thread created a connection with a higher index than
@@ -180,37 +181,36 @@ void *eth_handler(int *ethfd){
 	ssize_t size;
 	char buffer[MTU_L2];
 	void *bufptr;
-	rio_readinit(&rio_eth, ethfd);
-	rio_readinit(&rio_tap, tapfd);
+	int i=(int)(ethfd-connections);	//	index of ethfd at connections
 	while(1){
 		bufptr=buffer;
 		memset(buffer, 0, MTU_L2);
 		//	Read the proxy header first.
-		if((size=rio_read(&rio_eth, bufptr, PROXY_HEADER_SIZE))<0){
+		if((size=rio_readnb(&rio_eth, bufptr, PROXY_HEADER_SIZE))<=0){
 			if(size<0)
 				fprintf(stderr,
 					"error reading from the ethernet device.\n");
 			else
-				fprintf(stderr, "connection severed\n");
+				fprintf(stderr, "connection #%d severed\n", i);
 			close(*ethfd);
 			*ethfd=-1;
-			if(*ethfd<next_conn)
-				next_conn=*ethfd;
+			if(i<next_conn)
+				next_conn=i;
 			return NULL;
 		}
 		//	Parse and evaluate the proxy header.
-		if(((proxy_header *)bufptr)->type!=0xABCD){
+		if(((proxy_header *)bufptr)->type!=htons(0xABCD)){
 			fprintf(stderr, "error, incorrect type\n");
 			close(*ethfd);
 			*ethfd=-1;
-			if(*ethfd<next_conn)
-				next_conn=*ethfd;
+			if(i<next_conn)
+				next_conn=i;
 			return NULL;
 		}
 		bufptr+=size;
 		//	Read the rest of the payload.
-		if((size=rio_read(&rio_eth, bufptr,
-			((proxy_header *)bufptr)->length))<=0){
+		if((size=rio_readnb(&rio_eth, bufptr,
+			ntohs(((proxy_header *)bufptr)->length)))<=0){
 			if(size<0)
 				fprintf(stderr,
 					"error reading from the ethernet device.\n");
@@ -218,8 +218,8 @@ void *eth_handler(int *ethfd){
 				fprintf(stderr, "connection severed\n");
 			close(*ethfd);
 			*ethfd=-1;
-			if(*ethfd<next_conn)
-				next_conn=*ethfd;
+			if(i<next_conn)
+				next_conn=i;
 			return NULL;
 		}
 		//	Write the payload to the tap device.
@@ -228,12 +228,12 @@ void *eth_handler(int *ethfd){
 			fprintf(stderr, "error writing to tap device\n");
 			close(*ethfd);
 			*ethfd=-1;
-			if(*ethfd<next_conn)
-				next_conn=*ethfd;
+			if(i<next_conn)
+				next_conn=i;
 			return NULL;
 		}
 		printf("received %d bytes\n", size);
-		rio_resetBuffer(&rio_eth);
+		rio_resetBuffer(&rio_eth[0]);
 		rio_resetBuffer(&rio_tap);
 	}
 }
@@ -242,127 +242,54 @@ void *tap_handler(int *tfd){
 	ssize_t size;
 	char buffer[MTU_L2+PROXY_HEADER_SIZE];
 	void *bufptr;
-	int length;
 	proxy_header prxyhdr;
 	int optval;
 	while(1){
 		bufptr=buffer;
-		memset(buffer, 0, MTU_L2);
+		memset(buffer, 0, MTU_L2+PROXY_HEADER_SIZE);
 		//	Get the ethernet header first.
-		if((size=rio_read(&rio_tap, bufptr, FRAME_HEADER_SIZE))<0){
-			if(size<0)
-				fprintf(stderr, "error reading from the tap device.\n");
-			else
-				fprintf(stderr, "connection severed\n");
+		if((size=rio_readnb(&rio_tap, bufptr, FRAME_HEADER_SIZE))<0){
+			fprintf(stderr, "error reading from the tap device.\n");
 			close(connections[0]);
 			connections[0]=-1;
 			return NULL;
 		}
+		printf("frame payload size: %d\n",
+			ntohs(((frame_header *)bufptr)->length));
 		//	Parse MAC addresses here.
 		bufptr+=size;
-		//	Get the IP header. Assume IPv4.
-		if((size=rio_read(&rio_tap, bufptr, IPv4_HEADER_SIZE))<0){
-			if(size<0)
-				fprintf(stderr, "error reading from the tap device.\n");
-			else
-				fprintf(stderr, "connection severed\n");
-			close(connections[0]);
-			connections[0]=-1;
-			return NULL;
-		}
 		/**
-		  *	Check whether the I.P. packet is IPv4.
-		  *	If the version is not 4, then terminate the program. This may
-		  * be editted later to accommodate IPv6 in the program.
-		  */
-		if(((struct iphdr *)bufptr)->version!=4){
-			fprintf(stderr, "error: I.P. packet not version 4\n");
-			close(connections[0]);
-			connections[0]=-1;
-			return NULL;
-		}
-		/**
-		  * Check if the IHL field is greater than 5, and read the rest of
-		  * the IPv4 packet if necessary.
-		  */
-		if(((struct iphdr *)bufptr)->ihl>5){
-			bufptr+=size;
-			if((size=rio_read(&rio_tap, bufptr,
-				((struct iphdr *)bufptr)->ihl-size))<0){
-				if(size<0)
-					fprintf(stderr, "error reading from the tap device.\n");
-				else
-					fprintf(stderr, "connection severed\n");
-				close(connections[0]);
-				connections[0]=-1;
-				return NULL;
-			}
-		}
-		bufptr+=size;
-		/**
-		  * Having trouble setting the Don't Fragment option on the ethernet
-		  * socket.
-		  *
-		  * The ethernet socket's fragmentation option must be the same as
-		  * the packet. This is essential for ping to operate correctly.
-		  * The DF flag is the 15-th most significant bit if the frag_off
-		  * field, which is written in big-endian order.
-
-		if(optval=((struct iphdr *)bufptr)->frag_off&ntohs(0x4000)?1:0){
-			//	IP_DONTFRAG is only applicable to datagram and raw sockets.
-			if(setsockopt(ethfd, IPPROTO_IP, IP_DONTFRAG,
-				&optval, sizeof(optval))<0){
-				fprintf(stderr, "error setting DF socket option.\n");
-				close(connections[0]);
-				;
-				return NULL;
-			}
-		}
-		  */
-		/**
-		  * All of that trouble, just for one bit. LOL.
-		  *
-		  * All other fields of the IP packet that the ethernet device will
-		  * construct are implied by the TCP/IP protocol that this program
-		  * uses to send packets between proxies.
-		  */
-		/**
-		  * Write the proxy header.
+		  * Write the proxy header in network byte-order.
 		  * The type field of the proxy header is always set to 0xABCD.
-		  * The length of the IP payload is equal to the value of the total
-		  * length field of the IPv4 header minus the length of the IPv4
-		  * header in bytes. The IHL field valued in 4-byte words.
+		  *	The length field is given by the length field of the ethernet
+		  *	frame header.
 		  */
 		prxyhdr.type=htons(0xABCD);
-		prxyhdr.length=length=((struct iphdr *)bufptr)->tot_len
-			-4*((struct iphdr *)bufptr)->ihl;
+		prxyhdr.length=((frame_header *)bufptr)->length;
 		/**
 		  * type, length and buffer are stored in the stack
 		  * adjacent to each other in order.
 		  */
 		memcpy(bufptr, &prxyhdr, PROXY_HEADER_SIZE);
 		bufptr+=PROXY_HEADER_SIZE;
-		//	Get the rest of the frame payload, and the frame footer.
-		if((size=rio_read(&rio_tap, bufptr, length+FRAME_FOOTER_SIZE))<=0){
-			if(size<0)
-				fprintf(stderr, "error reading from the tap device.\n");
-			else
-				fprintf(stderr, "connection severed\n");
+		//	Read the frame payload and the frame footer to the buffer.
+		if((size=rio_readnb(&rio_tap, bufptr,
+			ntohs(prxyhdr.length)+FRAME_FOOTER_SIZE))<0){
+			fprintf(stderr, "error reading from the tap device.\n");
 			close(connections[0]);
 			connections[0]=-1;
 			return NULL;
 		}
-		bufptr-=PROXY_HEADER_SIZE;
 		//	Write the modified IP payload to the ethernet socket.
 		if((size=writen(connections[0],
-			bufptr, length+PROXY_HEADER_SIZE))<0){
+			bufptr, ntohs(prxyhdr.length)+PROXY_HEADER_SIZE))<0){
 			fprintf(stderr, "error writing to ethernet device\n");
 			close(connections[0]);
 			connections[0]=-1;
 			return NULL;
 		}
 		printf("sent %d bytes\n", size);
-		rio_resetBuffer(&rio_eth);
+		rio_resetBuffer(&rio_eth[0]);
 		rio_resetBuffer(&rio_tap);
 	}
 }
