@@ -223,7 +223,7 @@ void *eth_handler(int *ethfd){
 			return NULL;
 		}
 		//	Write the payload to the tap device.
-		if((size=writen(tapfd, bufptr,
+		if((size=rio_write(&rio_tap, bufptr,
 			((proxy_header *)bufptr)->length))<0){
 			fprintf(stderr, "error writing to tap device\n");
 			close(*ethfd);

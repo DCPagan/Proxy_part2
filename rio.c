@@ -1,12 +1,23 @@
 #include"rio.h"
 
 void rio_readinit(rio_t *rp, int fd){
+	int flags;
 	rp->fd=fd;
 	rp->cnt=0;
 	rp->bufp=rp->buf;
 	memset(rp->buf, 0, MTU_L2);
-	rp->pfd.fd=rp->fd;
-	fcntl(rp->fd, F_SETFL, O_NONBLOCK);
+	/**
+	  *	Set the file flags to include non-blocking.
+	  */
+	if(flags=fcntl(rp->fd, F_GETFL, 0)<0){
+		fprintf(stderr, "F_GETFL error\n");
+		exit(-1);
+	}
+	flags|=O_NONBLOCK;
+	if(fcntl(rp->fd, F_SETFL, flags)<0){
+		fprintf(stderr, "F_SETFL error\n");
+		exit(-1);
+	}
 }
 
 void rio_resetBuffer(rio_t *rp){
@@ -15,22 +26,40 @@ void rio_resetBuffer(rio_t *rp){
 }
 
 ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
+	/**
+  	  *	flock structures are necessary for file-locking via fcntl().
+	  *	These structures are constant for all executions of this function.
+	  */
+	static struct flock lock={F_RDLCK, 0, 0, 0, 0};
+	static struct flock unlock={F_UNLCK, 0, 0, 0, 0};
+	//	poll structure for waiting until the file descriptor is ready.
+	struct pollfd pfd={rp->fd, POLLIN, 0};
 	int cnt;
 	while(rp->cnt<=0){
-		rp->pfd.events=POLLIN;
-		//	Wait indefinitely until the socket is ready for reading.
-		poll(&rp->pfd, 1, -1);
 		/**
+		  * Wait indefinitely until the socket is ready for reading.
 		  *	Receive the packet into the buffer.
 		  *	Returning from poll() implies that the socket has data to be
 		  *	received.
 		  *	read() terminates at the end of data with the tap device, but
 		  *	blocks with a socket.
-		  *	recv() does not work with non-sockets, such as tapfd.
-		  *	This code allows for non-blocking buffering.
+		  *	Use fcntl() to set the file descriptor to non-blocking instead.
 		  *
-		  *	EDIT: use fcntl() to set the socket to non-blocking instead.
+		  *	Also use fcntl() to lock the file descriptor for thread-safe
+		  *	access to I/O operations.
+		  *
+		  *	Wrap locking procedure over error-handling in case fcntl() is
+		  *	interrupted by a signal or encounters an error.
+		  *	This error-handling code is copied in rio_write().
 		  */
+		poll(&pfd, 1, -1);
+		do{
+			if(fcntl(rp->fd, F_SETLKW, &lock)<0
+				&&errno!=EINTR){
+				fprintf(stderr, "F_SETLKW error\n");
+				exit(-1);
+			}
+		}while(errno==EINTR);
 		rp->cnt=read(rp->fd, rp->buf, sizeof(rp->buf));
 		if(rp->cnt<0){
 			//	signal interrupt case
@@ -43,6 +72,14 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 		//	no error
 		else
 			rp->bufp=rp->buf;
+		//	error-wrapped file unlock
+		do{
+			if(fcntl(rp->fd, F_SETLKW, &unlock)<0
+				&&errno!=EINTR){
+				fprintf(stderr, "F_SETLKW error\n");
+				exit(-1);
+			}
+		}while(errno==EINTR);
 	}
 	cnt=n;
 	//	if bytes read were less than demanded
@@ -84,10 +121,27 @@ ssize_t rio_readnb(rio_t *rp, void *usrbuf, size_t n){
 }
 
 ssize_t rio_write(rio_t *rp, void *usrbuf, size_t n){
+	/**
+  	  *	flock structures are necessary for file-locking via fcntl().
+	  *	These structures are constant for all executions of this function.
+	  */
+	static struct flock lock={F_WRLCK, 0, 0, 0, 0};
+	static struct flock unlock={F_UNLCK, 0, 0, 0, 0};
+	//	poll structure for waiting until the file descriptor is ready.
+	struct pollfd pfd={rp->fd, POLLIN, 0};
 	size_t nleft=n;
 	ssize_t nwritten;
 	char *bufp=usrbuf;
 	while(nleft>0){
+		poll(&pfd, 1, -1);
+		//	error-wrapped file lock
+		do{
+			if(fcntl(rp->fd, F_SETLKW, &lock)<0
+				&&errno!=EINTR){
+				fprintf(stderr, "F_SETLKW error\n");
+				exit(-1);
+			}
+		}while(errno==EINTR);
 		if((nwritten=write(rp->fd, bufp, nleft))<0){
 			//	interrupted by signal handler
 			if(errno==EINTR)
@@ -96,6 +150,14 @@ ssize_t rio_write(rio_t *rp, void *usrbuf, size_t n){
 			else
 				return -1;
 		}
+		//	error-wrapped file unlock
+		do{
+			if(fcntl(rp->fd, F_SETLKW, &unlock)<0
+				&&errno!=EINTR){
+				fprintf(stderr, "F_SETLKW error\n");
+				exit(-1);
+			}
+		}while(errno==EINTR);
 		//	decrement number of bytes remaining by number of bytes written
 		nleft-=nwritten;
 		//	increment buffer pointer by number of bytes written
@@ -103,31 +165,6 @@ ssize_t rio_write(rio_t *rp, void *usrbuf, size_t n){
 	}
 	//	n will always equal number of bytes finally written
 	return (n-nleft);
-}
-
-ssize_t rio_readline(rio_t *rp, void *usrbuf, size_t n){
-	int i, cnt;
-	char c;
-	char *bufp=usrbuf;
-	for(i=1; i<n; i++){
-		if((cnt=rio_read(rp, &c, 1))==1){
-			*bufp++=c;
-			if(c=='\n')
-				break;
-		} else if(cnt==0){
-			//	EOF, no data read
-			if(n==1)
-				return 0;
-			//	EOF, some data was read
-			else
-				break;
-		} else	//	error
-			return -1;
-	}
-	//	null terminator
-	*bufp=0;
-	//	return number of bytes read, including null terminator
-	return i;
 }
 
 ssize_t writen(int fd, void *usrbuf, size_t n){
