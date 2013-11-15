@@ -44,11 +44,14 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 	while(rp->cnt<=0){
 		/**
 		  * Wait indefinitely until the socket is ready for reading.
+		  *
 		  *	Receive the packet into the buffer.
 		  *	Returning from poll() implies that the socket has data to be
 		  *	received.
+		  *
 		  *	read() terminates at the end of data with the tap device, but
 		  *	blocks with a socket.
+		  *
 		  *	Use fcntl() to set the file descriptor to non-blocking instead.
 		  *
 		  *	Also use fcntl() to lock the file descriptor for thread-safe

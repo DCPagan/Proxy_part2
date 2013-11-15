@@ -254,8 +254,10 @@ void *tap_handler(int *tfd){
 			connections[0]=-1;
 			return NULL;
 		}
+		printf("size of ethernet frame header read: %d\n", size);
 		/**
 		  *	Parse MAC addresses here.
+		  *
 		  *	read the Wikipedia article concerning Ethertype. The final,
 		  *	two-octet field in the Ethernet frame header is used to
 		  *	indicate which protocol is encapsulated in the payload of the
@@ -268,9 +270,10 @@ void *tap_handler(int *tfd){
 		  *	two-octet field as expected; it must be derived from the IPv4
 		  *	packet header.
 		  *
-		  *	Move bufptr by the size of te proxy header, and read the IPv4
-		  *	header, along with the rest of the Ethernet frame after the
-		  *	length of the IPv4 payload is evaluated.
+		  *	Move bufptr by the size of the proxy header, and read the IPv4
+		  *	header. Then, write the proxy header into the buffer before the
+		  *	IPv4 header, and read the rest of the Ethernet frame after the
+		  *	IPv4 packet header.
 		  */
 		bufptr+=size+PROXY_HEADER_SIZE;
 		if((size=rio_readnb(&rio_tap, bufptr, IPv4_HEADER_SIZE))<0){
@@ -279,21 +282,23 @@ void *tap_handler(int *tfd){
 			connections[0]=-1;
 			return NULL;
 		}
+		printf("size of IPv4 packet header read: %d\n", size);
+		printf("packet size: %d\n",
+			ntohs(((struct iphdr *)bufptr)->tot_len));
 		/**
 		  * Write the proxy header in network byte-order.
 		  * The type field of the proxy header is always set to 0xABCD.
 		  *	The length field is given by the length field of the Ethernet
 		  *	frame header.
 		  */
-		bufptr-=PROXY_HEADER_SIZE;
 		prxyhdr.type=htons(0xABCD);
 		prxyhdr.length=((struct iphdr *)bufptr)->tot_len;
+		bufptr-=PROXY_HEADER_SIZE;
 		memcpy(bufptr, &prxyhdr, PROXY_HEADER_SIZE);
-		printf("packet size: %d\n",
-			IPv4_HEADER_SIZE+ntohs(prxyhdr.length));
 		//	Now read the rest of the Ethernet frame.
-		if((size=rio_readnb(&rio_tap, bufptr+PROXY_HEADER_SIZE+IPv4_HEADER_SIZE,
-			ntohs(prxyhdr.length)+ETH_FCS_LEN))<0){
+		if((size=rio_readnb(&rio_tap,
+			bufptr+PROXY_HEADER_SIZE+IPv4_HEADER_SIZE,
+			ntohs(prxyhdr.length)-IPv4_HEADER_SIZE+ETH_FCS_LEN))<0){
 			fprintf(stderr, "error reading from the tap device.\n");
 			close(connections[0]);
 			connections[0]=-1;
