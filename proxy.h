@@ -13,10 +13,11 @@
 #include<sys/ioctl.h>
 #include<sys/select.h>
 #include<sys/time.h>
-#include<poll.h>	//	for poll()
+#include<poll.h>			//	for poll()
 #include<net/if.h>
 #include<arpa/inet.h>
-#include<linux/ip.h>	// for struct iphdr
+#include<linux/ip.h>		// for struct iphdr
+#include<linux/if_ether.h>	//	for struct ethhdr
 #include<linux/if_tun.h>
 #include<netdb.h>
 #include"rio.h"
@@ -25,37 +26,15 @@
 #define BACKLOG 16
 /**
   * The MTU at layer 2, including the sizes of the ethernet frame header,
-  * the ethernet footer, and the layer 3 payload.
+  * the ethernet footer, and the layer 3 payload, given in linux/if_ether.h.
   */
-#define MTU_L2 1518
-/**
-  * The MTU at layer 3, including only the IP packet header and the IP
-  * payload.
-  */
-#define MTU_L3 1500
-/**
-  *	Includese the source MAC address, the destination MAC address, and the
-  *	length of the frame payload.
-  */
-#define FRAME_HEADER_SIZE 14
-/**
-  * Includes the checksum of the frame payload.
-  */
-#define FRAME_FOOTER_SIZE 4
+#define MTU_L2 ETH_DATA_LEN + ETH_FCS_LEN
 /**
   *	This IPv4 header size only applies to basic IPv4 headers such that
   *	IHL==5; if IHL>5, then the packet must be treated accordingly.
   */
 #define IPv4_HEADER_SIZE 20
-#define IPv6_HEADER_SIZE 40
-#define TCP_HEADER_SIZE 20
-/**
-  *	This TCP header size assumes, as does the IPv4 header size, that data
-  *	offset equals 5; the packet should be treated according to the value of
-  * that field.
-  */
 #define PROXY_HEADER_SIZE 4
-
 /**
   * Each packet structure is used to dereference specific fields, such as the
   *	length of the payloads for the ethernet frames or the TCP/IP packets.

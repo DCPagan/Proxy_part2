@@ -8,7 +8,6 @@ void rio_readinit(rio_t *rp, int fd){
 	memset(rp->buf, 0, MTU_L2);
 	/**
 	  *	Set the file flags to include non-blocking.
-	  */
 	if(flags=fcntl(rp->fd, F_GETFL, 0)<0){
 		fprintf(stderr, "F_GETFL error\n");
 		exit(-1);
@@ -18,6 +17,7 @@ void rio_readinit(rio_t *rp, int fd){
 		fprintf(stderr, "F_SETFL error\n");
 		exit(-1);
 	}
+	  */
 }
 
 void rio_resetBuffer(rio_t *rp){
@@ -170,6 +170,38 @@ ssize_t rio_write(rio_t *rp, void *usrbuf, size_t n){
 	return (n-nleft);
 }
 
+/**
+  *	This function and its code is taken from the classic work by Richard
+  *	Stephens, "UNIX Network Programming, Volume 1: The Sockets Networking
+  *	API".
+  */
+ssize_t readn(int fd, void *usrbuf, size_t n){
+	ssize_t nread;
+	size_t nleft=n;
+	void *bufp=usrbuf;
+	while(nleft>0){
+		if((nread=read(fd, bufp, nleft))<0){
+			// signal handler interrupt
+			if(errno==EINTR){
+				nread=0;
+				continue;
+			}
+			// read() error
+			else
+				return -1;
+		}
+		// EOF
+		else if(nread==0)
+			break;
+		//	Decrement number of bytes left by number of bytes read.
+		nleft-=nread;
+		//	Increment buffer pointer by number of bytes read.
+		bufp+=nread;
+	}
+	//	return total number of bytes read
+	return (n-nleft);
+}
+
 ssize_t writen(int fd, void *usrbuf, size_t n){
 	size_t nleft=n;
 	ssize_t nwritten;
@@ -177,8 +209,10 @@ ssize_t writen(int fd, void *usrbuf, size_t n){
 	while(nleft>0){
 		if((nwritten=write(fd, bufp, nleft))<0){
 			//	signal handler interrupt
-			if(errno==EINTR)
+			if(errno==EINTR){
 				nwritten=0;
+				continue;
+			}
 			//	write() error
 			else
 				return -1;
