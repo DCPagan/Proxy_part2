@@ -186,7 +186,7 @@ void *eth_handler(int *ethfd){
 		bufptr=buffer;
 		memset(buffer, 0, MTU_L2);
 		//	Read the proxy header first.
-		if((size=readn(*ethfd, bufptr, PROXY_HEADER_SIZE))<=0){
+		if((size=rio_readnb(&rio_eth[0], bufptr, PROXY_HEADER_SIZE))<=0){
 			if(size<0)
 				fprintf(stderr,
 					"error reading from the Ethernet device.\n");
@@ -209,7 +209,7 @@ void *eth_handler(int *ethfd){
 		}
 		bufptr+=size;
 		//	Read the rest of the payload.
-		if((size=readn(*ethfd, bufptr,
+		if((size=rio_readnb(&rio_eth[0], bufptr,
 			ntohs(((proxy_header *)bufptr)->length)))<=0){
 			if(size<0)
 				fprintf(stderr,
@@ -233,10 +233,8 @@ void *eth_handler(int *ethfd){
 			return NULL;
 		}
 		printf("received %d bytes\n", size);
-		/**
 		rio_resetBuffer(&rio_eth[0]);
 		rio_resetBuffer(&rio_tap);
-		*/
 	}
 }
 
@@ -250,13 +248,12 @@ void *tap_handler(int *tfd){
 		bufptr=buffer;
 		memset(buffer, 0, MTU_L2+PROXY_HEADER_SIZE);
 		//	Get the Ethernet header first.
-		if((size=readn(tapfd, bufptr, ETH_HLEN))<0){
+		if((size=rio_readnb(&rio_tap, bufptr, ETH_HLEN))<0){
 			fprintf(stderr, "error reading from the tap device.\n");
 			close(connections[0]);
 			connections[0]=-1;
 			return NULL;
 		}
-		bufptr+=size;
 		/**
 		  *	Parse MAC addresses here.
 		  *	read the Wikipedia article concerning Ethertype. The final,
@@ -275,8 +272,8 @@ void *tap_handler(int *tfd){
 		  *	header, along with the rest of the Ethernet frame after the
 		  *	length of the IPv4 payload is evaluated.
 		  */
-		bufptr+=PROXY_HEADER_SIZE;
-		if((size=readn(tapfd, bufptr, IPv4_HEADER_SIZE))<0){
+		bufptr+=size+PROXY_HEADER_SIZE;
+		if((size=rio_readnb(&rio_tap, bufptr, IPv4_HEADER_SIZE))<0){
 			fprintf(stderr, "error reading from the tap device.\n");
 			close(connections[0]);
 			connections[0]=-1;
@@ -288,12 +285,14 @@ void *tap_handler(int *tfd){
 		  *	The length field is given by the length field of the Ethernet
 		  *	frame header.
 		  */
+		bufptr-=PROXY_HEADER_SIZE;
 		prxyhdr.type=htons(0xABCD);
 		prxyhdr.length=((struct iphdr *)bufptr)->tot_len;
-		bufptr-=PROXY_HEADER_SIZE;
 		memcpy(bufptr, &prxyhdr, PROXY_HEADER_SIZE);
+		printf("packet size: %d\n",
+			IPv4_HEADER_SIZE+ntohs(prxyhdr.length));
 		//	Now read the rest of the Ethernet frame.
-		if((size=readn(tapfd, bufptr+PROXY_HEADER_SIZE+IPv4_HEADER_SIZE,
+		if((size=rio_readnb(&rio_tap, bufptr+PROXY_HEADER_SIZE+IPv4_HEADER_SIZE,
 			ntohs(prxyhdr.length)+ETH_FCS_LEN))<0){
 			fprintf(stderr, "error reading from the tap device.\n");
 			close(connections[0]);
@@ -301,7 +300,7 @@ void *tap_handler(int *tfd){
 			return NULL;
 		}
 		//	Write the modified IP payload to the Ethernet socket.
-		if((size=writen(connections[0], bufptr,
+		if((size=rio_write(&rio_eth[0], bufptr,
 			ntohs(prxyhdr.length)+PROXY_HEADER_SIZE))<0){
 			fprintf(stderr, "error writing to Ethernet device\n");
 			close(connections[0]);
@@ -309,9 +308,7 @@ void *tap_handler(int *tfd){
 			return NULL;
 		}
 		printf("sent %d bytes\n", size);
-		/**
 		rio_resetBuffer(&rio_eth[0]);
 		rio_resetBuffer(&rio_tap);
-		*/
 	}
 }

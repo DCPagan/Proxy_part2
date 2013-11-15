@@ -8,16 +8,18 @@ void rio_readinit(rio_t *rp, int fd){
 	memset(rp->buf, 0, MTU_L2);
 	/**
 	  *	Set the file flags to include non-blocking.
+	  */
 	if(flags=fcntl(rp->fd, F_GETFL, 0)<0){
-		fprintf(stderr, "F_GETFL error\n");
+		fprintf(stderr, "F_GETFL error: %s\n",
+			strerror(errno));
 		exit(-1);
 	}
 	flags|=O_NONBLOCK;
 	if(fcntl(rp->fd, F_SETFL, flags)<0){
-		fprintf(stderr, "F_SETFL error\n");
+		fprintf(stderr, "F_SETFL error: %s\n",
+			strerror(errno));
 		exit(-1);
 	}
-	  */
 }
 
 void rio_resetBuffer(rio_t *rp){
@@ -60,7 +62,8 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 		do{
 			if(fcntl(rp->fd, F_SETLKW, &lock)<0
 				&&errno!=EINTR){
-				fprintf(stderr, "F_SETLKW error\n");
+				fprintf(stderr, "F_SETLKW error: %s\n",
+					strerror(errno));
 				exit(-1);
 			}
 		}while(errno==EINTR);
@@ -79,7 +82,8 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 		do{
 			if(fcntl(rp->fd, F_SETLKW, &unlock)<0
 				&&errno!=EINTR){
-				fprintf(stderr, "F_SETLKW error\n");
+				fprintf(stderr, "F_SETLKW error: %s\n",
+					strerror(errno));
 				exit(-1);
 			}
 		}while(errno==EINTR);
@@ -141,7 +145,8 @@ ssize_t rio_write(rio_t *rp, void *usrbuf, size_t n){
 		do{
 			if(fcntl(rp->fd, F_SETLKW, &lock)<0
 				&&errno!=EINTR){
-				fprintf(stderr, "F_SETLKW error\n");
+				fprintf(stderr, "F_SETLKW error: %s\n",
+					strerror(errno));
 				exit(-1);
 			}
 		}while(errno==EINTR);
@@ -157,7 +162,8 @@ ssize_t rio_write(rio_t *rp, void *usrbuf, size_t n){
 		do{
 			if(fcntl(rp->fd, F_SETLKW, &unlock)<0
 				&&errno!=EINTR){
-				fprintf(stderr, "F_SETLKW error\n");
+				fprintf(stderr, "F_SETLKW error: %s\n",
+					strerror(errno));
 				exit(-1);
 			}
 		}while(errno==EINTR);
