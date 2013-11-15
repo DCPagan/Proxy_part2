@@ -182,7 +182,7 @@ void *eth_handler(int *ethfd){
 	char buffer[MTU_L2];
 	void *bufptr;
 	int i=(int)(ethfd-connections);	//	index of ethfd at connections
-	while(1){
+	for(;;){
 		bufptr=buffer;
 		memset(buffer, 0, MTU_L2);
 		//	Read the proxy header first.
@@ -244,7 +244,7 @@ void *tap_handler(int *tfd){
 	void *bufptr;
 	proxy_header prxyhdr;
 	int optval;
-	while(1){
+	for(;;){
 		bufptr=buffer;
 		memset(buffer, 0, MTU_L2+PROXY_HEADER_SIZE);
 		//	Get the ethernet header first.

@@ -83,6 +83,8 @@ int main(int argc, char **argv){
 				close(tapfd);
 				exit(-1);
 			}
+			rio_readinit(&rio_tap, tapfd);
+			rio_readinit(&rio_eth[0], connections[0]);
 			++max_conn;
 			++next_conn;
 			break;
@@ -96,7 +98,6 @@ int main(int argc, char **argv){
 	/**
 	  *	The main thread will be dedicated to prompting the user for the next
 	  *	proxy to connect to.
-	  */
 	for(i=next_conn; next_conn<CONNECTION_MAX;){
 		unsigned int j, k=0;
 		do{
@@ -119,16 +120,17 @@ int main(int argc, char **argv){
 			}
 			k=1;
 		}while(!k);
-		/**
+
 	  	  *	If this thread created a connection with a higher index than
 		  *	max_conn.
-		  */
+
 		if(i>max_conn)
 			max_conn=i;
 		//	If next_conn has not changed due to a client disconnection.
 		if(i==next_conn)
 			++i;
 	}
+	  */
 	pthread_join(tap_tid, NULL);
 	pthread_join(eth_tid[0], NULL);
 	pthread_join(listen_tid, NULL);

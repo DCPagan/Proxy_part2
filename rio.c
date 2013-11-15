@@ -29,6 +29,10 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 	/**
   	  *	flock structures are necessary for file-locking via fcntl().
 	  *	These structures are constant for all executions of this function.
+	  *
+	  *	edit: only one thread reads an ethernet socket, so file-locking for
+	  *	reading may be superfluous; leave locking for writing operations.
+	  *
 	  */
 	static struct flock lock={F_RDLCK, 0, 0, 0, 0};
 	static struct flock unlock={F_UNLCK, 0, 0, 0, 0};
@@ -72,7 +76,6 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 		//	no error
 		else
 			rp->bufp=rp->buf;
-		//	error-wrapped file unlock
 		do{
 			if(fcntl(rp->fd, F_SETLKW, &unlock)<0
 				&&errno!=EINTR){
