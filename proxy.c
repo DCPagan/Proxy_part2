@@ -256,9 +256,10 @@ void *tap_handler(int *tfd){
 		}
 		printf("size of ethernet frame header read: %d\n", size);
 		/**
-		  *	Parse MAC addresses here.
+		  *	Parse MAC addresses here. Dereference bufptr as
+		  *	(struct ethhdr *), and consult linux/if_ether.h.
 		  *
-		  *	read the Wikipedia article concerning Ethertype. The final,
+		  *	Read the Wikipedia article concerning Ethertype. The final,
 		  *	two-octet field in the Ethernet frame header is used to
 		  *	indicate which protocol is encapsulated in the payload of the
 		  *	Ethernet frame. The value usually starts with a value of
@@ -283,18 +284,23 @@ void *tap_handler(int *tfd){
 			return NULL;
 		}
 		printf("size of IPv4 packet header read: %d\n", size);
+		printf("packet size: %d\n",
+			htons(((struct iphdr *)bufptr)->tot_len));
+		/**
+		  *	bufptr now points to the beginning of the IPv4 packet header;
+		  *	one may add code here to output IPv4 packet information.
+		  *	Consult linux/ip.h to find the fields of struct iphdr.
+		  */
 		/**
 		  * Write the proxy header in network byte-order.
 		  * The type field of the proxy header is always set to 0xABCD.
 		  *	The length field is given by the length field of the Ethernet
 		  *	frame header.
 		  */
-		bufptr-=PROXY_HEADER_SIZE;
 		prxyhdr.type=htons(0xABCD);
 		prxyhdr.length=((struct iphdr *)bufptr)->tot_len;
+		bufptr-=PROXY_HEADER_SIZE;
 		memcpy(bufptr, &prxyhdr, PROXY_HEADER_SIZE);
-		printf("packet size: %d\n",
-			IPv4_HEADER_SIZE+ntohs(prxyhdr.length));
 		//	Now read the rest of the Ethernet frame.
 		if((size=rio_readnb(&rio_tap,
 			bufptr+PROXY_HEADER_SIZE+IPv4_HEADER_SIZE,
