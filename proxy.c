@@ -268,9 +268,10 @@ void *tap_handler(int *tfd){
 		printf("ethertype: %#0.4X\n",
 			ntohs(((struct ethhdr *)bufptr)->h_proto));
 		/**
-		  *	Parse MAC addresses here.
+		  *	Parse MAC addresses here. Dereference bufptr as
+		  *	(struct ethhdr *), and consult linux/if_ether.h.
 		  *
-		  *	read the Wikipedia article concerning Ethertype. The final,
+		  *	Read the Wikipedia article concerning Ethertype. The final,
 		  *	two-octet field in the Ethernet frame header is used to
 		  *	indicate which protocol is encapsulated in the payload of the
 		  *	Ethernet frame. The value usually starts with a value of
@@ -302,6 +303,14 @@ void *tap_handler(int *tfd){
 		printf("packet size: %#0.4X\n",
 			ntohs(((struct iphdr *)bufptr)->tot_len));
 		printf("protocol: %#0.2X\n", ((struct iphdr *)bufptr)->protocol);
+		printf("size of IPv4 packet header read: %d\n", size);
+		printf("packet size: %d\n",
+			htons(((struct iphdr *)bufptr)->tot_len));
+		/**
+		  *	bufptr now points to the beginning of the IPv4 packet header;
+		  *	one may add code here to output IPv4 packet information.
+		  *	Consult linux/ip.h to find the fields of struct iphdr.
+		  */
 		/**
 		  * Write the proxy header in network byte-order.
 		  * The type field of the proxy header is always set to 0xABCD.
