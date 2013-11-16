@@ -244,6 +244,7 @@ void *tap_handler(int *tfd){
 	void *bufptr;
 	proxy_header prxyhdr;
 	int optval;
+	int i;
 	for(;;){
 		bufptr=buffer;
 		memset(buffer, 0, MTU_L2+PROXY_HEADER_SIZE);
@@ -254,7 +255,18 @@ void *tap_handler(int *tfd){
 			connections[0]=-1;
 			return NULL;
 		}
+		//	Print Ethernet frame header fields.
 		printf("size of ethernet frame header read: %d\n", size);
+		printf("source MAC address: ");
+		for(i=0; i<ETH_ALEN-1; i++)
+			printf("%0.2X:", ((struct ethhdr *)bufptr)->h_source[i]);
+		printf("%0.2X\n", ((struct ethhdr *)bufptr)->h_source[i]);
+		printf("destination MAC address: ");
+		for(i=0; i<ETH_ALEN-1; i++)
+			printf("%0.2X:", ((struct ethhdr *)bufptr)->h_dest[i]);
+		printf("%0.2X\n", ((struct ethhdr *)bufptr)->h_dest[i]);
+		printf("ethertype: %#0.4X\n",
+			ntohs(((struct ethhdr *)bufptr)->h_proto));
 		/**
 		  *	Parse MAC addresses here.
 		  *
@@ -282,9 +294,14 @@ void *tap_handler(int *tfd){
 			connections[0]=-1;
 			return NULL;
 		}
+		//	Print IPv4 packet header frames.
 		printf("size of IPv4 packet header read: %d\n", size);
-		printf("packet size: %d\n",
+		printf("IP version: %d\n", ((struct iphdr *)bufptr)->version);
+		printf("IP header length: %d\n",
+			((struct iphdr *)bufptr)->ihl<<2);
+		printf("packet size: %#0.4X\n",
 			ntohs(((struct iphdr *)bufptr)->tot_len));
+		printf("protocol: %#0.2X\n", ((struct iphdr *)bufptr)->protocol);
 		/**
 		  * Write the proxy header in network byte-order.
 		  * The type field of the proxy header is always set to 0xABCD.
