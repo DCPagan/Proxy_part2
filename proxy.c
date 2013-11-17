@@ -259,7 +259,6 @@ void *tap_handler(int *tfd){
 			return NULL;
 		}
 		//	Print Ethernet frame header fields.
-		printf("size of ethernet frame header read: %d\n", size);
 		printf("source MAC address: ");
 		for(i=0; i<ETH_ALEN-1; i++)
 			printf("%0.2x:", ((struct ethhdr *)bufptr)->h_source[i]);
@@ -299,7 +298,6 @@ void *tap_handler(int *tfd){
 			return NULL;
 		}
 		//	Print IPv4 packet header frames.
-		printf("size of IPv4 packet header read: %d\n", size);
 		printf("IP version: %d\n", ((struct iphdr *)bufptr)->version);
 		printf("packet size: %d\n",
 			ntohs(((struct iphdr *)bufptr)->tot_len));
@@ -350,7 +348,7 @@ void *tap_handler(int *tfd){
 			connections[0]=-1;
 			return NULL;
 		}
-		printf("sent %d bytes\n", prxyhdr.length);
+		printf("sent %d bytes\n\n", ntohs(prxyhdr.length));
 		rio_resetBuffer(&rio_eth[0]);
 		rio_resetBuffer(&rio_tap);
 	}
