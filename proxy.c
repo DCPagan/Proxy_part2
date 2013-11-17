@@ -187,7 +187,7 @@ void *eth_handler(int *ethfd){
 		bufptr=buffer;
 		memset(buffer, 0, MTU_L2);
 		//	Read the proxy header first.
-		if((size=rio_readnb(&rio_eth[0], bufptr, PROXY_HEADER_SIZE))<=0){
+		if((size=rio_readnb(&rio_eth[0], &prxyhdr, PROXY_HEADER_SIZE))<=0){
 			if(size<0)
 				fprintf(stderr,
 					"error reading from the Ethernet device.\n");
@@ -200,8 +200,8 @@ void *eth_handler(int *ethfd){
 			return NULL;
 		}
 		//	Parse and evaluate the proxy header.
-		prxyhdr.type=ntohs(((proxy_header *)bufptr)->type);
-		prxyhdr.length=ntohs(((proxy_header *)bufptr)->length);
+		prxyhdr.type=ntohs(prxyhdr.type);
+		prxyhdr.length=ntohs(prxyhdr.length);
 		if(prxyhdr.type!=0xABCD){
 			fprintf(stderr, "error, incorrect type\n");
 			close(*ethfd);
@@ -212,9 +212,8 @@ void *eth_handler(int *ethfd){
 		}
 		printf("packet of type %#0.4x and length %d received\n",
 			prxyhdr.type, prxyhdr.length);
-		bufptr+=size;
 		//	Read the rest of the payload.
-		if((size=rio_readnb(&rio_eth[0], bufptr, prxyhdr.length))<=0){
+		if((size=rio_readnb(&rio_eth[0], buffer, prxyhdr.length))<=0){
 			if(size<0)
 				fprintf(stderr,
 					"error reading from the Ethernet device.\n");
@@ -226,8 +225,27 @@ void *eth_handler(int *ethfd){
 				next_conn=i;
 			return NULL;
 		}
+		//	Print IPv4 packet header fields.
+		printf("IP version: %d\n", ((struct iphdr *)bufptr)->version);
+		printf("packet size: %d\n",
+			ntohs(((struct iphdr *)bufptr)->tot_len));
+		printf("protocol: %#0.2x\n", ((struct iphdr *)bufptr)->protocol);
+		//	if the segment is an ICMP segment, print its fields.
+		if(((struct iphdr *)bufptr)->protocol==1){
+			bufptr+=IPv4_HEADER_SIZE;
+			printf("ICMP type: %#0.2x\n",
+				((struct icmphdr *)bufptr)->type);
+			printf("ICMP code: %#0.2x\n",
+				((struct icmphdr *)bufptr)->code);
+			printf("ICMP checksum: %#0.4x\n",
+				ntohs(((struct icmphdr *)bufptr)->checksum));
+			printf("ICMP identifier: %#0.4x\n",
+				ntohs(((struct icmphdr *)bufptr)->un.echo.id));
+			printf("ICMP sequence: %#0.4x\n",
+				ntohs(((struct icmphdr *)bufptr)->un.echo.sequence));
+		}
 		//	Write the payload to the tap device.
-		if((size=rio_write(&rio_tap, bufptr, prxyhdr.length))<0){
+		if((size=rio_write(&rio_tap, buffer, prxyhdr.length))<0){
 			fprintf(stderr, "error writing to tap device\n");
 			close(*ethfd);
 			*ethfd=-1;
@@ -301,6 +319,21 @@ void *tap_handler(int *tfd){
 		printf("packet size: %d\n",
 			ntohs(((struct iphdr *)bufptr)->tot_len));
 		printf("protocol: %#0.2x\n", ((struct iphdr *)bufptr)->protocol);
+		//	if the segment is an ICMP segment, print its fields.
+		if(((struct iphdr *)bufptr)->protocol==1){
+			bufptr+=IPv4_HEADER_SIZE;
+			printf("ICMP type: %#0.2x\n",
+				((struct icmphdr *)bufptr)->type);
+			printf("ICMP code: %#0.2x\n",
+				((struct icmphdr *)bufptr)->code);
+			printf("ICMP checksum: %#0.4x\n",
+				ntohs(((struct icmphdr *)bufptr)->checksum));
+			printf("ICMP identifier: %#0.4x\n",
+				ntohs(((struct icmphdr *)bufptr)->un.echo.id));
+			printf("ICMP sequence: %#0.4x\n",
+				ntohs(((struct icmphdr *)bufptr)->un.echo.sequence));
+			bufptr-=IPv4_HEADER_SIZE;
+		}
 		/**
 		  *	bufptr now points to the beginning of the IPv4 packet header;
 		  *	one may add code here to output IPv4 packet information.

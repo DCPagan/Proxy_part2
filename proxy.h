@@ -16,8 +16,9 @@
 #include<poll.h>			//	for poll()
 #include<net/if.h>
 #include<arpa/inet.h>
-#include<linux/ip.h>		// for struct iphdr
-#include<linux/if_ether.h>	//	for struct ethhdr
+#include<linux/if_ether.h>	//	for Ethernet structures and macros
+#include<linux/ip.h>		//	for IPv4 structures and macros
+#include<linux/icmp.h>		//	for ICMP structures and macros
 #include<linux/if_tun.h>
 #include<netdb.h>
 #include"rio.h"
