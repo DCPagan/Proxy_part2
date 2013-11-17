@@ -367,7 +367,7 @@ void *tap_handler(int *tfd){
 				ntohs(((struct icmphdr *)bufptr)->checksum));
 			printf("ICMP identifier: %#0.4x\n",
 				ntohs(((struct icmphdr *)bufptr)->un.echo.id));
-			printf("ICMP sequence: %#0.4x\n",
+			printf("ICMP sequence: %#0.4x\n\n",
 				ntohs(((struct icmphdr *)bufptr)->un.echo.sequence));
 			bufptr-=IPv4_HEADER_SIZE;
 		}
