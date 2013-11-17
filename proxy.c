@@ -319,21 +319,6 @@ void *tap_handler(int *tfd){
 		printf("packet size: %d\n",
 			ntohs(((struct iphdr *)bufptr)->tot_len));
 		printf("protocol: %#0.2x\n", ((struct iphdr *)bufptr)->protocol);
-		//	if the segment is an ICMP segment, print its fields.
-		if(((struct iphdr *)bufptr)->protocol==1){
-			bufptr+=IPv4_HEADER_SIZE;
-			printf("ICMP type: %#0.2x\n",
-				((struct icmphdr *)bufptr)->type);
-			printf("ICMP code: %#0.2x\n",
-				((struct icmphdr *)bufptr)->code);
-			printf("ICMP checksum: %#0.4x\n",
-				ntohs(((struct icmphdr *)bufptr)->checksum));
-			printf("ICMP identifier: %#0.4x\n",
-				ntohs(((struct icmphdr *)bufptr)->un.echo.id));
-			printf("ICMP sequence: %#0.4x\n",
-				ntohs(((struct icmphdr *)bufptr)->un.echo.sequence));
-			bufptr-=IPv4_HEADER_SIZE;
-		}
 		/**
 		  *	bufptr now points to the beginning of the IPv4 packet header;
 		  *	one may add code here to output IPv4 packet information.
@@ -347,8 +332,7 @@ void *tap_handler(int *tfd){
 		  */
 		prxyhdr.type=htons(0xABCD);
 		prxyhdr.length=((struct iphdr *)bufptr)->tot_len;
-		bufptr-=PROXY_HEADER_SIZE;
-		memcpy(bufptr, &prxyhdr, PROXY_HEADER_SIZE);
+		memcpy(bufptr-PROXY_HEADER_SIZE, &prxyhdr, PROXY_HEADER_SIZE);
 		/**
 	  	  *	Now read the rest of the Ethernet frame.
 		  ****************************************************************
@@ -365,13 +349,29 @@ void *tap_handler(int *tfd){
 		  *	reading procedure.
 		  */
 		if((size=rio_readnb(&rio_tap,
-			bufptr+PROXY_HEADER_SIZE+IPv4_HEADER_SIZE,
+			bufptr+IPv4_HEADER_SIZE,
 			ntohs(prxyhdr.length)-IPv4_HEADER_SIZE))<0){
 			fprintf(stderr, "error reading from the tap device.\n");
 			close(connections[0]);
 			connections[0]=-1;
 			return NULL;
 		}
+		//	if the segment is an ICMP segment, print its fields.
+		if(((struct iphdr *)bufptr)->protocol==1){
+			bufptr+=IPv4_HEADER_SIZE;
+			printf("ICMP type: %#0.2x\n",
+				((struct icmphdr *)bufptr)->type);
+			printf("ICMP code: %#0.2x\n",
+				((struct icmphdr *)bufptr)->code);
+			printf("ICMP checksum: %#0.4x\n",
+				ntohs(((struct icmphdr *)bufptr)->checksum));
+			printf("ICMP identifier: %#0.4x\n",
+				ntohs(((struct icmphdr *)bufptr)->un.echo.id));
+			printf("ICMP sequence: %#0.4x\n",
+				ntohs(((struct icmphdr *)bufptr)->un.echo.sequence));
+			bufptr-=IPv4_HEADER_SIZE;
+		}
+		bufptr-=PROXY_HEADER_SIZE;
 		//	Write the modified IP payload to the Ethernet socket.
 		if((size=rio_write(&rio_eth[0], bufptr,
 			ntohs(prxyhdr.length)+PROXY_HEADER_SIZE))<0){
