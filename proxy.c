@@ -320,7 +320,7 @@ void *tap_handler(int *tfd){
 	  	  *	Now read the rest of the Ethernet frame.
 		  ****************************************************************
 		  *
-		  *	IMPORTANT EDIT, MUST READ
+		  *	IMPORTANT NOTICE, MUST READ
 		  *
 		  ****************************************************************
 		  *	For whatever reason, the Ethernet frames of the tap device do
