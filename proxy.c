@@ -186,7 +186,7 @@ void *eth_handler(int *ethfd){
 	for(;;){
 		bufptr=buffer;
 		memset(buffer, 0, MTU_L2);
-		//	Read the proxy header first.
+		//	Read the proxy header directly into the proxy header structure.
 		if((size=rio_readnb(&rio_eth[0], &prxyhdr, PROXY_HEADER_SIZE))<=0){
 			if(size<0)
 				fprintf(stderr,
@@ -212,7 +212,7 @@ void *eth_handler(int *ethfd){
 		}
 		printf("packet of type %#0.4x and length %d received\n",
 			prxyhdr.type, prxyhdr.length);
-		//	Read the rest of the payload.
+		//	Read the payload into the buffer.
 		if((size=rio_readnb(&rio_eth[0], buffer, prxyhdr.length))<=0){
 			if(size<0)
 				fprintf(stderr,
@@ -244,6 +244,18 @@ void *eth_handler(int *ethfd){
 			printf("ICMP sequence: %#0.4x\n\n",
 				ntohs(((struct icmphdr *)bufptr)->un.echo.sequence));
 		}
+		char hwbuffer[1024];
+		if(ioctl(rio_eth[0].fd, SIOCGIFHWADDR, hwbuffer)<0){
+			fprintf("ioctl SIOCGIFHWADDR error: %s\n",
+				strerror(errno));
+		}
+		printf("ethernet device hardware address: %s\n", hwbuffer);
+		if(ioctl(tapfd, SIOCGIFHWADDR, hwbuffer)<0){
+			fprintf("ioctl SIOCGIFHWADDR error: %s\n",
+				strerror(errno));
+		}
+		printf("tap device hardware address: %s\n", hwbuffer);
+		printf("ethernet device hardware address: %s\n", hwbuffer);
 		//	Write the payload to the tap device.
 		if((size=rio_write(&rio_tap, buffer, prxyhdr.length))<0){
 			fprintf(stderr, "error writing to tap device\n");
