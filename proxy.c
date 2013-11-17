@@ -241,7 +241,7 @@ void *eth_handler(int *ethfd){
 				ntohs(((struct icmphdr *)bufptr)->checksum));
 			printf("ICMP identifier: %#0.4x\n",
 				ntohs(((struct icmphdr *)bufptr)->un.echo.id));
-			printf("ICMP sequence: %#0.4x\n",
+			printf("ICMP sequence: %#0.4x\n\n",
 				ntohs(((struct icmphdr *)bufptr)->un.echo.sequence));
 		}
 		//	Write the payload to the tap device.
@@ -380,7 +380,6 @@ void *tap_handler(int *tfd){
 			connections[0]=-1;
 			return NULL;
 		}
-		printf("sent %d bytes\n\n", ntohs(prxyhdr.length));
 		rio_resetBuffer(&rio_eth[0]);
 		rio_resetBuffer(&rio_tap);
 	}
