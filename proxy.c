@@ -181,6 +181,7 @@ void *eth_handler(int *ethfd){
 	ssize_t size;
 	char buffer[MTU_L2];
 	void *bufptr;
+	proxy_header prxyhdr;
 	int i=(int)(ethfd-connections);	//	index of ethfd at connections
 	for(;;){
 		bufptr=buffer;
@@ -199,7 +200,9 @@ void *eth_handler(int *ethfd){
 			return NULL;
 		}
 		//	Parse and evaluate the proxy header.
-		if(((proxy_header *)bufptr)->type!=htons(0xABCD)){
+		prxyhdr.type=ntohs(((proxy_header *)bufptr)->type);
+		prxyhdr.length=ntohs(((proxy_header *)bufptr)->length);
+		if(prxyhdr.type!=0xABCD){
 			fprintf(stderr, "error, incorrect type\n");
 			close(*ethfd);
 			*ethfd=-1;
@@ -207,15 +210,16 @@ void *eth_handler(int *ethfd){
 				next_conn=i;
 			return NULL;
 		}
+		printf("packet of type %#0.4x and length %d received\n",
+			prxyhdr.type, prxyhdr.length);
 		bufptr+=size;
 		//	Read the rest of the payload.
-		if((size=rio_readnb(&rio_eth[0], bufptr,
-			ntohs(((proxy_header *)bufptr)->length)))<=0){
+		if((size=rio_readnb(&rio_eth[0], bufptr, prxyhdr.length))<=0){
 			if(size<0)
 				fprintf(stderr,
 					"error reading from the Ethernet device.\n");
 			else
-				fprintf(stderr, "connection severed\n");
+				fprintf(stderr, "connection #%d severed\n", i);
 			close(*ethfd);
 			*ethfd=-1;
 			if(i<next_conn)
@@ -223,8 +227,7 @@ void *eth_handler(int *ethfd){
 			return NULL;
 		}
 		//	Write the payload to the tap device.
-		if((size=writen(tapfd, bufptr,
-			((proxy_header *)bufptr)->length))<0){
+		if((size=rio_write(&rio_tap, bufptr, prxyhdr.length))<0){
 			fprintf(stderr, "error writing to tap device\n");
 			close(*ethfd);
 			*ethfd=-1;
@@ -259,13 +262,13 @@ void *tap_handler(int *tfd){
 		printf("size of ethernet frame header read: %d\n", size);
 		printf("source MAC address: ");
 		for(i=0; i<ETH_ALEN-1; i++)
-			printf("%0.2X:", ((struct ethhdr *)bufptr)->h_source[i]);
-		printf("%0.2X\n", ((struct ethhdr *)bufptr)->h_source[i]);
+			printf("%0.2x:", ((struct ethhdr *)bufptr)->h_source[i]);
+		printf("%0.2x\n", ((struct ethhdr *)bufptr)->h_source[i]);
 		printf("destination MAC address: ");
 		for(i=0; i<ETH_ALEN-1; i++)
-			printf("%0.2X:", ((struct ethhdr *)bufptr)->h_dest[i]);
-		printf("%0.2X\n", ((struct ethhdr *)bufptr)->h_dest[i]);
-		printf("ethertype: %#0.4X\n",
+			printf("%0.2x:", ((struct ethhdr *)bufptr)->h_dest[i]);
+		printf("%0.2x\n", ((struct ethhdr *)bufptr)->h_dest[i]);
+		printf("ethertype: %#0.4x\n",
 			ntohs(((struct ethhdr *)bufptr)->h_proto));
 		/**
 		  *	Parse MAC addresses here. Dereference bufptr as
@@ -298,14 +301,9 @@ void *tap_handler(int *tfd){
 		//	Print IPv4 packet header frames.
 		printf("size of IPv4 packet header read: %d\n", size);
 		printf("IP version: %d\n", ((struct iphdr *)bufptr)->version);
-		printf("IP header length: %d\n",
-			((struct iphdr *)bufptr)->ihl<<2);
-		printf("packet size: %#0.4X\n",
-			ntohs(((struct iphdr *)bufptr)->tot_len));
-		printf("protocol: %#0.2X\n", ((struct iphdr *)bufptr)->protocol);
-		printf("size of IPv4 packet header read: %d\n", size);
 		printf("packet size: %d\n",
-			htons(((struct iphdr *)bufptr)->tot_len));
+			ntohs(((struct iphdr *)bufptr)->tot_len));
+		printf("protocol: %#0.2x\n", ((struct iphdr *)bufptr)->protocol);
 		/**
 		  *	bufptr now points to the beginning of the IPv4 packet header;
 		  *	one may add code here to output IPv4 packet information.
@@ -321,10 +319,24 @@ void *tap_handler(int *tfd){
 		prxyhdr.length=((struct iphdr *)bufptr)->tot_len;
 		bufptr-=PROXY_HEADER_SIZE;
 		memcpy(bufptr, &prxyhdr, PROXY_HEADER_SIZE);
-		//	Now read the rest of the Ethernet frame.
+		/**
+	  	  *	Now read the rest of the Ethernet frame.
+		  ****************************************************************
+		  *
+		  *	IMPORTANT EDIT, MUST READ
+		  *
+		  ****************************************************************
+		  *	For whatever reason, the Ethernet frames of the tap device do
+		  *	not include the frame checksum. Because of this, when an extra
+		  * four bytes are read from the tap device, it instead reads from
+		  *	the first four bytes of the next frame. If the tap device does
+		  *	pass frame checksums at the end of frames, then add the macro
+		  *	ETH_FCS_LEN (valued at 4) to the third parameter of the following
+		  *	reading procedure.
+		  */
 		if((size=rio_readnb(&rio_tap,
 			bufptr+PROXY_HEADER_SIZE+IPv4_HEADER_SIZE,
-			ntohs(prxyhdr.length)-IPv4_HEADER_SIZE+ETH_FCS_LEN))<0){
+			ntohs(prxyhdr.length)-IPv4_HEADER_SIZE))<0){
 			fprintf(stderr, "error reading from the tap device.\n");
 			close(connections[0]);
 			connections[0]=-1;
@@ -338,7 +350,7 @@ void *tap_handler(int *tfd){
 			connections[0]=-1;
 			return NULL;
 		}
-		printf("sent %d bytes\n", size);
+		printf("sent %d bytes\n", prxyhdr.length);
 		rio_resetBuffer(&rio_eth[0]);
 		rio_resetBuffer(&rio_tap);
 	}

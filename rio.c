@@ -41,6 +41,10 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 	//	poll structure for waiting until the file descriptor is ready.
 	struct pollfd pfd={rp->fd, POLLIN, 0};
 	int cnt;
+	if(n==0){
+		fprintf(stderr, "error: number of bytes to read equals zero\n");
+		return -1;
+	}
 	while(rp->cnt<=0){
 		/**
 		  * Wait indefinitely until the socket is ready for reading.
@@ -73,12 +77,32 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 		rp->cnt=read(rp->fd, rp->buf, sizeof(rp->buf));
 		if(rp->cnt<0){
 			//	signal interrupt case
-			if(errno!=EINTR)
+			if(errno!=EINTR){
+				//	error-wrapped file unlock
+				do{
+					if(fcntl(rp->fd, F_SETLKW, &unlock)<0
+						&&errno!=EINTR){
+						fprintf(stderr, "F_SETLKW error: %s\n",
+							strerror(errno));
+						exit(-1);
+					}
+				}while(errno==EINTR);
 				return -1;
+			}
 		}
 		//	EOF case
-		else if(rp->cnt==0)
+		else if(rp->cnt==0){
+			//	error-wrapped file unlock
+			do{
+				if(fcntl(rp->fd, F_SETLKW, &unlock)<0
+					&&errno!=EINTR){
+					fprintf(stderr, "F_SETLKW error: %s\n",
+						strerror(errno));
+					exit(-1);
+				}
+			}while(errno==EINTR);
 			return 0;
+		}
 		//	no error
 		else
 			rp->bufp=rp->buf;
@@ -97,10 +121,14 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 		cnt=rp->cnt;
 	//	copy read bytes into memory
 	memcpy(usrbuf, rp->bufp, cnt);
-	//	increment buffer pointer to first unread byte
-	rp->bufp+=cnt;
 	//	decrement count of number of unread bytes
 	rp->cnt-=cnt;
+	//	Reset buffer pointer to beginning if necessary.
+	if(rp->cnt<=0)
+		rp->bufp=rp->buf;
+	//	increment buffer pointer to first unread byte
+	else
+		rp->bufp+=cnt;
 	//	return number of bytes read
 	return cnt;
 }
@@ -109,6 +137,10 @@ ssize_t rio_readnb(rio_t *rp, void *usrbuf, size_t n){
 	ssize_t nread;
 	size_t nleft=n;
 	void *bufp=usrbuf;
+	if(n==0){
+		fprintf(stderr, "error: number of bytes to read equals zero\n");
+		return -1;
+	}
 	while(nleft>0){
 		if((nread=rio_read(rp, bufp, nleft))<0){
 			// signal handler interrupt
@@ -138,10 +170,14 @@ ssize_t rio_write(rio_t *rp, void *usrbuf, size_t n){
 	static struct flock lock={F_WRLCK, 0, 0, 0, 0};
 	static struct flock unlock={F_UNLCK, 0, 0, 0, 0};
 	//	poll structure for waiting until the file descriptor is ready.
-	struct pollfd pfd={rp->fd, POLLIN, 0};
+	struct pollfd pfd={rp->fd, POLLOUT, 0};
 	size_t nleft=n;
 	ssize_t nwritten;
 	char *bufp=usrbuf;
+	if(n==0){
+		fprintf(stderr, "error: number of bytes to read equals zero\n");
+		return -1;
+	}
 	while(nleft>0){
 		poll(&pfd, 1, -1);
 		//	error-wrapped file lock
@@ -158,23 +194,33 @@ ssize_t rio_write(rio_t *rp, void *usrbuf, size_t n){
 			if(errno==EINTR)
 				nwritten=0;
 			//	interrupted by write()
-			else
+			else{
+				//	error-wrapped file unlock
+				do{
+					if(fcntl(rp->fd, F_SETLKW, &unlock)<0
+						&&errno!=EINTR){
+						fprintf(stderr, "F_SETLKW error: %s\n",
+							strerror(errno));
+						exit(-1);
+					}
+				}while(errno==EINTR);
 				return -1;
-		}
-		//	error-wrapped file unlock
-		do{
-			if(fcntl(rp->fd, F_SETLKW, &unlock)<0
-				&&errno!=EINTR){
-				fprintf(stderr, "F_SETLKW error: %s\n",
-					strerror(errno));
-				exit(-1);
 			}
-		}while(errno==EINTR);
+		}
 		//	decrement number of bytes remaining by number of bytes written
 		nleft-=nwritten;
 		//	increment buffer pointer by number of bytes written
 		bufp+=nwritten;
 	}
+	//	error-wrapped file unlock
+	do{
+		if(fcntl(rp->fd, F_SETLKW, &unlock)<0
+			&&errno!=EINTR){
+			fprintf(stderr, "F_SETLKW error: %s\n",
+				strerror(errno));
+			exit(-1);
+		}
+	}while(errno==EINTR);
 	//	n will always equal number of bytes finally written
 	return (n-nleft);
 }
@@ -188,6 +234,14 @@ ssize_t readn(int fd, void *usrbuf, size_t n){
 	ssize_t nread;
 	size_t nleft=n;
 	void *bufp=usrbuf;
+	if(n==0){
+		fprintf(stderr, "error: number of bytes to read equals zero\n");
+		return -1;
+	}
+	if(n==0){
+		fprintf(stderr, "error: number of bytes to read equals zero\n");
+		return -1;
+	}
 	while(nleft>0){
 		if((nread=read(fd, bufp, nleft))<0){
 			// signal handler interrupt
@@ -215,6 +269,10 @@ ssize_t writen(int fd, void *usrbuf, size_t n){
 	size_t nleft=n;
 	ssize_t nwritten;
 	char *bufp=usrbuf;
+	if(n==0){
+		fprintf(stderr, "error: number of bytes to read equals zero\n");
+		return -1;
+	}
 	while(nleft>0){
 		if((nwritten=write(fd, bufp, nleft))<0){
 			//	signal handler interrupt
