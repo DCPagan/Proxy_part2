@@ -235,7 +235,6 @@ void *eth_handler(int *ethfd){
 				next_conn=i;
 			return NULL;
 		}
-		printf("received %d bytes\n", size);
 		rio_resetBuffer(&rio_eth[0]);
 		rio_resetBuffer(&rio_tap);
 	}
@@ -350,7 +349,7 @@ void *tap_handler(int *tfd){
 			connections[0]=-1;
 			return NULL;
 		}
-		printf("sent %d bytes\n", prxyhdr.length);
+		printf("sent %d bytes\n\n", ntohs(prxyhdr.length));
 		rio_resetBuffer(&rio_eth[0]);
 		rio_resetBuffer(&rio_tap);
 	}
