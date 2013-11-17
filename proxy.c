@@ -314,11 +314,6 @@ void *tap_handler(int *tfd){
 			connections[0]=-1;
 			return NULL;
 		}
-		//	Print IPv4 packet header frames.
-		printf("IP version: %d\n", ((struct iphdr *)bufptr)->version);
-		printf("packet size: %d\n",
-			ntohs(((struct iphdr *)bufptr)->tot_len));
-		printf("protocol: %#0.2x\n", ((struct iphdr *)bufptr)->protocol);
 		/**
 		  *	bufptr now points to the beginning of the IPv4 packet header;
 		  *	one may add code here to output IPv4 packet information.
@@ -356,6 +351,11 @@ void *tap_handler(int *tfd){
 			connections[0]=-1;
 			return NULL;
 		}
+		//	Print IPv4 packet header frames.
+		printf("IP version: %d\n", ((struct iphdr *)bufptr)->version);
+		printf("packet size: %d\n",
+			ntohs(((struct iphdr *)bufptr)->tot_len));
+		printf("protocol: %#0.2x\n", ((struct iphdr *)bufptr)->protocol);
 		//	if the segment is an ICMP segment, print its fields.
 		if(((struct iphdr *)bufptr)->protocol==1){
 			bufptr+=IPv4_HEADER_SIZE;
