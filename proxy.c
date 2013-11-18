@@ -349,44 +349,70 @@ void *eth_handler(int *ethfd){
 				if(Data(buffer, prxyhdr.length)<0)
 					exit(-1);
 				break;
-			//	Leave
+			//	Leave (part 2)
 			case 0xAB01:
+				if(Leave(buffer, prxyhdr.length)<0)
+					exit(-1);
 				break;
 			//	Quit
 			case 0xAB12:
+				if(Quit(buffer, prxyhdr.length)<0)
+					exit(-1);
 				break;
-			//	Link-state
+			//	Link-state (part 2)
 			case 0xABAC:
+				if(Link_State(buffer, prxyhdr.length)<0)
+					exit(-1);
 				break;
-			//	RTT Probe Request
+			//	RTT Probe Request (part 3)
 			case 0xAB34:
+				if(RTT_Probe_Request(buffer, prxyhdr.length)<0)
+					exit(-1);
 				break;
-			//	RTT Probe Response
+			//	RTT Probe Response (part 3)
 			case 0xAB35:
+				if(RTT_Probe_Response(buffer, prxyhdr.length)<0)
+					exit(-1);
 				break;
-			//	Proxy Public Key
+			//	Proxy Public Key (extra credit)
 			case 0xAB21:
+				if(Proxy_Public_Key(buffer, prxyhdr.length)<0)
+					exit(-1);
 				break;
-			//	Signed Data
+			//	Signed Data (extra credit)
 			case 0xABC1:
+				if(Signed_Data(buffer, prxyhdr.length)<0)
+					exit(-1);
 				break;
-			//	Proxy Secret key
+			//	Proxy Secret key (extra credit)
 			case 0xAB22:
+				if(Proxy_Secret_Key(buffer, prxyhdr.length)<0)
+					exit(-1);
 				break;
-			//	Encrypted Data
+			//	Encrypted Data (extra credit)
 			case 0xABC2:
+				if(Encrypted_Data(buffer, prxyhdr.length)<0)
+					exit(-1);
 				break;
-			//	Encrypted Link State
+			//	Encrypted Link State (extra credit)
 			case 0XABAB:
+				if(Encrypted_Link_State(buffer, prxyhdr.length)<0)
+					exit(-1);
 				break;
-			//	Signed link-state
+			//	Signed link-state (extra credit)
 			case 0XABAD:
+				if(Signed_Link_State(buffer, prxyhdr.length)<0)
+					exit(-1);
 				break;
 			//	Bandwidth Probe Request
 			case 0xAB45:
+				if(Bandwidth_Probe_Request(buffer, prxyhdr.length)<0)
+					exit(-1);
 				break;
 			//	Bandwidth Response
 			case 0xAB46:
+				if(Bandwidth_Probe_Response(buffer, prxyhdr.length)<0)
+					exit(-1);
 				break;
 			default:
 				fprintf(stderr, "error, incorrect type\n");
