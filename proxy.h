@@ -22,8 +22,8 @@
 #include<linux/if_tun.h>
 #include<netdb.h>
 #include"rio.h"
-#include<uthash.h>
-#include<utlist.h>
+#include"uthash.h"
+#include"utlist.h"
 
 #define CONNECTION_MAX 16
 #define BACKLOG 16
@@ -31,7 +31,9 @@
   * The MTU at layer 2, including the sizes of the ethernet frame header,
   * the ethernet footer, and the layer 3 payload, given in linux/if_ether.h.
   */
+#ifndef MTU_L2
 #define MTU_L2 ETH_DATA_LEN + ETH_FCS_LEN
+#endif
 /**
   *	This IPv4 header size only applies to basic IPv4 headers such that
   *	IHL==5; if IHL>5, then the packet must be treated accordingly.
@@ -41,18 +43,33 @@
 /**
   * Each packet structure is used to dereference specific fields, such as the
   *	length of the payloads for the ethernet frames or the TCP/IP packets.
+  *	The structures for headers for Ethernet frames, IPv4 packets and ICMP
+  *	segments can be found in linux/if_ether.h, linux/ip.h and linux/icmp.h,
+  *	respectively.
   */
-
-typedef struct{
-	unsigned long long srcMACAddr : 48;
-	unsigned long long dstMACAddr : 48;
-	unsigned short length;
-} frame_header;
 
 typedef struct proxy_header{
 	unsigned short type;
 	unsigned short length;
 } proxy_header;
+
+typedef struct{
+	struct in_addr localIP;
+	unsigned short localListenPort;
+	unsigned char localMAC[ETH_ALEN];
+	unsigned long long ID;
+} leave;
+
+typedef struct{
+	struct in_addr localIP;
+	unsigned short localListenPort;
+	unsigned char localMAC[ETH_ALEN];
+	struct in_addr remoteIP;
+	unsigned short remoteListenPort;
+	unsigned char remoteMAC[ETH_ALEN];
+	unsigned int averageRTT;
+	unsigned long long ID;
+} link_state;
 
 extern int allocate_tunnel(char *, int);
 extern unsigned short get_port(char *s);

@@ -1,3 +1,4 @@
+#include<linux/if_ether.h>
 #include"rio.h"
 
 void rio_readinit(rio_t *rp, int fd){

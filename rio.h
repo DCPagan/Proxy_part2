@@ -5,8 +5,11 @@
 #include<errno.h>
 #include<poll.h>
 #include<fcntl.h>
+#include<linux/if_ether.h>
 
-#define MTU_L2 1518
+#ifndef MTU_L2
+#define MTU_L2 ETH_DATA_LEN + ETH_FCS_LEN
+#endif
 
 /**
   *	Robust I/O structure and functions allow for application-level buffering,
