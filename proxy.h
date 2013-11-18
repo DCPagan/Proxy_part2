@@ -22,6 +22,8 @@
 #include<linux/if_tun.h>
 #include<netdb.h>
 #include"rio.h"
+#include<uthash.h>
+#include<utlist.h>
 
 #define CONNECTION_MAX 16
 #define BACKLOG 16

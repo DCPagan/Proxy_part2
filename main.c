@@ -19,6 +19,14 @@ int main(int argc, char **argv){
 	/**
 	  *	Test code for reading and parsing the tap device.
 	  *	Use this code as an example to interpret the configuration file.
+	  *	
+	  *	Possible implementation: push data of a certain type that is
+	  *	expected to have multiple entries in the configuration file to its
+	  *	respective list. For example, for every line that lists a peer,
+	  *	input the host name or host address, and the port into a struct,
+	  *	and push that struct into a list. Return an error for multiple
+	  *	lines of data pertaining to a type that is expected to only have
+	  *	one line, such as the listenPort or tapDevice entries.
 	  */
 	if((fp=fopen("proxy.conf", "r"))!=NULL)
 		printf("proxy.conf opened\n");
