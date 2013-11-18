@@ -305,7 +305,7 @@ void *eth_handler(int *ethfd){
 	  *	closes.
 	  */
 	ssize_t size;
-	char *buffer;
+	void *buffer;
 	proxy_header prxyhdr;
 	int i=(int)(ethfd-connections);	//	index of ethfd at connections
 	for(;;){
