@@ -56,9 +56,24 @@ extern int allocate_tunnel(char *, int);
 extern unsigned short get_port(char *s);
 extern int open_listenfd(unsigned short);
 extern int open_clientfd(char *, unsigned short);
+extern void *listen_handler(int *);
 extern void *eth_handler(int *);
 extern void *tap_handler(int *);
-extern void *listen_handler(int *);
+
+extern int Data(void *, unsigned short);
+extern int Leave(void *, unsigned short);
+extern int Quit(void *, unsigned short);
+extern int Link_State(void *, unsigned short);
+extern int RTT_Probe_Request(void *, unsigned short);
+extern int RTT_Probe_Response(void *, unsigned short);
+extern int Proxy_Public_Key(void *, unsigned short);
+extern int Signed_Data(void *, unsigned short);
+extern int Proxy_Secret_Key(void *, unsigned short);
+extern int Encrypted_Data(void *, unsigned short);
+extern int Encrypted_Link_State(void *, unsigned short);
+extern int Signed_Link_State(void *, unsigned short);
+extern int Bandwidth_Probe_Request(void *, unsigned short);
+extern int Bandwidth_Probe_Response(void *, unsigned short);
 
 extern pthread_t tap_tid, listen_tid,
 	eth_tid[CONNECTION_MAX];	//	thread identifiers

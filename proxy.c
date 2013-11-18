@@ -172,110 +172,11 @@ void *listen_handler(int *listenfd){
 	return NULL;
 }
 
-void *eth_handler(int *ethfd){
-	/**
-  	  *	ethfd points to the socket descriptor to the Ethernet device that
-	  *	only this thread can read from. It is set to -1 after the thread
-	  *	closes.
-	  */
-	ssize_t size;
-	char buffer[MTU_L2];
-	void *bufptr;
-	proxy_header prxyhdr;
-	int i=(int)(ethfd-connections);	//	index of ethfd at connections
-	for(;;){
-		bufptr=buffer;
-		memset(buffer, 0, MTU_L2);
-		//	Read the proxy header directly into the proxy header structure.
-		if((size=rio_readnb(&rio_eth[0], &prxyhdr, PROXY_HEADER_SIZE))<=0){
-			if(size<0)
-				fprintf(stderr,
-					"error reading from the Ethernet device.\n");
-			else
-				fprintf(stderr, "connection #%d severed\n", i);
-			close(*ethfd);
-			*ethfd=-1;
-			if(i<next_conn)
-				next_conn=i;
-			return NULL;
-		}
-		//	Parse and evaluate the proxy header.
-		prxyhdr.type=ntohs(prxyhdr.type);
-		prxyhdr.length=ntohs(prxyhdr.length);
-		if(prxyhdr.type!=0xABCD){
-			fprintf(stderr, "error, incorrect type\n");
-			close(*ethfd);
-			*ethfd=-1;
-			if(i<next_conn)
-				next_conn=i;
-			return NULL;
-		}
-		printf("packet of type %#0.4x and length %d received\n",
-			prxyhdr.type, prxyhdr.length);
-		//	Read the payload into the buffer.
-		if((size=rio_readnb(&rio_eth[0], buffer, prxyhdr.length))<=0){
-			if(size<0)
-				fprintf(stderr,
-					"error reading from the Ethernet device.\n");
-			else
-				fprintf(stderr, "connection #%d severed\n", i);
-			close(*ethfd);
-			*ethfd=-1;
-			if(i<next_conn)
-				next_conn=i;
-			return NULL;
-		}
-		//	Print IPv4 packet header fields.
-		printf("IP version: %d\n", ((struct iphdr *)bufptr)->version);
-		printf("packet size: %d\n",
-			ntohs(((struct iphdr *)bufptr)->tot_len));
-		printf("protocol: %#0.2x\n", ((struct iphdr *)bufptr)->protocol);
-		//	if the segment is an ICMP segment, print its fields.
-		if(((struct iphdr *)bufptr)->protocol==1){
-			bufptr+=IPv4_HEADER_SIZE;
-			printf("ICMP type: %#0.2x\n",
-				((struct icmphdr *)bufptr)->type);
-			printf("ICMP code: %#0.2x\n",
-				((struct icmphdr *)bufptr)->code);
-			printf("ICMP checksum: %#0.4x\n",
-				ntohs(((struct icmphdr *)bufptr)->checksum));
-			printf("ICMP identifier: %#0.4x\n",
-				ntohs(((struct icmphdr *)bufptr)->un.echo.id));
-			printf("ICMP sequence: %#0.4x\n\n",
-				ntohs(((struct icmphdr *)bufptr)->un.echo.sequence));
-		}
-		char hwbuffer[1024];
-		if(ioctl(rio_eth[0].fd, SIOCGIFHWADDR, hwbuffer)<0){
-			fprintf("ioctl SIOCGIFHWADDR error: %s\n",
-				strerror(errno));
-		}
-		printf("ethernet device hardware address: %s\n", hwbuffer);
-		if(ioctl(tapfd, SIOCGIFHWADDR, hwbuffer)<0){
-			fprintf("ioctl SIOCGIFHWADDR error: %s\n",
-				strerror(errno));
-		}
-		printf("tap device hardware address: %s\n", hwbuffer);
-		printf("ethernet device hardware address: %s\n", hwbuffer);
-		//	Write the payload to the tap device.
-		if((size=rio_write(&rio_tap, buffer, prxyhdr.length))<0){
-			fprintf(stderr, "error writing to tap device\n");
-			close(*ethfd);
-			*ethfd=-1;
-			if(i<next_conn)
-				next_conn=i;
-			return NULL;
-		}
-		rio_resetBuffer(&rio_eth[0]);
-		rio_resetBuffer(&rio_tap);
-	}
-}
-
 void *tap_handler(int *tfd){
 	ssize_t size;
 	char buffer[MTU_L2+PROXY_HEADER_SIZE];
 	void *bufptr;
 	proxy_header prxyhdr;
-	int optval;
 	int i;
 	for(;;){
 		bufptr=buffer;
@@ -290,13 +191,13 @@ void *tap_handler(int *tfd){
 		//	Print Ethernet frame header fields.
 		printf("source MAC address: ");
 		for(i=0; i<ETH_ALEN-1; i++)
-			printf("%0.2x:", ((struct ethhdr *)bufptr)->h_source[i]);
-		printf("%0.2x\n", ((struct ethhdr *)bufptr)->h_source[i]);
+			printf("%.2x:", ((struct ethhdr *)bufptr)->h_source[i]);
+		printf("%.2x\n", ((struct ethhdr *)bufptr)->h_source[i]);
 		printf("destination MAC address: ");
 		for(i=0; i<ETH_ALEN-1; i++)
-			printf("%0.2x:", ((struct ethhdr *)bufptr)->h_dest[i]);
-		printf("%0.2x\n", ((struct ethhdr *)bufptr)->h_dest[i]);
-		printf("ethertype: %#0.4x\n",
+			printf("%.2x:", ((struct ethhdr *)bufptr)->h_dest[i]);
+		printf("%.2x\n", ((struct ethhdr *)bufptr)->h_dest[i]);
+		printf("ethertype: %#.4x\n",
 			ntohs(((struct ethhdr *)bufptr)->h_proto));
 		/**
 		  *	Parse MAC addresses here. Dereference bufptr as
@@ -367,19 +268,19 @@ void *tap_handler(int *tfd){
 		printf("IP version: %d\n", ((struct iphdr *)bufptr)->version);
 		printf("packet size: %d\n",
 			ntohs(((struct iphdr *)bufptr)->tot_len));
-		printf("protocol: %#0.2x\n", ((struct iphdr *)bufptr)->protocol);
+		printf("protocol: %#.2x\n", ((struct iphdr *)bufptr)->protocol);
 		//	if the segment is an ICMP segment, print its fields.
 		if(((struct iphdr *)bufptr)->protocol==1){
 			bufptr+=IPv4_HEADER_SIZE;
-			printf("ICMP type: %#0.2x\n",
+			printf("ICMP type: %#.2x\n",
 				((struct icmphdr *)bufptr)->type);
-			printf("ICMP code: %#0.2x\n",
+			printf("ICMP code: %#.2x\n",
 				((struct icmphdr *)bufptr)->code);
-			printf("ICMP checksum: %#0.4x\n",
+			printf("ICMP checksum: %#.4x\n",
 				ntohs(((struct icmphdr *)bufptr)->checksum));
-			printf("ICMP identifier: %#0.4x\n",
+			printf("ICMP identifier: %#.4x\n",
 				ntohs(((struct icmphdr *)bufptr)->un.echo.id));
-			printf("ICMP sequence: %#0.4x\n\n",
+			printf("ICMP sequence: %#.4x\n\n",
 				ntohs(((struct icmphdr *)bufptr)->un.echo.sequence));
 			bufptr-=IPv4_HEADER_SIZE;
 		}
@@ -396,3 +297,163 @@ void *tap_handler(int *tfd){
 		rio_resetBuffer(&rio_tap);
 	}
 }
+
+void *eth_handler(int *ethfd){
+	/**
+  	  *	ethfd points to the socket descriptor to the Ethernet device that
+	  *	only this thread can read from. It is set to -1 after the thread
+	  *	closes.
+	  */
+	ssize_t size;
+	char *buffer;
+	proxy_header prxyhdr;
+	int i=(int)(ethfd-connections);	//	index of ethfd at connections
+	for(;;){
+		//	Read the proxy type directly into the proxy header structure.
+		if((size=rio_readnb(&rio_eth[0], &prxyhdr,
+			PROXY_HEADER_SIZE))<=0){
+			if(size<0)
+				fprintf(stderr,
+					"error reading from the Ethernet device.\n");
+			else
+				fprintf(stderr, "connection #%d severed\n", i);
+			close(*ethfd);
+			*ethfd=-1;
+			if(i<next_conn)
+				next_conn=i;
+			return NULL;
+		}
+		/**
+	  	  *	Parse and evaluate the proxy header.
+		  *	Dynamically allocate memory for the data so that each packet
+		  *	could be evaluated concurrently. Free the dynamically allocated
+		  *	memory at the called helper functions.
+		  */
+		prxyhdr.type=ntohs(prxyhdr.type);
+		prxyhdr.length=ntohs(prxyhdr.length);
+		buffer=malloc(prxyhdr.length);
+		if((size=rio_readnb(&rio_eth[0], buffer, prxyhdr.length))<=0){
+			if(size<0)
+				fprintf(stderr,
+					"error reading from the Ethernet device.\n");
+			else
+				fprintf(stderr, "connection #%d severed\n", i);
+			close(*ethfd);
+			*ethfd=-1;
+			if(i<next_conn)
+				next_conn=i;
+			return NULL;
+		}
+		switch(prxyhdr.type){
+			case 0xABCD:
+				if(Data(buffer, prxyhdr.length)<0)
+					exit(-1);
+				break;
+			//	Leave
+			case 0xAB01:
+				break;
+			//	Quit
+			case 0xAB12:
+				break;
+			//	Link-state
+			case 0xABAC:
+				break;
+			//	RTT Probe Request
+			case 0xAB34:
+				break;
+			//	RTT Probe Response
+			case 0xAB35:
+				break;
+			//	Proxy Public Key
+			case 0xAB21:
+				break;
+			//	Signed Data
+			case 0xABC1:
+				break;
+			//	Proxy Secret key
+			case 0xAB22:
+				break;
+			//	Encrypted Data
+			case 0xABC2:
+				break;
+			//	Encrypted Link State
+			case 0XABAB:
+				break;
+			//	Signed link-state
+			case 0XABAD:
+				break;
+			//	Bandwidth Probe Request
+			case 0xAB45:
+				break;
+			//	Bandwidth Response
+			case 0xAB46:
+				break;
+			default:
+				fprintf(stderr, "error, incorrect type\n");
+				close(*ethfd);
+				*ethfd=-1;
+				if(i<next_conn)
+					next_conn=i;
+				return NULL;
+		}
+	}
+}
+
+int Data(void *buffer, unsigned short length){
+	ssize_t size;
+	void *bufptr;
+	bufptr=buffer;
+	//	Print IPv4 packet header fields.
+	printf("IP version: %d\n", ((struct iphdr *)bufptr)->version);
+	printf("packet size: %d\n",
+		ntohs(((struct iphdr *)bufptr)->tot_len));
+	printf("protocol: %#.2x\n", ((struct iphdr *)bufptr)->protocol);
+	//	if the segment is an ICMP segment, print its fields.
+	if(((struct iphdr *)bufptr)->protocol==1){
+		bufptr+=IPv4_HEADER_SIZE;
+		printf("ICMP type: %#.2x\n",
+			((struct icmphdr *)bufptr)->type);
+		printf("ICMP code: %#.2x\n",
+			((struct icmphdr *)bufptr)->code);
+		printf("ICMP checksum: %#.4x\n",
+			ntohs(((struct icmphdr *)bufptr)->checksum));
+		printf("ICMP identifier: %#.4x\n",
+			ntohs(((struct icmphdr *)bufptr)->un.echo.id));
+		printf("ICMP sequence: %#.4x\n\n",
+			ntohs(((struct icmphdr *)bufptr)->un.echo.sequence));
+	}
+	//	Write the payload to the tap device.
+	if((size=rio_write(&rio_tap, buffer, length))<0){
+		fprintf(stderr, "error writing to tap device\n");
+		free(buffer);
+		return -1;
+	}
+	free(buffer);
+	return 0;
+}
+
+int Leave(void *buffer, unsigned short length){}
+
+int Quit(void *buffer, unsigned short length){}
+
+int Link_State(void *buffer, unsigned short length){}
+
+int RTT_Probe_Request(void *buffer, unsigned short length){}
+
+int RTT_Probe_Response(void *buffer, unsigned short length){}
+
+int Proxy_Public_Key(void *buffer, unsigned short length){}
+
+int Signed_Data(void *buffer, unsigned short length){}
+
+int Proxy_Secret_Key(void *buffer, unsigned short length){}
+
+int Encrypted_Data(void *buffer, unsigned short length){}
+
+int Encrypted_Link_State(void *buffer, unsigned short length){}
+
+int Signed_Link_State(void *buffer, unsigned short length){}
+
+int Bandwidth_Probe_Request(void *buffer, unsigned short length){}
+
+int Bandwidth_Probe_Response(void *buffer, unsigned short length){}
