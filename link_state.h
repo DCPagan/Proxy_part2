@@ -12,18 +12,21 @@ typedef struct Config{
 
 typedef struct List{
 	char* hostname;
+	char* Mac;
 	Config config;
 	int port;
 	List *next;
+	UT_hash_handle hh;
 } List;
 
 typedef struct Graph{
-	char *Mac;
 	List *list;
-	UT_hash_handle hh;
 	pthread_mutex_t lock;
 } Graph;
 
-void remove_member(Graph graph, List node);
-void remove_expired_member(Graph graph, List node);
-void add_member(Graph graph, List node);
+List *ll_create();
+void ll_add(List list, List *node);
+void ll_remove(List list, List *node); 
+void remove_member(char* mac, List *node);
+//void remove_expired_member(char* mac, List *node);
+void add_member(char* mac, List *node);
