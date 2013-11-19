@@ -18,8 +18,8 @@ typedef struct List{
 } List;
 
 typedef struct Graph{
+	char *Mac;
 	List *list;
-	int size;
 	UT_hash_handle hh;
 	pthread_mutex_t lock;
 } Graph;
