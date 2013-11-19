@@ -66,7 +66,7 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 			if(fcntl(rp->fd, F_SETLKW, &lock)<0
 				&&errno!=EINTR){
 				perror("F_SETLKW error");
-				exit(-1);
+				return -1;
 			}
 		}while(errno==EINTR);
 		rp->cnt=read(rp->fd, rp->buf, sizeof(rp->buf));
@@ -78,7 +78,7 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 					if(fcntl(rp->fd, F_SETLKW, &unlock)<0
 						&&errno!=EINTR){
 						perror("F_SETLKW error");
-						exit(-1);
+						return -1;
 					}
 				}while(errno==EINTR);
 				return -1;
@@ -91,7 +91,7 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 				if(fcntl(rp->fd, F_SETLKW, &unlock)<0
 					&&errno!=EINTR){
 					perror("F_SETLKW error");
-					exit(-1);
+					return -1;
 				}
 			}while(errno==EINTR);
 			return 0;
@@ -103,7 +103,7 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 			if(fcntl(rp->fd, F_SETLKW, &unlock)<0
 				&&errno!=EINTR){
 				perror("F_SETLKW error");
-				exit(-1);
+				return -1;
 			}
 		}while(errno==EINTR);
 	}
@@ -177,7 +177,7 @@ ssize_t rio_write(rio_t *rp, void *usrbuf, size_t n){
 			if(fcntl(rp->fd, F_SETLKW, &lock)<0
 				&&errno!=EINTR){
 				perror("F_SETLKW error");
-				exit(-1);
+				return -1;
 			}
 		}while(errno==EINTR);
 		if((nwritten=write(rp->fd, bufp, nleft))<0){
@@ -207,7 +207,7 @@ ssize_t rio_write(rio_t *rp, void *usrbuf, size_t n){
 		if(fcntl(rp->fd, F_SETLKW, &unlock)<0
 			&&errno!=EINTR){
 			perror("F_SETLKW error");
-			exit(-1);
+			return -1;
 		}
 	}while(errno==EINTR);
 	//	n will always equal number of bytes finally written

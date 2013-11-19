@@ -84,17 +84,16 @@ typedef struct{
 } link_state;
 
 extern int allocate_tunnel(char *, int);
-extern unsigned short get_port(char *s);
+extern unsigned short get_port(char *);
 extern int open_listenfd(unsigned short);
 extern int open_clientfd(char *, unsigned short);
-extern void *listen_handler(int *);
-extern void *eth_handler(rio_t *);
-extern void *tap_handler(rio_t *);
+extern void *tap_handler(int *);
+extern void *eth_handler(int *);
 
-extern void printEthernet(struct ethhdr *data);
-extern void printIP(struct iphdr *data);
-extern void printARP(void *data);
-extern void printICMP(struct icmphdr *data);
+extern void printEthernet(struct ethhdr *);
+extern void printIP(struct iphdr *);
+extern void printARP(void *);
+extern void printICMP(struct icmphdr *);
 
 extern int Data(void *, unsigned short);
 extern int Leave(void *, unsigned short);

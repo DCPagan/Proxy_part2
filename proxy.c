@@ -1,5 +1,6 @@
 #include"proxy.h"
 
+int tapfd=-1;
 int ethfd=-1;
 rio_t rio_tap;
 rio_t rio_eth;
@@ -124,39 +125,12 @@ int open_clientfd(char *hostname, unsigned short port){
 	return clientfd;
 }
 
-void *listen_handler(int *lfdptr){
-	struct sockaddr_in clientaddr;
-	unsigned int addrlen=sizeof(struct sockaddr_in);
-	int connfd;
-	int listenfd=*lfdptr;
-	rio_t *rp;
-	pthread_t tid;
-	//	Store next_conn value into i to prevent a race.
-	free(lfdptr);
-	for(;;){
-		//	Accept a connection request.
-		if((connfd=accept(listenfd,
-			(struct sockaddr *)&clientaddr, &addrlen))<0){
-			perror("error opening socket to client");
-			close(listenfd);
-			listenfd=-1;
-			exit(-1);
-		}
-		printf("Successfully connected to host at I.P. address %s.\n",
-			inet_ntoa(clientaddr.sin_addr));
-		rp=(rio_t *)malloc(sizeof(rio_t));
-		rio_readinit(rp, connfd);
-		pthread_create(&tid, NULL, eth_handler, rp);
-		pthread_detach(tid);
-	}
-	return NULL;
-}
-
-void *tap_handler(rio_t *rp){
+void *tap_handler(int *fd){
 	ssize_t size;
 	char buffer[ETH_FRAME_LEN+PROXY_HLEN];
 	proxy_header prxyhdr;
 	int i;
+	pthread_detach(pthread_self());
 	for(;;){
 		memset(buffer, 0, ETH_FRAME_LEN+PROXY_HLEN);
 		/**
@@ -174,7 +148,7 @@ void *tap_handler(rio_t *rp){
 		  *	ETH_FCS_LEN (valued at 4) to the third parameter of the following
 		  *	reading procedure.
 		  */
-		if((size=rio_read(rp, buffer+PROXY_HLEN, ETH_FRAME_LEN))<0){
+		if((size=rio_read(&rio_tap, buffer+PROXY_HLEN, ETH_FRAME_LEN))<0){
 			perror("error reading from the tap device.\n");
 			close(rio_eth.fd);
 			return NULL;
@@ -216,11 +190,11 @@ void *tap_handler(rio_t *rp){
 			close(rio_eth.fd);
 			return NULL;
 		}
-		rio_resetBuffer(rp);
+		rio_resetBuffer(&rio_tap);
 	}
 }
 
-void *eth_handler(rio_t *rp){
+void *eth_handler(int *fd){
 	/**
   	  *	ethfd points to the socket descriptor to the Ethernet device that
 	  *	only this thread can read from. It is set to -1 after the thread
@@ -229,6 +203,16 @@ void *eth_handler(rio_t *rp){
 	ssize_t size;
 	void *buffer;
 	proxy_header prxyhdr;
+	rio_t rio;
+	rio_t *rp;
+	if(*fd==ethfd)
+		rp=&rio_eth;
+	else{
+		rio_readinit(&rio, *fd);
+		rp=&rio;
+		free(fd);
+	}
+	pthread_detach(pthread_self());
 	for(;;){
 		//	Read the proxy type directly into the proxy header structure.
 		if((size=rio_readnb(rp, &prxyhdr, PROXY_HLEN))<=0){
