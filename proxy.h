@@ -28,18 +28,15 @@
 #define CONNECTION_MAX 16
 #define BACKLOG 16
 /**
-  * The MTU at layer 2, including the sizes of the ethernet frame header,
-  * the ethernet footer, and the layer 3 payload, given in linux/if_ether.h.
+  * The MTU at layer 2, including the sizes of the ethernet frame header
+  * and the layer 3 payload, is given in linux/if_ether.h is ETH_FRAME_LEN.
   */
-#ifndef MTU_L2
-#define MTU_L2 ETH_DATA_LEN + ETH_FCS_LEN
-#endif
 /**
   *	This IPv4 header size only applies to basic IPv4 headers such that
   *	IHL==5; if IHL>5, then the packet must be treated accordingly.
   */
-#define IPv4_HEADER_SIZE 20
-#define PROXY_HEADER_SIZE 4
+#define IPv4_HLEN 20
+#define PROXY_HLEN 4
 /**
   * Each packet structure is used to dereference specific fields, such as the
   *	length of the payloads for the ethernet frames or the TCP/IP packets.
@@ -47,6 +44,21 @@
   *	segments can be found in linux/if_ether.h, linux/ip.h and linux/icmp.h,
   *	respectively.
   */
+//	List of all packet types, including those for extra credit.
+#define DATA 0XABCD						//	part 2
+#define LEAVE 0XAB01					//	part 2
+#define QUIT 0XAB12						//	part 2
+#define LINK_STATE 0XABAC				//	part 2
+#define RTT_PROBE_REQUEST 0XAB34		//	part 3
+#define RTT_PROBE_RESPONSE 0XAB35		//	part 3
+#define PROXY_PUBLIC_KEY 0XAB21			//	extra credit
+#define SIGNED_DATA 0XABC1				//	extra credit
+#define PROXY_SECRET_KEY 0XAB2			//	extra credit
+#define ENCRYPTED_DATA 0XABC2			//	extra credit
+#define ENCRYPTED_LINK_STATE 0XABAB		//	extra credit
+#define SIGNED_LINK_STATE 0XABAD		//	extra credit
+#define BANDWIDTH_PROBE_REQUEST 0XAB45	//	extra credit
+#define BANDWIDTH_RESPONSE 0XAB46		//	extra credit
 
 typedef struct proxy_header{
 	unsigned short type;
@@ -76,8 +88,13 @@ extern unsigned short get_port(char *s);
 extern int open_listenfd(unsigned short);
 extern int open_clientfd(char *, unsigned short);
 extern void *listen_handler(int *);
-extern void *eth_handler(int *);
-extern void *tap_handler(int *);
+extern void *eth_handler(rio_t *);
+extern void *tap_handler(rio_t *);
+
+extern void printEthernet(struct ethhdr *data);
+extern void printIP(struct iphdr *data);
+extern void printARP(void *data);
+extern void printICMP(struct icmphdr *data);
 
 extern int Data(void *, unsigned short);
 extern int Leave(void *, unsigned short);
@@ -97,8 +114,6 @@ extern int Bandwidth_Probe_Response(void *, unsigned short);
 extern pthread_t tap_tid, listen_tid,
 	eth_tid[CONNECTION_MAX];	//	thread identifiers
 extern int tapfd;
-extern int connections[CONNECTION_MAX];	//	list of connections
-extern int max_conn;	//	maximum index of open socket descriptors
-extern int next_conn;	//	least index of unopened socket descriptors
+extern int ethfd;
 extern rio_t rio_tap;	//	Robust I/O struct for the tap device
-extern rio_t rio_eth[CONNECTION_MAX];	//	list of Robust I/O structs
+extern rio_t rio_eth;	//	list of Robust I/O structs

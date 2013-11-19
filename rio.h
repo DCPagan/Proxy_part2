@@ -7,8 +7,8 @@
 #include<fcntl.h>
 #include<linux/if_ether.h>
 
-#ifndef MTU_L2
-#define MTU_L2 ETH_DATA_LEN + ETH_FCS_LEN
+#ifndef PROXY_HLEN
+#define PROXY_HLEN 4
 #endif
 
 /**
@@ -20,7 +20,7 @@ typedef struct{
 	int fd;
 	int cnt;
 	char *bufp;
-	char buf[MTU_L2];
+	char buf[ETH_FRAME_LEN + PROXY_HLEN];
 } rio_t;
 
 extern void rio_readinit(rio_t *rp, int fd);

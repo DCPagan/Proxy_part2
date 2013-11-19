@@ -3,11 +3,9 @@
 pthread_t tap_tid, listen_tid,
 	eth_tid[CONNECTION_MAX];	//	thread identifiers
 int tapfd=-1;
-int connections[CONNECTION_MAX];	//	list of connections of the socket
-int max_conn;	//	maximum index of open socket descriptors
-int next_conn;	//	least index of unopened socket descriptors
+int ethfd=-1;
 rio_t rio_tap;
-rio_t rio_eth[CONNECTION_MAX];
+rio_t rio_eth;
 
 /**************************************************
   * allocate_tunnel:
@@ -19,8 +17,7 @@ int allocate_tunnel(char *dev, int flags) {
 	struct ifreq ifr;
 	char *device_name="/dev/net/tun";
 	if((fd=open(device_name , O_RDWR))<0) {
-		fprintf(stderr, "error opening /dev/net/tun: %s\n",
-			strerror(errno));
+		perror("error opening /dev/net/tun");
 		return fd;
 	}
 	memset(&ifr, 0, sizeof(ifr));
@@ -28,8 +25,7 @@ int allocate_tunnel(char *dev, int flags) {
 	if(*dev){
 		strncpy(ifr.ifr_name, dev, IFNAMSIZ);
 	}if((error=ioctl(fd, TUNSETIFF, (void *)&ifr))<0){
-		fprintf(stderr, "ioctl on tap failed: %s\n",
-			strerror(errno));
+		perror("ioctl on tap failed");
 		close(fd);
 		return error;
 	}
@@ -44,8 +40,7 @@ unsigned short get_port(char *s){
 	//	Check for overflow error
 	if(x==ULONG_MAX&&errno==ERANGE
 		||x<1024||x>65535){
-		fprintf(stderr, "error: invalid port parameter: %s\n",
-			strerror(errno));
+		perror("error: invalid port parameter");
 		exit(1);
 	}
 	port=(unsigned short)x;
@@ -57,15 +52,13 @@ int open_listenfd(unsigned short port){
 	struct sockaddr_in serveraddr;
 	int optval=1;
 	if((listenfd=socket(AF_INET, SOCK_STREAM, 0))<0){
-		fprintf(stderr, "error creating socket: %s\n",
-			strerror(errno));
+		perror("error creating socket");
 		return -1;
 	}	
 	/* avoid EADDRINUSE error on bind() */
 	if(setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR,
 		(char *)&optval, sizeof(optval)) < 0) {
-		fprintf(stderr, "setsockopt(): %s\n",
-			strerror(errno));
+		perror("setsockopt()");
 		close(listenfd);
 		exit(-1);
 	}
@@ -75,14 +68,12 @@ int open_listenfd(unsigned short port){
 	serveraddr.sin_port=htons(port);
 	if(bind(listenfd, (struct sockaddr *)&serveraddr,
 		sizeof(serveraddr))<0){
-		fprintf(stderr, "error binding socketfd to port: %s\n",
-			strerror(errno));
+		perror("error binding socketfd to port");
 		close(listenfd);
 		return -1;
 	}
 	if(listen(listenfd, BACKLOG)<0){
-		fprintf(stderr, "error making socket a listening socket: %s\n",
-			strerror(errno));
+		perror("error making socket a listening socket");
 		close(listenfd);
 		return -1;
 	}
@@ -96,15 +87,13 @@ int open_clientfd(char *hostname, unsigned short port){
 	struct in_addr addr;
 	struct sockaddr_in serveraddr;
 	if((clientfd=socket(AF_INET, SOCK_STREAM, 0))<0){
-		fprintf(stderr, "error opening socket: %s\n",
-			strerror(errno));
+		perror("error opening socket");
 		return -1;
 	}
 	/* avoid EADDRINUSE error on bind() */
 	if(setsockopt(clientfd, SOL_SOCKET, SO_REUSEADDR,
 		(char *)&optval, sizeof(optval)) < 0) {
-		fprintf(stderr, "setsockopt(): %s\n",
-			strerror(errno));
+		perror("setsockopt()");
 		close(clientfd);
 		exit(-1);
 	}
@@ -117,7 +106,7 @@ int open_clientfd(char *hostname, unsigned short port){
 		&&(hp=gethostbyaddr((char *)&addr,
 			sizeof(struct in_addr), AF_INET))==NULL
 		||(hp=gethostbyname(hostname))==NULL){
-		fprintf(stderr, "error retrieving host information\n");
+		perror("error retrieving host information");
 		close(clientfd);
 		return -1;
 	}
@@ -129,8 +118,7 @@ int open_clientfd(char *hostname, unsigned short port){
 	serveraddr.sin_port=htons(port);
 	if(connect(clientfd, (struct sockaddr *)&serveraddr,
 		sizeof(serveraddr))<0){
-		fprintf(stderr, "error connecting to server: %s\n",
-			strerror(errno));
+		perror("error connecting to server");
 		close(clientfd);
 		return -1;
 	}
@@ -141,64 +129,59 @@ int open_clientfd(char *hostname, unsigned short port){
 
 void *listen_handler(int *listenfd){
 	struct sockaddr_in clientaddr;
-	int addrlen=sizeof(struct sockaddr_in);
-	int i;
+	unsigned int addrlen=sizeof(struct sockaddr_in);
+	int connfd;
+	rio_t *rp;
+	pthread_t tid;
 	//	Store next_conn value into i to prevent a race.
-	for(i=next_conn; next_conn<CONNECTION_MAX;){
+	for(;;){
 		//	Accept a connection request.
-		if((connections[i]=accept(*listenfd,
+		if((connfd=accept(*listenfd,
 			(struct sockaddr *)&clientaddr, &addrlen))<0){
-			fprintf(stderr, "error opening socket to client: %s\n",
-				strerror(errno));
+			perror("error opening socket to client");
 			close(*listenfd);
 			*listenfd=-1;
 			exit(-1);
 		}
 		printf("Successfully connected to host at I.P. address %s.\n",
 			inet_ntoa(clientaddr.sin_addr));
-		rio_readinit(&rio_eth[i], connections[i]);
-		pthread_create(&eth_tid[i], NULL, eth_handler, &connections[i]);
-		/**
-	  	  *	If this thread created a connection with a higher index than
-		  *	max_conn.
-		  */
-		if(i>max_conn)
-			max_conn=i;
-		//	If next_conn has not changed due to a client disconnection.
-		if(i==next_conn)
-			++i;
+		rp=(rio_t *)malloc(sizeof(rio_t));
+		rio_readinit(rp, connfd);
+		pthread_create(&tid, NULL, eth_handler, rp);
+		pthread_detach(tid);
 	}
-	printf("maximum number of connections reached.\n");
 	return NULL;
 }
 
-void *tap_handler(int *tfd){
+void *tap_handler(rio_t *rp){
 	ssize_t size;
-	char buffer[MTU_L2+PROXY_HEADER_SIZE];
-	void *bufptr;
+	char buffer[ETH_FRAME_LEN+PROXY_HLEN];
+	void *bufptr=buffer+PROXY_HLEN;
 	proxy_header prxyhdr;
 	int i;
 	for(;;){
-		bufptr=buffer;
-		memset(buffer, 0, MTU_L2+PROXY_HEADER_SIZE);
-		//	Get the Ethernet header first.
-		if((size=rio_readnb(&rio_tap, bufptr, ETH_HLEN))<0){
-			fprintf(stderr, "error reading from the tap device.\n");
-			close(connections[0]);
-			connections[0]=-1;
+		memset(buffer, 0, ETH_FRAME_LEN+PROXY_HLEN);
+		/**
+	  	  *	Read the entire Ethernet frame.
+		  ****************************************************************
+		  *
+		  *	IMPORTANT NOTICE, MUST READ
+		  *
+		  ****************************************************************
+		  *	For whatever reason, the Ethernet frames of the tap device do
+		  *	not include the frame checksum. Because of this, when an extra
+		  * four bytes are read from the tap device, it instead reads from
+		  *	the first four bytes of the next frame. If the tap device does
+		  *	pass frame checksums at the end of frames, then add the macro
+		  *	ETH_FCS_LEN (valued at 4) to the third parameter of the following
+		  *	reading procedure.
+		  */
+		if((size=rio_read(&rio_tap, bufptr, ETH_FRAME_LEN))<0){
+			perror("error reading from the tap device.\n");
+			close(rio_eth.fd);
 			return NULL;
 		}
-		//	Print Ethernet frame header fields.
-		printf("source MAC address: ");
-		for(i=0; i<ETH_ALEN-1; i++)
-			printf("%.2x:", ((struct ethhdr *)bufptr)->h_source[i]);
-		printf("%.2x\n", ((struct ethhdr *)bufptr)->h_source[i]);
-		printf("destination MAC address: ");
-		for(i=0; i<ETH_ALEN-1; i++)
-			printf("%.2x:", ((struct ethhdr *)bufptr)->h_dest[i]);
-		printf("%.2x\n", ((struct ethhdr *)bufptr)->h_dest[i]);
-		printf("ethertype: %#.4x\n",
-			ntohs(((struct ethhdr *)bufptr)->h_proto));
+		printEthernet(bufptr);
 		/**
 		  *	Parse MAC addresses here. Dereference bufptr as
 		  *	(struct ethhdr *), and consult linux/if_ether.h.
@@ -220,85 +203,28 @@ void *tap_handler(int *tfd){
 		  *	IPv4 header, and read the rest of the Ethernet frame after the
 		  *	IPv4 packet header.
 		  */
-		bufptr+=size+PROXY_HEADER_SIZE;
-		if((size=rio_readnb(&rio_tap, bufptr, IPv4_HEADER_SIZE))<0){
-			fprintf(stderr, "error reading from the tap device.\n");
-			close(connections[0]);
-			connections[0]=-1;
-			return NULL;
-		}
-		/**
-		  *	bufptr now points to the beginning of the IPv4 packet header;
-		  *	one may add code here to output IPv4 packet information.
-		  *	Consult linux/ip.h to find the fields of struct iphdr.
-		  */
 		/**
 		  * Write the proxy header in network byte-order.
-		  * The type field of the proxy header is always set to 0xABCD.
+		  * The type field of the proxy header is always set to DATA.
 		  *	The length field is given by the length field of the Ethernet
 		  *	frame header.
 		  */
-		prxyhdr.type=htons(0xABCD);
-		prxyhdr.length=((struct iphdr *)bufptr)->tot_len;
-		memcpy(bufptr-PROXY_HEADER_SIZE, &prxyhdr, PROXY_HEADER_SIZE);
-		/**
-	  	  *	Now read the rest of the Ethernet frame.
-		  ****************************************************************
-		  *
-		  *	IMPORTANT NOTICE, MUST READ
-		  *
-		  ****************************************************************
-		  *	For whatever reason, the Ethernet frames of the tap device do
-		  *	not include the frame checksum. Because of this, when an extra
-		  * four bytes are read from the tap device, it instead reads from
-		  *	the first four bytes of the next frame. If the tap device does
-		  *	pass frame checksums at the end of frames, then add the macro
-		  *	ETH_FCS_LEN (valued at 4) to the third parameter of the following
-		  *	reading procedure.
-		  */
-		if((size=rio_readnb(&rio_tap,
-			bufptr+IPv4_HEADER_SIZE,
-			ntohs(prxyhdr.length)-IPv4_HEADER_SIZE))<0){
-			fprintf(stderr, "error reading from the tap device.\n");
-			close(connections[0]);
-			connections[0]=-1;
-			return NULL;
-		}
-		//	Print IPv4 packet header frames.
-		printf("IP version: %d\n", ((struct iphdr *)bufptr)->version);
-		printf("packet size: %d\n",
-			ntohs(((struct iphdr *)bufptr)->tot_len));
-		printf("protocol: %#.2x\n", ((struct iphdr *)bufptr)->protocol);
-		//	if the segment is an ICMP segment, print its fields.
-		if(((struct iphdr *)bufptr)->protocol==1){
-			bufptr+=IPv4_HEADER_SIZE;
-			printf("ICMP type: %#.2x\n",
-				((struct icmphdr *)bufptr)->type);
-			printf("ICMP code: %#.2x\n",
-				((struct icmphdr *)bufptr)->code);
-			printf("ICMP checksum: %#.4x\n",
-				ntohs(((struct icmphdr *)bufptr)->checksum));
-			printf("ICMP identifier: %#.4x\n",
-				ntohs(((struct icmphdr *)bufptr)->un.echo.id));
-			printf("ICMP sequence: %#.4x\n\n",
-				ntohs(((struct icmphdr *)bufptr)->un.echo.sequence));
-			bufptr-=IPv4_HEADER_SIZE;
-		}
-		bufptr-=PROXY_HEADER_SIZE;
+		prxyhdr.type=htons(DATA);
+		prxyhdr.length=htons(size);
+		memcpy(buffer, &prxyhdr, PROXY_HLEN);
 		//	Write the modified IP payload to the Ethernet socket.
-		if((size=rio_write(&rio_eth[0], bufptr,
-			ntohs(prxyhdr.length)+PROXY_HEADER_SIZE))<0){
-			fprintf(stderr, "error writing to Ethernet device\n");
-			close(connections[0]);
-			connections[0]=-1;
+		if((size=rio_write(&rio_eth, buffer,
+			ntohs(prxyhdr.length)+PROXY_HLEN))<0){
+			perror("error writing to Ethernet device\n");
+			close(rio_eth.fd);
 			return NULL;
 		}
-		rio_resetBuffer(&rio_eth[0]);
+		rio_resetBuffer(&rio_eth);
 		rio_resetBuffer(&rio_tap);
 	}
 }
 
-void *eth_handler(int *ethfd){
+void *eth_handler(rio_t *rp){
 	/**
   	  *	ethfd points to the socket descriptor to the Ethernet device that
 	  *	only this thread can read from. It is set to -1 after the thread
@@ -307,20 +233,15 @@ void *eth_handler(int *ethfd){
 	ssize_t size;
 	void *buffer;
 	proxy_header prxyhdr;
-	int i=(int)(ethfd-connections);	//	index of ethfd at connections
 	for(;;){
 		//	Read the proxy type directly into the proxy header structure.
-		if((size=rio_readnb(&rio_eth[0], &prxyhdr,
-			PROXY_HEADER_SIZE))<=0){
+		if((size=rio_readnb(rp, &prxyhdr, PROXY_HLEN))<=0){
 			if(size<0)
 				fprintf(stderr,
 					"error reading from the Ethernet device.\n");
 			else
-				fprintf(stderr, "connection #%d severed\n", i);
-			close(*ethfd);
-			*ethfd=-1;
-			if(i<next_conn)
-				next_conn=i;
+				perror("connection severed\n");
+			close(rp->fd);
 			return NULL;
 		}
 		/**
@@ -332,154 +253,254 @@ void *eth_handler(int *ethfd){
 		prxyhdr.type=ntohs(prxyhdr.type);
 		prxyhdr.length=ntohs(prxyhdr.length);
 		buffer=malloc(prxyhdr.length);
-		if((size=rio_readnb(&rio_eth[0], buffer, prxyhdr.length))<=0){
+		if((size=rio_readnb(rp, buffer, prxyhdr.length))<=0){
 			if(size<0)
 				fprintf(stderr,
 					"error reading from the Ethernet device.\n");
 			else
-				fprintf(stderr, "connection #%d severed\n", i);
-			close(*ethfd);
-			*ethfd=-1;
-			if(i<next_conn)
-				next_conn=i;
+				perror("connection severed\n");
+			close(rp->fd);
+			if(rp!=&rio_eth)
+				free(rp);
 			return NULL;
 		}
 		switch(prxyhdr.type){
-			case 0xABCD:
-				if(Data(buffer, prxyhdr.length)<0)
-					exit(-1);
+			case DATA:
+				if(Data(buffer, prxyhdr.length)<0){
+					goto TYPE_ERROR;
+				}
 				break;
 			//	Leave (part 2)
-			case 0xAB01:
-				if(Leave(buffer, prxyhdr.length)<0)
-					exit(-1);
+			case LEAVE:
+				if(Leave(buffer, prxyhdr.length)<0){
+					goto TYPE_ERROR;
+				}
 				break;
 			//	Quit
-			case 0xAB12:
-				if(Quit(buffer, prxyhdr.length)<0)
-					exit(-1);
+			case QUIT:
+				if(Quit(buffer, prxyhdr.length)<0){
+					goto TYPE_ERROR;
+				}
 				break;
 			//	Link-state (part 2)
-			case 0xABAC:
-				if(Link_State(buffer, prxyhdr.length)<0)
-					exit(-1);
+			case LINK_STATE:
+				if(Link_State(buffer, prxyhdr.length)<0){
+					goto TYPE_ERROR;
+				}
 				break;
 			//	RTT Probe Request (part 3)
-			case 0xAB34:
-				if(RTT_Probe_Request(buffer, prxyhdr.length)<0)
-					exit(-1);
+			case RTT_PROBE_REQUEST:
+				if(RTT_Probe_Request(buffer, prxyhdr.length)<0){
+					goto TYPE_ERROR;
+				}
 				break;
 			//	RTT Probe Response (part 3)
-			case 0xAB35:
-				if(RTT_Probe_Response(buffer, prxyhdr.length)<0)
-					exit(-1);
+			case RTT_PROBE_RESPONSE:
+				if(RTT_Probe_Response(buffer, prxyhdr.length)<0){
+					goto TYPE_ERROR;
+				}
 				break;
 			//	Proxy Public Key (extra credit)
-			case 0xAB21:
-				if(Proxy_Public_Key(buffer, prxyhdr.length)<0)
-					exit(-1);
+			case PROXY_PUBLIC_KEY:
+				if(Proxy_Public_Key(buffer, prxyhdr.length)<0){
+					goto TYPE_ERROR;
+				}
 				break;
 			//	Signed Data (extra credit)
-			case 0xABC1:
-				if(Signed_Data(buffer, prxyhdr.length)<0)
-					exit(-1);
+			case SIGNED_DATA:
+				if(Signed_Data(buffer, prxyhdr.length)<0){
+					goto TYPE_ERROR;
+				}
 				break;
 			//	Proxy Secret key (extra credit)
-			case 0xAB22:
-				if(Proxy_Secret_Key(buffer, prxyhdr.length)<0)
-					exit(-1);
+			case PROXY_SECRET_KEY:
+				if(Proxy_Secret_Key(buffer, prxyhdr.length)<0){
+					goto TYPE_ERROR;
+				}
 				break;
 			//	Encrypted Data (extra credit)
-			case 0xABC2:
-				if(Encrypted_Data(buffer, prxyhdr.length)<0)
-					exit(-1);
+			case ENCRYPTED_DATA:
+				if(Encrypted_Data(buffer, prxyhdr.length)<0){
+					goto TYPE_ERROR;
+				}
 				break;
 			//	Encrypted Link State (extra credit)
-			case 0XABAB:
-				if(Encrypted_Link_State(buffer, prxyhdr.length)<0)
-					exit(-1);
+			case ENCRYPTED_LINK_STATE:
+				if(Encrypted_Link_State(buffer, prxyhdr.length)<0){
+					goto TYPE_ERROR;
+				}
 				break;
 			//	Signed link-state (extra credit)
-			case 0XABAD:
-				if(Signed_Link_State(buffer, prxyhdr.length)<0)
-					exit(-1);
+			case SIGNED_LINK_STATE:
+				if(Signed_Link_State(buffer, prxyhdr.length)<0){
+					goto TYPE_ERROR;
+				}
 				break;
 			//	Bandwidth Probe Request
-			case 0xAB45:
-				if(Bandwidth_Probe_Request(buffer, prxyhdr.length)<0)
-					exit(-1);
+			case BANDWIDTH_PROBE_REQUEST:
+				if(Bandwidth_Probe_Request(buffer, prxyhdr.length)<0){
+					goto TYPE_ERROR;
+				}
 				break;
 			//	Bandwidth Response
-			case 0xAB46:
-				if(Bandwidth_Probe_Response(buffer, prxyhdr.length)<0)
-					exit(-1);
+			case BANDWIDTH_RESPONSE:
+				if(Bandwidth_Probe_Response(buffer, prxyhdr.length)<0){
+					goto TYPE_ERROR;
+				}
 				break;
 			default:
-				fprintf(stderr, "error, incorrect type\n");
-				close(*ethfd);
-				*ethfd=-1;
-				if(i<next_conn)
-					next_conn=i;
-				return NULL;
+				perror("error, incorrect type\n");
+				TYPE_ERROR:
+					close(rp->fd);
+					free(buffer);
+					if(rp!=&rio_eth)
+						free(rp);
+					exit(-1);
 		}
+		free(buffer);
 	}
 }
 
-int Data(void *buffer, unsigned short length){
-	ssize_t size;
-	void *bufptr;
-	bufptr=buffer;
-	//	Print IPv4 packet header fields.
-	printf("IP version: %d\n", ((struct iphdr *)bufptr)->version);
-	printf("packet size: %d\n",
-		ntohs(((struct iphdr *)bufptr)->tot_len));
-	printf("protocol: %#.2x\n", ((struct iphdr *)bufptr)->protocol);
-	//	if the segment is an ICMP segment, print its fields.
-	if(((struct iphdr *)bufptr)->protocol==1){
-		bufptr+=IPv4_HEADER_SIZE;
-		printf("ICMP type: %#.2x\n",
-			((struct icmphdr *)bufptr)->type);
-		printf("ICMP code: %#.2x\n",
-			((struct icmphdr *)bufptr)->code);
-		printf("ICMP checksum: %#.4x\n",
-			ntohs(((struct icmphdr *)bufptr)->checksum));
-		printf("ICMP identifier: %#.4x\n",
-			ntohs(((struct icmphdr *)bufptr)->un.echo.id));
-		printf("ICMP sequence: %#.4x\n\n",
-			ntohs(((struct icmphdr *)bufptr)->un.echo.sequence));
+/**
+  *	Thread-safe implentation of inet_ntoa()
+  *	Instead of returning a character pointer pointing to a string of the
+  *	I.P. address, it writes the I.P. address as a character string to the
+  *	given character pointer.
+  */
+void inet_ntoa_r(int addr, char *s){
+	sprintf(s, "%hhu:%hhu:%hhu:%hhu",
+		*(unsigned char *)&addr,
+		*(unsigned char *)(&addr+1),
+		*(unsigned char *)(&addr+2),
+		*(unsigned char *)(&addr+3));
+	return;
+}
+
+printEthernet(struct ethhdr *data){
+	int i;
+	//	Print Ethernet frame header fields.
+	printf("%-25s", "source MAC address:");
+	for(i=0; i<ETH_ALEN-1; i++)
+		printf("%.2x:", ((struct ethhdr *)data)->h_source[i]);
+	printf("%.2x\n", ((struct ethhdr *)data)->h_source[i]);
+	printf("%-25s", "destination MAC address:");
+	for(i=0; i<ETH_ALEN-1; i++)
+		printf("%.2x:", ((struct ethhdr *)data)->h_dest[i]);
+	printf("%.2x\n", ((struct ethhdr *)data)->h_dest[i]);
+	printf("%-25s %#.4x\n",
+		"Ethertype:", ntohs(((struct ethhdr *)data)->h_proto));
+	switch(ntohs(((struct ethhdr *)data)->h_proto)){
+		//	IPv4
+		case ETH_P_IP:
+			printIP((void *)data+ETH_HLEN);
+			break;
+		//	ARP
+		case ETH_P_ARP:
+			printARP((void *)data+ETH_HLEN);
+			break;
+		//	Unknown or unimplemented Ethertype
+		default: break;
 	}
+}
+
+void printIP(struct iphdr *data){
+	/**
+	  *	data now points to the beginning of the IPv4 packet header;
+	  *	one may add code here to output IPv4 packet information.
+	  *	Consult linux/ip.h to find the fields of struct iphdr.
+	  */
+	char s[16];
+	printf("%-27s %u\n", "IP version:", data->version);
+	printf("%-27s %u\n", "IP packet size:", ntohs(data->tot_len));
+	printf("%-27s %#.2x\n", "protocol:", data->protocol);
+	inet_ntoa_r(data->saddr, s);
+	printf("%-27s %s\n", "source I.P. address:", s);
+	inet_ntoa_r(data->daddr, s);
+	printf("%-27s %s\n", "destination I.P. address:", s);
+	//	if the segment is an ICMP segment, print its fields.
+	switch(data->protocol){
+		//	ICMP protocol number
+		case 0x01:
+			printICMP((void *)data+IPv4_HLEN);
+			break;
+		//	Unknown or unimplemented protocol
+		default: break;
+	}
+	return;
+}
+
+void printARP(void *data){
+	return;
+}
+
+void printICMP(struct icmphdr *data){
+	printf("%-17s %#.2x\n", "ICMP type:", data->type);
+	printf("%-17s %#.2x\n", "ICMP code:", data->code);
+	printf("%-17s %#.4x\n", "ICMP checksum:", ntohs(data->checksum));
+	printf("%-17s %#.4x\n", "ICMP identifier:", ntohs(data->un.echo.id));
+	printf("%-17s %#.4x\n\n", "ICMP sequence:",
+		ntohs(data->un.echo.sequence));
+	return;
+}
+
+int Data(void *data, unsigned short length){
+	ssize_t size;
 	//	Write the payload to the tap device.
-	if((size=rio_write(&rio_tap, buffer, length))<0){
-		fprintf(stderr, "error writing to tap device\n");
-		free(buffer);
+	if((size=rio_write(&rio_tap, data, length))<0){
+		perror("error writing to tap device");
 		return -1;
 	}
-	free(buffer);
 	return 0;
 }
 
-int Leave(void *buffer, unsigned short length){}
+int Leave(void *data, unsigned short length){
+	return 0;
+}
 
-int Quit(void *buffer, unsigned short length){}
+int Quit(void *data, unsigned short length){
+	return 0;
+}
 
-int Link_State(void *buffer, unsigned short length){}
+int Link_State(void *data, unsigned short length){
+	return 0;
+}
 
-int RTT_Probe_Request(void *buffer, unsigned short length){}
+int RTT_Probe_Request(void *data, unsigned short length){
+	return 0;
+}
 
-int RTT_Probe_Response(void *buffer, unsigned short length){}
+int RTT_Probe_Response(void *data, unsigned short length){
+	return 0;
+}
 
-int Proxy_Public_Key(void *buffer, unsigned short length){}
+int Proxy_Public_Key(void *data, unsigned short length){
+	return 0;
+}
 
-int Signed_Data(void *buffer, unsigned short length){}
+int Signed_Data(void *data, unsigned short length){
+	return 0;
+}
 
-int Proxy_Secret_Key(void *buffer, unsigned short length){}
+int Proxy_Secret_Key(void *data, unsigned short length){
+	return 0;
+}
 
-int Encrypted_Data(void *buffer, unsigned short length){}
+int Encrypted_Data(void *data, unsigned short length){
+	return 0;
+}
 
-int Encrypted_Link_State(void *buffer, unsigned short length){}
+int Encrypted_Link_State(void *data, unsigned short length){
+	return 0;
+}
 
-int Signed_Link_State(void *buffer, unsigned short length){}
+int Signed_Link_State(void *data, unsigned short length){
+	return 0;
+}
 
-int Bandwidth_Probe_Request(void *buffer, unsigned short length){}
+int Bandwidth_Probe_Request(void *data, unsigned short length){
+	return 0;
+}
 
-int Bandwidth_Probe_Response(void *buffer, unsigned short length){}
+int Bandwidth_Probe_Response(void *data, unsigned short length){
+	return 0;
+}

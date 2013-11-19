@@ -1,4 +1,3 @@
-#include<linux/if_ether.h>
 #include"rio.h"
 
 void rio_readinit(rio_t *rp, int fd){
@@ -6,7 +5,7 @@ void rio_readinit(rio_t *rp, int fd){
 	rp->fd=fd;
 	rp->cnt=0;
 	rp->bufp=rp->buf;
-	memset(rp->buf, 0, MTU_L2);
+	memset(rp->buf, 0, ETH_FRAME_LEN+PROXY_HLEN);
 	/**
 	  *	Set the file flags to include non-blocking.
 	  */
@@ -24,7 +23,7 @@ void rio_readinit(rio_t *rp, int fd){
 }
 
 void rio_resetBuffer(rio_t *rp){
-	memset(rp->buf, 0, MTU_L2);
+	memset(rp->buf, 0, ETH_FRAME_LEN+PROXY_HLEN);
 	rp->bufp=rp->buf;
 }
 
@@ -51,20 +50,18 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 		  * Wait indefinitely until the socket is ready for reading.
 		  *
 		  *	Receive the packet into the buffer.
+		  *
 		  *	Returning from poll() implies that the socket has data to be
 		  *	received.
 		  *
-		  *	read() terminates at the end of data with the tap device, but
-		  *	blocks with a socket.
-		  *
-		  *	Use fcntl() to set the file descriptor to non-blocking instead.
+		  *	Use fcntl() to set the file descriptor to non-blocking.
 		  *
 		  *	Also use fcntl() to lock the file descriptor for thread-safe
 		  *	access to I/O operations.
 		  *
 		  *	Wrap locking procedure over error-handling in case fcntl() is
-		  *	interrupted by a signal or encounters an error.
-		  *	This error-handling code is copied in rio_write().
+		  *	interrupted by a signal or encounters an error. This error-
+		  *	handling code is copied in rio_write().
 		  */
 		poll(&pfd, 1, -1);
 		do{
