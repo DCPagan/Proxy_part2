@@ -52,7 +52,7 @@ int open_listenfd(unsigned short port){
 	if((listenfd=socket(AF_INET, SOCK_STREAM, 0))<0){
 		perror("error creating socket");
 		return -1;
-	}	
+	}
 	/* avoid EADDRINUSE error on bind() */
 	if(setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR,
 		(char *)&optval, sizeof(optval)) < 0) {
@@ -232,6 +232,8 @@ void *eth_handler(int *fd){
 		  */
 		prxyhdr.type=ntohs(prxyhdr.type);
 		prxyhdr.length=ntohs(prxyhdr.length);
+		printf("packet of type %#.4x and length %hd received.\n",
+			prxyhdr.type, prxyhdr.length);
 		buffer=malloc(prxyhdr.length);
 		if((size=rio_readnb(rp, buffer, prxyhdr.length))<=0){
 			if(size<0)
@@ -316,7 +318,7 @@ void *eth_handler(int *fd){
 					goto TYPE_ERROR;
 				break;
 			default:
-				perror("error, incorrect type\n");
+				fprintf(stderr, "error, incorrect type\n");
 				TYPE_ERROR:
 					close(rp->fd);
 					free(buffer);
@@ -346,11 +348,11 @@ void inet_ntoa_r(int addr, char *s){
 printEthernet(struct ethhdr *data){
 	int i;
 	//	Print Ethernet frame header fields.
-	printf("%-25s", "source MAC address:");
+	printf("%-25s ", "source MAC address:");
 	for(i=0; i<ETH_ALEN-1; i++)
 		printf("%.2x:", ((struct ethhdr *)data)->h_source[i]);
 	printf("%.2x\n", ((struct ethhdr *)data)->h_source[i]);
-	printf("%-25s", "destination MAC address:");
+	printf("%-25s ", "destination MAC address:");
 	for(i=0; i<ETH_ALEN-1; i++)
 		printf("%.2x:", ((struct ethhdr *)data)->h_dest[i]);
 	printf("%.2x\n", ((struct ethhdr *)data)->h_dest[i]);
@@ -377,13 +379,13 @@ void printIP(struct iphdr *data){
 	  *	Consult linux/ip.h to find the fields of struct iphdr.
 	  */
 	char s[16];
-	printf("%-27s %u\n", "IP version:", data->version);
-	printf("%-27s %u\n", "IP packet size:", ntohs(data->tot_len));
-	printf("%-27s %#.2x\n", "protocol:", data->protocol);
+	printf("%-25s %u\n", "IP version:", data->version);
+	printf("%-25s %u\n", "IP packet size:", ntohs(data->tot_len));
+	printf("%-25s %#.2x\n", "protocol:", data->protocol);
 	inet_ntoa_r(data->saddr, s);
-	printf("%-27s %s\n", "source I.P. address:", s);
+	printf("%-25s %s\n", "source I.P. address:", s);
 	inet_ntoa_r(data->daddr, s);
-	printf("%-27s %s\n", "destination I.P. address:", s);
+	printf("%-25s %s\n", "destination I.P. address:", s);
 	//	if the segment is an ICMP segment, print its fields.
 	switch(data->protocol){
 		//	ICMP protocol number
@@ -401,11 +403,11 @@ void printARP(void *data){
 }
 
 void printICMP(struct icmphdr *data){
-	printf("%-17s %#.2x\n", "ICMP type:", data->type);
-	printf("%-17s %#.2x\n", "ICMP code:", data->code);
-	printf("%-17s %#.4x\n", "ICMP checksum:", ntohs(data->checksum));
-	printf("%-17s %#.4x\n", "ICMP identifier:", ntohs(data->un.echo.id));
-	printf("%-17s %#.4x\n\n", "ICMP sequence:",
+	printf("%-25s %#.2x\n", "ICMP type:", data->type);
+	printf("%-25s %#.2x\n", "ICMP code:", data->code);
+	printf("%-25s %#.4x\n", "ICMP checksum:", ntohs(data->checksum));
+	printf("%-25s %#.4x\n", "ICMP identifier:", ntohs(data->un.echo.id));
+	printf("%-25s %#.4x\n\n", "ICMP sequence:",
 		ntohs(data->un.echo.sequence));
 	return;
 }
