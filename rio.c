@@ -10,14 +10,12 @@ void rio_readinit(rio_t *rp, int fd){
 	  *	Set the file flags to include non-blocking.
 	  */
 	if(flags=fcntl(rp->fd, F_GETFL, 0)<0){
-		fprintf(stderr, "F_GETFL error: %s\n",
-			strerror(errno));
+		perror("F_GETFL error");
 		exit(-1);
 	}
 	flags|=O_NONBLOCK;
 	if(fcntl(rp->fd, F_SETFL, flags)<0){
-		fprintf(stderr, "F_SETFL error: %s\n",
-			strerror(errno));
+		perror("F_SETFL error");
 		exit(-1);
 	}
 }
@@ -42,7 +40,7 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 	struct pollfd pfd={rp->fd, POLLIN, 0};
 	int cnt;
 	if(n==0){
-		fprintf(stderr, "error: number of bytes to read equals zero\n");
+		perror("error: number of bytes to read equals zero");
 		return -1;
 	}
 	while(rp->cnt<=0){
@@ -67,8 +65,7 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 		do{
 			if(fcntl(rp->fd, F_SETLKW, &lock)<0
 				&&errno!=EINTR){
-				fprintf(stderr, "F_SETLKW error: %s\n",
-					strerror(errno));
+				perror("F_SETLKW error");
 				exit(-1);
 			}
 		}while(errno==EINTR);
@@ -80,8 +77,7 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 				do{
 					if(fcntl(rp->fd, F_SETLKW, &unlock)<0
 						&&errno!=EINTR){
-						fprintf(stderr, "F_SETLKW error: %s\n",
-							strerror(errno));
+						perror("F_SETLKW error");
 						exit(-1);
 					}
 				}while(errno==EINTR);
@@ -94,8 +90,7 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 			do{
 				if(fcntl(rp->fd, F_SETLKW, &unlock)<0
 					&&errno!=EINTR){
-					fprintf(stderr, "F_SETLKW error: %s\n",
-						strerror(errno));
+					perror("F_SETLKW error");
 					exit(-1);
 				}
 			}while(errno==EINTR);
@@ -107,8 +102,7 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 		do{
 			if(fcntl(rp->fd, F_SETLKW, &unlock)<0
 				&&errno!=EINTR){
-				fprintf(stderr, "F_SETLKW error: %s\n",
-					strerror(errno));
+				perror("F_SETLKW error");
 				exit(-1);
 			}
 		}while(errno==EINTR);
@@ -136,7 +130,7 @@ ssize_t rio_readnb(rio_t *rp, void *usrbuf, size_t n){
 	size_t nleft=n;
 	void *bufp=usrbuf;
 	if(n==0){
-		fprintf(stderr, "error: number of bytes to read equals zero\n");
+		perror("error: number of bytes to read equals zero");
 		return -1;
 	}
 	while(nleft>0){
@@ -173,7 +167,7 @@ ssize_t rio_write(rio_t *rp, void *usrbuf, size_t n){
 	ssize_t nwritten;
 	char *bufp=usrbuf;
 	if(n==0){
-		fprintf(stderr, "error: number of bytes to read equals zero\n");
+		perror("error: number of bytes to read equals zero");
 		return -1;
 	}
 	while(nleft>0){
@@ -182,8 +176,7 @@ ssize_t rio_write(rio_t *rp, void *usrbuf, size_t n){
 		do{
 			if(fcntl(rp->fd, F_SETLKW, &lock)<0
 				&&errno!=EINTR){
-				fprintf(stderr, "F_SETLKW error: %s\n",
-					strerror(errno));
+				perror("F_SETLKW error");
 				exit(-1);
 			}
 		}while(errno==EINTR);
@@ -197,8 +190,7 @@ ssize_t rio_write(rio_t *rp, void *usrbuf, size_t n){
 				do{
 					if(fcntl(rp->fd, F_SETLKW, &unlock)<0
 						&&errno!=EINTR){
-						fprintf(stderr, "F_SETLKW error: %s\n",
-							strerror(errno));
+						perror("F_SETLKW error");
 						exit(-1);
 					}
 				}while(errno==EINTR);
@@ -214,8 +206,7 @@ ssize_t rio_write(rio_t *rp, void *usrbuf, size_t n){
 	do{
 		if(fcntl(rp->fd, F_SETLKW, &unlock)<0
 			&&errno!=EINTR){
-			fprintf(stderr, "F_SETLKW error: %s\n",
-				strerror(errno));
+			perror("F_SETLKW error");
 			exit(-1);
 		}
 	}while(errno==EINTR);
@@ -233,11 +224,11 @@ ssize_t readn(int fd, void *usrbuf, size_t n){
 	size_t nleft=n;
 	void *bufp=usrbuf;
 	if(n==0){
-		fprintf(stderr, "error: number of bytes to read equals zero\n");
+		perror("error: number of bytes to read equals zero");
 		return -1;
 	}
 	if(n==0){
-		fprintf(stderr, "error: number of bytes to read equals zero\n");
+		perror("error: number of bytes to read equals zero");
 		return -1;
 	}
 	while(nleft>0){
@@ -268,7 +259,7 @@ ssize_t writen(int fd, void *usrbuf, size_t n){
 	ssize_t nwritten;
 	char *bufp=usrbuf;
 	if(n==0){
-		fprintf(stderr, "error: number of bytes to read equals zero\n");
+		perror("error: number of bytes to read equals zero");
 		return -1;
 	}
 	while(nleft>0){

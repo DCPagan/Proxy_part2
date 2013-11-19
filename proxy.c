@@ -133,7 +133,6 @@ void *listen_handler(int *lfdptr){
 	pthread_t tid;
 	//	Store next_conn value into i to prevent a race.
 	free(lfdptr);
-	pthread_detach(pthread_self());
 	for(;;){
 		//	Accept a connection request.
 		if((connfd=accept(listenfd,
@@ -180,7 +179,6 @@ void *tap_handler(rio_t *rp){
 			close(rio_eth.fd);
 			return NULL;
 		}
-		printEthernet(buffer+PROXY_HLEN);
 		/**
 		  *	Parse MAC addresses here. Dereference bufptr as
 		  *	(struct ethhdr *), and consult linux/if_ether.h.
