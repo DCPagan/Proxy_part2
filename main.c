@@ -139,6 +139,5 @@ int main(int argc, char **argv){
 	pthread_create(&listen_tid, NULL, listen_handler, listenfdptr);
 	pthread_detach(tap_tid);
 	pthread_detach(eth_tid);
-	pthread_detach(listen_tid);
 	return 0;
 }

@@ -92,7 +92,7 @@ int open_clientfd(char *hostname, unsigned short port){
 		(char *)&optval, sizeof(optval)) < 0) {
 		perror("setsockopt()");
 		close(clientfd);
-		exit(-1);
+		return -1;
 	}
 	/**
 	  * If the given hostname is an I.P. address in dotted decimal notation,
@@ -132,7 +132,8 @@ void *listen_handler(int *lfdptr){
 	rio_t *rp;
 	pthread_t tid;
 	//	Store next_conn value into i to prevent a race.
-	free(*lfdptr);
+	free(lfdptr);
+	pthread_detach(pthread_self());
 	for(;;){
 		//	Accept a connection request.
 		if((connfd=accept(listenfd,
@@ -174,7 +175,7 @@ void *tap_handler(rio_t *rp){
 		  *	ETH_FCS_LEN (valued at 4) to the third parameter of the following
 		  *	reading procedure.
 		  */
-		if((size=rio_read(&rio_tap, buffer+PROXY_HLEN, ETH_FRAME_LEN))<0){
+		if((size=rio_read(rp, buffer+PROXY_HLEN, ETH_FRAME_LEN))<0){
 			perror("error reading from the tap device.\n");
 			close(rio_eth.fd);
 			return NULL;
@@ -217,8 +218,7 @@ void *tap_handler(rio_t *rp){
 			close(rio_eth.fd);
 			return NULL;
 		}
-		rio_resetBuffer(&rio_eth);
-		rio_resetBuffer(&rio_tap);
+		rio_resetBuffer(rp);
 	}
 }
 
@@ -262,89 +262,76 @@ void *eth_handler(rio_t *rp){
 				free(rp);
 			return NULL;
 		}
+		rio_resetBuffer(rp);
 		switch(prxyhdr.type){
 			case DATA:
-				if(Data(buffer, prxyhdr.length)<0){
+				if(Data(buffer, prxyhdr.length)<0)
 					goto TYPE_ERROR;
-				}
 				break;
 			//	Leave (part 2)
 			case LEAVE:
-				if(Leave(buffer, prxyhdr.length)<0){
+				if(Leave(buffer, prxyhdr.length)<0)
 					goto TYPE_ERROR;
-				}
 				break;
 			//	Quit
 			case QUIT:
-				if(Quit(buffer, prxyhdr.length)<0){
+				if(Quit(buffer, prxyhdr.length)<0)
 					goto TYPE_ERROR;
-				}
 				break;
 			//	Link-state (part 2)
 			case LINK_STATE:
-				if(Link_State(buffer, prxyhdr.length)<0){
+				if(Link_State(buffer, prxyhdr.length)<0)
 					goto TYPE_ERROR;
-				}
 				break;
 			//	RTT Probe Request (part 3)
 			case RTT_PROBE_REQUEST:
-				if(RTT_Probe_Request(buffer, prxyhdr.length)<0){
+				if(RTT_Probe_Request(buffer, prxyhdr.length)<0)
 					goto TYPE_ERROR;
-				}
 				break;
 			//	RTT Probe Response (part 3)
 			case RTT_PROBE_RESPONSE:
-				if(RTT_Probe_Response(buffer, prxyhdr.length)<0){
+				if(RTT_Probe_Response(buffer, prxyhdr.length)<0)
 					goto TYPE_ERROR;
-				}
 				break;
 			//	Proxy Public Key (extra credit)
 			case PROXY_PUBLIC_KEY:
-				if(Proxy_Public_Key(buffer, prxyhdr.length)<0){
+				if(Proxy_Public_Key(buffer, prxyhdr.length)<0)
 					goto TYPE_ERROR;
-				}
 				break;
 			//	Signed Data (extra credit)
 			case SIGNED_DATA:
-				if(Signed_Data(buffer, prxyhdr.length)<0){
+				if(Signed_Data(buffer, prxyhdr.length)<0)
 					goto TYPE_ERROR;
-				}
 				break;
 			//	Proxy Secret key (extra credit)
 			case PROXY_SECRET_KEY:
-				if(Proxy_Secret_Key(buffer, prxyhdr.length)<0){
+				if(Proxy_Secret_Key(buffer, prxyhdr.length)<0)
 					goto TYPE_ERROR;
-				}
 				break;
 			//	Encrypted Data (extra credit)
 			case ENCRYPTED_DATA:
-				if(Encrypted_Data(buffer, prxyhdr.length)<0){
+				if(Encrypted_Data(buffer, prxyhdr.length)<0)
 					goto TYPE_ERROR;
-				}
 				break;
 			//	Encrypted Link State (extra credit)
 			case ENCRYPTED_LINK_STATE:
-				if(Encrypted_Link_State(buffer, prxyhdr.length)<0){
+				if(Encrypted_Link_State(buffer, prxyhdr.length)<0)
 					goto TYPE_ERROR;
-				}
 				break;
 			//	Signed link-state (extra credit)
 			case SIGNED_LINK_STATE:
-				if(Signed_Link_State(buffer, prxyhdr.length)<0){
+				if(Signed_Link_State(buffer, prxyhdr.length)<0)
 					goto TYPE_ERROR;
-				}
 				break;
 			//	Bandwidth Probe Request
 			case BANDWIDTH_PROBE_REQUEST:
-				if(Bandwidth_Probe_Request(buffer, prxyhdr.length)<0){
+				if(Bandwidth_Probe_Request(buffer, prxyhdr.length)<0)
 					goto TYPE_ERROR;
-				}
 				break;
 			//	Bandwidth Response
 			case BANDWIDTH_RESPONSE:
-				if(Bandwidth_Probe_Response(buffer, prxyhdr.length)<0){
+				if(Bandwidth_Probe_Response(buffer, prxyhdr.length)<0)
 					goto TYPE_ERROR;
-				}
 				break;
 			default:
 				perror("error, incorrect type\n");
@@ -368,9 +355,9 @@ void *eth_handler(rio_t *rp){
 void inet_ntoa_r(int addr, char *s){
 	sprintf(s, "%hhu:%hhu:%hhu:%hhu",
 		*(unsigned char *)&addr,
-		*(unsigned char *)(&addr+1),
-		*(unsigned char *)(&addr+2),
-		*(unsigned char *)(&addr+3));
+		*((unsigned char *)&addr+1),
+		*((unsigned char *)&addr+2),
+		*((unsigned char *)&addr+3));
 	return;
 }
 
