@@ -23,14 +23,15 @@ typedef struct{
 	char buf[ETH_FRAME_LEN + PROXY_HLEN];
 } rio_t;
 
-extern void rio_readinit(rio_t *rp, int fd);
+extern void rio_readinit(rio_t *, int);
+extern void rio_resetBuffer(rio_t *);
 /**
   *	First read fills entire buffer
   *	subsequent reads read from the buffer
   */
-extern ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n);
-extern ssize_t rio_write(rio_t *rp, void *usrbuf, size_t n);
+extern ssize_t rio_read(rio_t *, void *, size_t);
+extern ssize_t rio_write(rio_t *, void *, size_t);
 //	buffered read
-extern ssize_t rio_readnb(rio_t *rp, void *usrbuf, size_t n);
+extern ssize_t rio_readnb(rio_t *, void *, size_t);
 extern ssize_t readn(int, void *, size_t);
 extern ssize_t writen(int, void *, size_t);

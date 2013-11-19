@@ -137,8 +137,8 @@ int main(int argc, char **argv){
 	pthread_create(&tap_tid, NULL, tap_handler, &rio_tap);
 	pthread_create(&eth_tid, NULL, eth_handler, &rio_eth);
 	pthread_create(&listen_tid, NULL, listen_handler, listenfdptr);
-	pthread_detach(tap_tid);
-	pthread_detach(eth_tid);
-	pthread_detach(listen_tid);
+	pthread_join(tap_tid, NULL);
+	pthread_join(eth_tid, NULL);
+	pthread_join(listen_tid, NULL);
 	return 0;
 }
