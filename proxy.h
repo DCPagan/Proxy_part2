@@ -44,7 +44,7 @@
   *	segments can be found in linux/if_ether.h, linux/ip.h and linux/icmp.h,
   *	respectively.
   */
-//	List of all packet types, including those for extra credit.
+//	List of all packet type numbers
 #define DATA 0XABCD						//	part 2
 #define LEAVE 0XAB01					//	part 2
 #define QUIT 0XAB12						//	part 2
@@ -111,8 +111,6 @@ extern int Signed_Link_State(void *, unsigned short);
 extern int Bandwidth_Probe_Request(void *, unsigned short);
 extern int Bandwidth_Probe_Response(void *, unsigned short);
 
-extern pthread_t tap_tid, listen_tid,
-	eth_tid[CONNECTION_MAX];	//	thread identifiers
 extern int tapfd;
 extern int ethfd;
 extern rio_t rio_tap;	//	Robust I/O struct for the tap device
