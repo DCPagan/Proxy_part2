@@ -40,7 +40,7 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 	struct pollfd pfd={rp->fd, POLLIN, 0};
 	int cnt;
 	if(n==0){
-		perror("error: number of bytes to read equals zero");
+		fprintf(stderr, "error: number of bytes to read equals zero");
 		return -1;
 	}
 	while(rp->cnt<=0){
@@ -130,7 +130,7 @@ ssize_t rio_readnb(rio_t *rp, void *usrbuf, size_t n){
 	size_t nleft=n;
 	void *bufp=usrbuf;
 	if(n==0){
-		perror("error: number of bytes to read equals zero");
+		fprintf(stderr, "error: number of bytes to read equals zero");
 		return -1;
 	}
 	while(nleft>0){
@@ -167,7 +167,7 @@ ssize_t rio_write(rio_t *rp, void *usrbuf, size_t n){
 	ssize_t nwritten;
 	char *bufp=usrbuf;
 	if(n==0){
-		perror("error: number of bytes to read equals zero");
+		fprintf(stderr, "error: number of bytes to write equals zero");
 		return -1;
 	}
 	while(nleft>0){
@@ -224,11 +224,7 @@ ssize_t readn(int fd, void *usrbuf, size_t n){
 	size_t nleft=n;
 	void *bufp=usrbuf;
 	if(n==0){
-		perror("error: number of bytes to read equals zero");
-		return -1;
-	}
-	if(n==0){
-		perror("error: number of bytes to read equals zero");
+		fprintf(stderr, "error: number of bytes to read equals zero");
 		return -1;
 	}
 	while(nleft>0){
@@ -259,7 +255,7 @@ ssize_t writen(int fd, void *usrbuf, size_t n){
 	ssize_t nwritten;
 	char *bufp=usrbuf;
 	if(n==0){
-		perror("error: number of bytes to read equals zero");
+		fprintf(stderr, "error: number of bytes to write equals zero");
 		return -1;
 	}
 	while(nleft>0){
