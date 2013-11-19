@@ -1,16 +1,15 @@
 #include"proxy.h"
 
 int main(int argc, char **argv){
-	int i, listenfd;	//	listening socket descriptor
-	int addrlen=sizeof(struct sockaddr_in);
+	int *listenfdptr;	//	listening socket descriptor
+	unsigned int addrlen=sizeof(struct sockaddr_in);
 	unsigned short port;
 	struct sockaddr_in clientaddr;
-	struct hostent hostinfo;
 	char buf[256];
-	char *bufp=buf;
-	FILE *fp;
+	pthread_t listen_tid, tap_tid, eth_tid;	//	thread identifiers
+	int tapfd=-1;
 	if(argc!=3&&argc!=4){
-		fprintf(stderr, "Error\n\t Usage for first proxy:\n\t\t"
+		perror("Error\n\t Usage for first proxy:\n\t\t"
 			"cs352proxy <port> <local interface> \n\t"
 			"Usage for second proxy: \n\t\t"
 			"cs352proxy <remote host> <remote port> <local interface>\n");
@@ -65,36 +64,35 @@ int main(int argc, char **argv){
 	//	Initialize all socket descriptors as -1.
 	memset(buf, 0, sizeof(buf));
 	memset(&rio_eth, 0, sizeof(rio_eth));
-	for(i=0; i<CONNECTION_MAX; i++){
-		eth_tid[i]=0;
-	}
 	switch(argc){
 		//	server case
 		case 3:
 			//	Set up the tap device.
 			if((tapfd=allocate_tunnel(argv[2], IFF_TAP|IFF_NO_PI))<0){
-				fprintf(stderr, "error opening tap device\n");
-				close(listenfd);
+				perror("error opening tap device");
+				free(listenfdptr);
 				exit(-1);
 			}
 			//	Get the port number from the argument list.
 			port=get_port(argv[1]);
+			listenfdptr=(int *)malloc(sizeof(int));
 			//	Set up a socket to listen to clients' connection requests.
-			if((listenfd=open_listenfd(port))<0){
-				fprintf(stderr, "error opening listening socket\n");
+			if((*listenfdptr=open_listenfd(port))<0){
+				perror("error opening listening socket");
 				close(tapfd);
+				free(*listenfdptr);
 				exit(-1);
 			}
 			/**
 			  *	Same code as listen_handler, but the tap cannot be read from
 			  *	until the first connection is made.
 			  */
-			if((ethfd=accept(listenfd,
+			if((ethfd=accept(*listenfdptr,
 				(struct sockaddr *)&clientaddr, &addrlen))<0){
-				fprintf(stderr, "error opening socket to client: %s\n",
-					strerror(errno));
-				close(listenfd);
+				perror("error opening socket to client");
 				close(tapfd);
+				close(*listenfdptr);
+				free(listenfdptr);
 				exit(-1);
 			}
 			printf("Successfully connected to host at I.P. address %s.\n",
@@ -107,37 +105,40 @@ int main(int argc, char **argv){
 		case 4:
 			//	Set up the tap device.
 			if((tapfd=allocate_tunnel(argv[3], IFF_TAP|IFF_NO_PI))<0){
-				fprintf(stderr, "error opening tap device\n");
+				perror("error opening tap device");
+				free(listenfdptr);
 				exit(-1);
 			}
 			//	Get the port number from the argument list.
 			port=get_port(argv[2]);
 			//	Set up a socket to listen to clients' connection requests.
-			if((listenfd=open_listenfd(port))<0){
-				fprintf(stderr, "error opening listening socket\n");
+			listenfdptr=(int *)malloc(sizeof(int));
+			if((*listenfdptr=open_listenfd(port))<0){
+				perror("error opening listening socket");
 				close(tapfd);
+				free(listenfdptr);
 				exit(-1);
 			}
 			//	Connect to the server.
 			if((ethfd=open_clientfd(argv[1], port))<0){
-				fprintf(stderr, "error opening ethernet device\n");
+				perror("error opening ethernet device");
 				close(tapfd);
+				close(*listenfdptr);
+				free(listenfdptr);
 				exit(-1);
 			}
 			rio_readinit(&rio_tap, tapfd);
 			rio_readinit(&rio_eth, ethfd);
 			break;
 		default:
-			fprintf(stderr, "error: invalid parameters\n");
+			perror("error: invalid parameters");
 			exit(-1);
 	}
 	pthread_create(&tap_tid, NULL, tap_handler, &rio_tap);
-	pthread_create(&eth_tid[0], NULL, eth_handler, &rio_eth);
-	pthread_create(&listen_tid, NULL, listen_handler, &listenfd);
-	pthread_join(tap_tid, NULL);
-	pthread_join(eth_tid[0], NULL);
-	pthread_join(listen_tid, NULL);
-	close(ethfd);
-	close(tapfd);
+	pthread_create(&eth_tid, NULL, eth_handler, &rio_eth);
+	pthread_create(&listen_tid, NULL, listen_handler, listenfdptr);
+	pthread_detach(tap_tid);
+	pthread_detach(eth_tid);
+	pthread_detach(listen_tid);
 	return 0;
 }

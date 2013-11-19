@@ -1,8 +1,5 @@
 #include"proxy.h"
 
-pthread_t tap_tid, listen_tid,
-	eth_tid[CONNECTION_MAX];	//	thread identifiers
-int tapfd=-1;
 int ethfd=-1;
 rio_t rio_tap;
 rio_t rio_eth;
@@ -127,20 +124,22 @@ int open_clientfd(char *hostname, unsigned short port){
 	return clientfd;
 }
 
-void *listen_handler(int *listenfd){
+void *listen_handler(int *lfdptr){
 	struct sockaddr_in clientaddr;
 	unsigned int addrlen=sizeof(struct sockaddr_in);
 	int connfd;
+	int listenfd=*lfdptr;
 	rio_t *rp;
 	pthread_t tid;
 	//	Store next_conn value into i to prevent a race.
+	free(*lfdptr);
 	for(;;){
 		//	Accept a connection request.
-		if((connfd=accept(*listenfd,
+		if((connfd=accept(listenfd,
 			(struct sockaddr *)&clientaddr, &addrlen))<0){
 			perror("error opening socket to client");
-			close(*listenfd);
-			*listenfd=-1;
+			close(listenfd);
+			listenfd=-1;
 			exit(-1);
 		}
 		printf("Successfully connected to host at I.P. address %s.\n",
@@ -156,7 +155,6 @@ void *listen_handler(int *listenfd){
 void *tap_handler(rio_t *rp){
 	ssize_t size;
 	char buffer[ETH_FRAME_LEN+PROXY_HLEN];
-	void *bufptr=buffer+PROXY_HLEN;
 	proxy_header prxyhdr;
 	int i;
 	for(;;){
@@ -165,7 +163,7 @@ void *tap_handler(rio_t *rp){
 	  	  *	Read the entire Ethernet frame.
 		  ****************************************************************
 		  *
-		  *	IMPORTANT NOTICE, MUST READ
+		  *	IMPORTANT NOTICE, PLEASE READ
 		  *
 		  ****************************************************************
 		  *	For whatever reason, the Ethernet frames of the tap device do
@@ -176,12 +174,12 @@ void *tap_handler(rio_t *rp){
 		  *	ETH_FCS_LEN (valued at 4) to the third parameter of the following
 		  *	reading procedure.
 		  */
-		if((size=rio_read(&rio_tap, bufptr, ETH_FRAME_LEN))<0){
+		if((size=rio_read(&rio_tap, buffer+PROXY_HLEN, ETH_FRAME_LEN))<0){
 			perror("error reading from the tap device.\n");
 			close(rio_eth.fd);
 			return NULL;
 		}
-		printEthernet(bufptr);
+		printEthernet(buffer+PROXY_HLEN);
 		/**
 		  *	Parse MAC addresses here. Dereference bufptr as
 		  *	(struct ethhdr *), and consult linux/if_ether.h.
