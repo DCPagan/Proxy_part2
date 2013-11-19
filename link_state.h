@@ -24,6 +24,9 @@ typedef struct Graph{
 	pthread_mutex_t lock;
 } Graph;
 
+List ll_create();
+void ll_add(List list, List node);
+void ll_remove(List list, List node); 
 void remove_member(char* mac, List node);
 //void remove_expired_member(char* mac, List node);
 void add_member(char* mac, List node);
