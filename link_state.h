@@ -1,6 +1,3 @@
-#include <pthread.h>
-#include "utlist.h"
-#include "uthash.h"
 #include "proxy.h"
 
 typedef struct Config{
@@ -14,7 +11,7 @@ typedef struct Config{
 
 typedef struct Peer{
 	link_state ls;
-	pthread_mutex_t lock;
+	pthread_mutex_t *lock;
 	UT_hash_handle hh;
 } Peer;
 
