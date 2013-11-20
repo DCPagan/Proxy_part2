@@ -7,10 +7,8 @@ typedef struct Config{
 	int listen_port;
 	int link_period;
 	int link_timeout;
-	char* tap;
+	int tap;
 	int quit_timer;
-	pthread_mutex_t lock;
-	UT_hash_handle hh;
 } Config;
 
 /*creates a head node for each list and initialized it to null*/
