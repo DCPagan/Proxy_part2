@@ -24,6 +24,7 @@ typedef struct Graph{
 	pthread_mutex_t lock;
 } Graph;
 
+/*creates a head node for each list and initialized it to null*/
 List *ll_create();
 void ll_add(List list, List *node);
 void ll_remove(List list, List *node); 
