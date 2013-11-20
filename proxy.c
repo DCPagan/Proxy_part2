@@ -148,10 +148,9 @@ void *tap_handler(int *fd){
 		  *	ETH_FCS_LEN (valued at 4) to the third parameter of the following
 		  *	reading procedure.
 		  */
-		if((size=rio_read(&rio_tap, buffer+PROXY_HLEN, ETH_FRAME_LEN))<0){
+		if((size=rio_read(&rio_tap, buffer+PROXY_HLEN, ETH_FRAME_LEN))<=0){
 			perror("error reading from the tap device.\n");
-			close(rio_eth.fd);
-			return NULL;
+			exit(-1);
 		}
 		/**
 		  *	Parse MAC addresses here. Dereference bufptr as
@@ -232,8 +231,6 @@ void *eth_handler(int *fd){
 		  */
 		prxyhdr.type=ntohs(prxyhdr.type);
 		prxyhdr.length=ntohs(prxyhdr.length);
-		printf("packet of type %#.4x and length %hd received.\n",
-			prxyhdr.type, prxyhdr.length);
 		buffer=malloc(prxyhdr.length);
 		if((size=rio_readnb(rp, buffer, prxyhdr.length))<=0){
 			if(size<0)

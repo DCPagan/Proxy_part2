@@ -26,12 +26,13 @@ typedef struct{
 extern void rio_readinit(rio_t *, int);
 extern void rio_resetBuffer(rio_t *);
 /**
-  *	First read fills entire buffer
-  *	subsequent reads read from the buffer
+  *	For rio_read(), the first read fills entire buffer, and subsequent
+  *	reads read from the buffer.
+  *	The buffer resets after all data stored in the buffer is read.
+  *
+  *	rio_readnb() makes iterative calls to rio_read() until all data
+  *	requested is read.
   */
+extern ssize_t rio_readnb(rio_t *, void *, size_t);
 extern ssize_t rio_read(rio_t *, void *, size_t);
 extern ssize_t rio_write(rio_t *, void *, size_t);
-//	buffered read
-extern ssize_t rio_readnb(rio_t *, void *, size_t);
-extern ssize_t readn(int, void *, size_t);
-extern ssize_t writen(int, void *, size_t);
