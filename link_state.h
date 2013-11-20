@@ -3,31 +3,23 @@
 #include "uthash.h"
 
 typedef struct Config{
+	char* hostname;
+	char mac[6];
 	int listen_port;
 	int link_period;
 	int link_timeout;
 	char* tap;
 	int quit_timer;
+	pthread_mutex_t lock;
+	UT_hash_handle hh;
 } Config;
 
-typedef struct List{
-	char* hostname;
-	char* Mac;
-	Config config;
-	int port;
-	List *next;
-	UT_hash_handle hh;
-} List;
-
-typedef struct Graph{
-	List *list;
-	pthread_mutex_t lock;
-} Graph;
-
 /*creates a head node for each list and initialized it to null*/
-List *ll_create();
-void ll_add(List list, List *node);
-void ll_remove(List list, List *node); 
-void remove_member(char* mac, List *node);
+/*Not needed for part 2*/
+//List *ll_create();
+//void ll_add(List list, List *node);
+//void ll_remove(List list, List *node);
+
+void remove_member(char* Mac, Config *node);
 //void remove_expired_member(char* mac, List *node);
-void add_member(char* mac, List *node);
+void add_member(char* Mac, Config *node);
