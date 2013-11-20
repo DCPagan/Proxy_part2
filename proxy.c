@@ -1,9 +1,7 @@
 #include"proxy.h"
 
 int tapfd=-1;
-int ethfd=-1;
 rio_t rio_tap;
-rio_t rio_eth;
 
 /**************************************************
   * allocate_tunnel:
@@ -344,15 +342,15 @@ void printEthernet(struct ethhdr *data){
 	//	Print Ethernet frame header fields.
 	printf("%-25s ", "source MAC address:");
 	for(i=0; i<ETH_ALEN-1; i++)
-		printf("%.2x:", ((struct ethhdr *)data)->h_source[i]);
-	printf("%.2x\n", ((struct ethhdr *)data)->h_source[i]);
+		printf("%.2x:", data->h_source[i]);
+	printf("%.2x\n", data->h_source[i]);
 	printf("%-25s ", "destination MAC address:");
 	for(i=0; i<ETH_ALEN-1; i++)
-		printf("%.2x:", ((struct ethhdr *)data)->h_dest[i]);
-	printf("%.2x\n", ((struct ethhdr *)data)->h_dest[i]);
+		printf("%.2x:", data->h_dest[i]);
+	printf("%.2x\n", data->h_dest[i]);
 	printf("%-25s %#.4x\n",
-		"Ethertype:", ntohs(((struct ethhdr *)data)->h_proto));
-	switch(ntohs(((struct ethhdr *)data)->h_proto)){
+		"Ethertype:", ntohs(data->h_proto));
+	switch(ntohs(data->h_proto)){
 		//	IPv4
 		case ETH_P_IP:
 			printIP((void *)data+ETH_HLEN);

@@ -1,7 +1,7 @@
 #include "link_state.h"
 
-Config *hash_table = NULL;
-Config config;
+Peer *hash_table = NULL;
+Peer peer;
 /*
  *These functions not needed for part 2
  *
@@ -20,16 +20,16 @@ void ll_remove(List *list, List *node){
 }
 */
 
-void remove_member(char* Mac,Config *node){
-	List *tmp;
+void remove_member(char* Mac,Peer *node){
+	Peer *tmp;
 	HASH_FIND_STR(hash_table, &Mac, tmp);
 	if(tmp != NULL){
 		HASH_DEL(hash_table, tmp);
 	}
 }
 
-void add_member(char* Mac, Config *node){
-	List *tmp;
+void add_member(char* Mac, Peer *node){
+	Peer *tmp;
 	HASH_FIND_STR( hash_table, &Mac, tmp);
 	if(tmp == NULL){
 		HASH_ADD_STR(hash_table, mac, node);
