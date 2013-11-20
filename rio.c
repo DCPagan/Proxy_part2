@@ -7,7 +7,8 @@ void rio_readinit(rio_t *rp, int fd){
 	rp->bufp=rp->buf;
 	memset(rp->buf, 0, ETH_FRAME_LEN+PROXY_HLEN);
 	/**
-	  *	Set the file flags to include non-blocking.
+	  *	Use fcntl() to set the flags of the file descriptor to include
+	  *	non-blocking.
 	  */
 	if(flags=fcntl(rp->fd, F_GETFL, 0)<0){
 		perror("F_GETFL error");
@@ -26,30 +27,38 @@ void rio_resetBuffer(rio_t *rp){
 }
 
 int Wait(int fd, int events){
-	//	poll structure for waiting until the file descriptor is ready.
+	/**
+	  *	poll structure for waiting until the file descriptor is ready.
+	  *	Initialization upon declaration of a static variable implies that
+	  *	the variable is initialized only once.
+	  */
 	static struct pollfd pfd={0, 0, 0};
 	pfd.fd=fd;
 	pfd.events=events;
-	//	Loop in the case of a return from a signal interrupt.
-	do{
-		if(poll(&pfd, 1, -1)<0&&errno!=EINTR){
-			perror("poll() error");
-			return -1;
-		}
-	}while(errno==EINTR);
+	//	Loop blocking poll call in case of signal interrupt.
+	while(poll(&pfd, 1, -1)<0&&errno==EINTR);
+	if(errno!=EINTR){
+		perror("poll() error");
+		return -1;
+	}
 	return 0;
 }
 
 int Lock(int fd, int type){
-	//	flock structures are necessary for file-locking via fcntl().
+	/**
+	  *	flock structures are necessary for file-locking via fcntl().
+	  *	Initialization upon declaration of a static variable implies that
+	  *	the variable is initialized only once.
+	  */
 	static struct flock lock={0, 0, 0, 0, 0};
 	lock.l_type=type;
-	do{
-		if(fcntl(fd, F_SETLKW, &lock)<0&&errno!=EINTR){
-			perror("F_SETLKW error");
-			return -1;
-		}
-	}while(errno==EINTR);
+	//	Loop a blocking lock call in case of signal interruption.
+	while(fcntl(fd, F_SETLKW, &lock)<0&&errno==EINTR);
+	//	If fcntl() encounters an error, return error status.
+	if(errno!=EINTR){
+		perror("F_SETLKW error");
+		return -1;
+	}
 	return 0;
 };
 
@@ -58,15 +67,13 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 	/**
 	  * Wait indefinitely until the socket is ready for reading.
 	  *
-	  *	Receive the packet into the buffer.
-	  *
-	  *	Returning from poll() implies that the socket has data to be
+	  *	Returning from Wait() implies that the socket has data to be
 	  *	received.
 	  *
-	  *	Use fcntl() to set the file descriptor to non-blocking.
+	  *	Returning from Lock() implies that the file descriptor is locked
+	  *	or unlocked, allowing for exclusive access to file descriptors.
 	  *
-	  *	Also use fcntl() to lock the file descriptor for thread-safe
-	  *	access to I/O operations.
+	  *	Receive the packet into the buffer.
 	  *
 	  *	Wrap locking procedure over error-handling in case fcntl() is
 	  *	interrupted by a signal or encounters an error. This error-
