@@ -7,39 +7,25 @@ int main(int argc, char **argv){
 	unsigned short port;
 	char buf[256];
 	pthread_t tap_tid, eth_tid, tid;	//	thread identifiers
-	if(argc!=3&&argc!=4){
-		perror("Error\n\t Usage for first proxy:\n\t\t"
-			"cs352proxy <port> <local interface> \n\t"
-			"Usage for second proxy: \n\t\t"
-			"cs352proxy <remote host> <remote port> <local interface>\n");
+	/**
+	  *	The old parameter scheme may become redundant when we include
+	  *	code for handling the configuration file. Revise all instances
+	  *	of arguments accordingly.
+	  */
+	if(argc!=3){
+		fprintf(stderr, "proxy configuration file not specified\n");
 		return -1;
 	}
-	/**
-	  *	Test code for reading and parsing the tap device.
-	  *	Use this code as an example to interpret the configuration file.
-	  *	
-	  *	Possible implementation: push data of a certain type that is
-	  *	expected to have multiple entries in the configuration file to its
-	  *	respective list. For example, for every line that lists a peer,
-	  *	input the host name or host address, and the port into a struct,
-	  *	and push that struct into a list. Return an error for multiple
-	  *	lines of data pertaining to a type that is expected to only have
-	  *	one line, such as the listenPort or tapDevice entries.
-	  */
-	/**
-	if((fp=fopen("proxy.conf", "r"))!=NULL)
-		printf("proxy.conf opened\n");
-	else{
+	if((fp=fopen(argv[2], "r"))==NULL){
 		perror("error opening proxy.conf");
 		exit(-1);
 	}
 	while(!feof(fp)){
-		unsigned short x;
 		char buf1[32], buf2[32];
 		if(fgets(buf, 256, fp)!=buf)
 			break;
 		if(!strncmp(buf, "listenPort", 10)){
-			sscanf(buf, "%s %hu\n", buf1, &x);
+			sscanf(buf, "%s %hu\n", buf1, &port);
 			printf("%s %hu\n", buf1, x);
 		}else if(!strncmp(buf, "linkPeriod", 10)){
 			sscanf(buf, "%s %hu\n", buf1, &x);
@@ -59,7 +45,6 @@ int main(int argc, char **argv){
 		}
 	}
 	fclose(fp);
-	*/
 	//	Initialize all socket descriptors as -1.
 	memset(buf, 0, sizeof(buf));
 	memset(&rio_eth, 0, sizeof(rio_eth));

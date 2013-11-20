@@ -83,6 +83,9 @@ typedef struct{
 	unsigned long long ID;
 } link_state;
 
+typedef struct{
+} peers;
+
 extern int allocate_tunnel(char *, int);
 extern unsigned short get_port(char *);
 extern int open_listenfd(unsigned short);
