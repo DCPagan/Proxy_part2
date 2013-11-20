@@ -1,12 +1,13 @@
 #include"proxy.h"
+#include"link_state.h"
 
 int main(int argc, char **argv){
 	int *connfdptr, listenfd;	//	listening socket descriptor
 	struct sockaddr_in clientaddr;
 	unsigned int addrlen=sizeof(struct sockaddr_in);
-	unsigned short port;
 	char buf[256];
 	pthread_t tap_tid, eth_tid, tid;	//	thread identifiers
+	FILE *fp;
 	/**
 	  *	The old parameter scheme may become redundant when we include
 	  *	code for handling the configuration file. Revise all instances
@@ -21,18 +22,18 @@ int main(int argc, char **argv){
 		exit(-1);
 	}
 	while(!feof(fp)){
-		char buf1[32], buf2[32];
+		char buf1[64], buf2[64];
 		if(fgets(buf, 256, fp)!=buf)
 			break;
 		if(!strncmp(buf, "listenPort", 10)){
-			sscanf(buf, "%s %hu\n", buf1, &port);
-			printf("%s %hu\n", buf1, x);
+			sscanf(buf, "%s %hu\n", buf1, &config.listen_port);
+			printf("%s %hu\n", buf1, config.listen_port);
 		}else if(!strncmp(buf, "linkPeriod", 10)){
-			sscanf(buf, "%s %hu\n", buf1, &x);
-			printf("%s %hu\n", buf1, x);
+			sscanf(buf, "%s %hu\n", buf1, &config.link_period);
+			printf("%s %hu\n", buf1, config.link_period);
 		}else if(!strncmp(buf, "linkTimeout", 11)){
-			sscanf(buf, "%s %hu\n", buf1, &x);
-			printf("%s %hu\n", buf1, x);
+			sscanf(buf, "%s %hu\n", buf1, &config.link_timeout);
+			printf("%s %hu\n", buf1, config.link_timeout);
 		}else if(!strncmp(buf, "peer", 4)){
 			sscanf(buf, "%s %s %hu\n", buf1, buf2, &x);
 			printf("%s %s %hu\n", buf1, buf2, x);
@@ -42,6 +43,11 @@ int main(int argc, char **argv){
 		}else if(!strncmp(buf, "tapDevice", 9)){
 			sscanf(buf, "%s %s\n", buf1, buf2);
 			printf("%s %s\n", buf1, buf2);
+			//	Set up the tap device.
+			if((tapfd=allocate_tunnel(buf2, IFF_TAP|IFF_NO_PI))<0){
+				perror("error opening tap device");
+				exit(-1);
+			}
 		}
 	}
 	fclose(fp);
@@ -51,15 +57,10 @@ int main(int argc, char **argv){
 	switch(argc){
 		//	server case
 		case 3:
-			//	Set up the tap device.
-			if((tapfd=allocate_tunnel(argv[2], IFF_TAP|IFF_NO_PI))<0){
-				perror("error opening tap device");
-				exit(-1);
-			}
-			//	Get the port number from the argument list.
-			port=get_port(argv[1]);
+			//	Get the config.listen_port number from the argument list.
+			config.listen_port=get_config.listen_port(argv[1]);
 			//	Set up a socket to listen to clients' connection requests.
-			if((listenfd=open_listenfd(port))<0){
+			if((listenfd=open_listenfd(config.listen_port))<0){
 				perror("error opening listening socket");
 				close(tapfd);
 				exit(-1);
@@ -88,16 +89,16 @@ int main(int argc, char **argv){
 				perror("error opening tap device");
 				exit(-1);
 			}
-			//	Get the port number from the argument list.
-			port=get_port(argv[2]);
+			//	Get the config.listen_port number from the argument list.
+			config.listen_port=get_config.listen_port(argv[2]);
 			//	Set up a socket to listen to clients' connection requests.
-			if((listenfd=open_listenfd(port))<0){
+			if((listenfd=open_listenfd(config.listen_port))<0){
 				perror("error opening listening socket");
 				close(tapfd);
 				exit(-1);
 			}
 			//	Connect to the server.
-			if((ethfd=open_clientfd(argv[1], port))<0){
+			if((ethfd=open_clientfd(argv[1], config.listen_port))<0){
 				perror("error opening ethernet device");
 				close(tapfd);
 				close(listenfd);

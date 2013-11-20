@@ -3,7 +3,6 @@
 #include "uthash.h"
 
 typedef struct Config{
-	char* hostname;
 	char mac[6];
 	int listen_port;
 	int link_period;

@@ -1,8 +1,7 @@
 #include "link_state.h"
 
-List *hash_table = NULL;
+Config *hash_table = NULL;
 Config config;
-
 /*
  *These functions not needed for part 2
  *

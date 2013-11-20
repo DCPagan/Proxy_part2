@@ -1,0 +1,15 @@
+main.c: In function ‘main’:
+main.c:31:29: error: ‘x’ undeclared (first use in this function)
+main.c:31:29: note: each undeclared identifier is reported only once for each function it appears in
+main.c:115:2: warning: passing argument 3 of ‘pthread_create’ from incompatible pointer type [enabled by default]
+In file included from proxy.h:9:0,
+                 from main.c:1:
+/usr/include/pthread.h:232:12: note: expected ‘void * (*)(void *)’ but argument is of type ‘void * (*)(int *)’
+main.c:116:2: warning: passing argument 3 of ‘pthread_create’ from incompatible pointer type [enabled by default]
+In file included from proxy.h:9:0,
+                 from main.c:1:
+/usr/include/pthread.h:232:12: note: expected ‘void * (*)(void *)’ but argument is of type ‘void * (*)(int *)’
+main.c:128:3: warning: passing argument 3 of ‘pthread_create’ from incompatible pointer type [enabled by default]
+In file included from proxy.h:9:0,
+                 from main.c:1:
+/usr/include/pthread.h:232:12: note: expected ‘void * (*)(void *)’ but argument is of type ‘void * (*)(int *)’

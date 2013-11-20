@@ -73,6 +73,12 @@ typedef struct{
 } leave;
 
 typedef struct{
+	struct in_addr IPaddr;
+	unsigned short listenPort;
+	unsigned char MAC[ETH_ALEN];
+} link_state;
+
+typedef struct{
 	struct in_addr localIP;
 	unsigned short localListenPort;
 	unsigned char localMAC[ETH_ALEN];
@@ -80,11 +86,7 @@ typedef struct{
 	unsigned short remoteListenPort;
 	unsigned char remoteMAC[ETH_ALEN];
 	unsigned int averageRTT;
-	unsigned long long ID;
-} link_state;
-
-typedef struct{
-} peers;
+} link_state_Neighbor;
 
 extern int allocate_tunnel(char *, int);
 extern unsigned short get_port(char *);
