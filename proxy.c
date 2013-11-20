@@ -167,22 +167,19 @@ void *tap_handler(int *fd){
 		  *	The length of the payload cannot be evaluated from reading the
 		  *	two-octet field as expected; it must be derived from the IPv4
 		  *	packet header.
-		  *
-		  *	Move bufptr by the size of the proxy header, and read the IPv4
-		  *	header. Then, write the proxy header into the buffer before the
-		  *	IPv4 header, and read the rest of the Ethernet frame after the
-		  *	IPv4 packet header.
 		  */
 		/**
-		  * Write the proxy header in network byte-order.
+		  * Write the proxy header in network byte-order to the front of
+		  *	the buffer.
+		  *
 		  * The type field of the proxy header is always set to DATA.
-		  *	The length field is given by the length field of the Ethernet
-		  *	frame header.
+		  *	The size is given by the length field of the Ethernet frame
+		  *	header.
 		  */
 		prxyhdr.type=htons(DATA);
 		prxyhdr.length=htons(size);
 		memcpy(buffer, &prxyhdr, PROXY_HLEN);
-		//	Write the modified IP payload to the Ethernet socket.
+		//	Write the whole buffer to the Ethernet device.
 		if((size=rio_write(&rio_eth, buffer,
 			ntohs(prxyhdr.length)+PROXY_HLEN))<0){
 			perror("error writing to Ethernet device\n");
@@ -342,7 +339,7 @@ void inet_ntoa_r(int addr, char *s){
 	return;
 }
 
-printEthernet(struct ethhdr *data){
+void printEthernet(struct ethhdr *data){
 	int i;
 	//	Print Ethernet frame header fields.
 	printf("%-25s ", "source MAC address:");
@@ -367,6 +364,7 @@ printEthernet(struct ethhdr *data){
 		//	Unknown or unimplemented Ethertype
 		default: break;
 	}
+	putchar('\n');
 }
 
 void printIP(struct iphdr *data){
@@ -404,7 +402,7 @@ void printICMP(struct icmphdr *data){
 	printf("%-25s %#.2x\n", "ICMP code:", data->code);
 	printf("%-25s %#.4x\n", "ICMP checksum:", ntohs(data->checksum));
 	printf("%-25s %#.4x\n", "ICMP identifier:", ntohs(data->un.echo.id));
-	printf("%-25s %#.4x\n\n", "ICMP sequence:",
+	printf("%-25s %#.4x\n", "ICMP sequence:",
 		ntohs(data->un.echo.sequence));
 	return;
 }
