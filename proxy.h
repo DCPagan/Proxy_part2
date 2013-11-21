@@ -116,6 +116,4 @@ extern int Bandwidth_Probe_Request(void *, unsigned short);
 extern int Bandwidth_Probe_Response(void *, unsigned short);
 
 extern int tapfd;
-extern int ethfd;
 extern rio_t rio_tap;	//	Robust I/O struct for the tap device
-extern rio_t rio_eth;	//	list of Robust I/O structs

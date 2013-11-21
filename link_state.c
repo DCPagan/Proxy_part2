@@ -19,18 +19,18 @@ void ll_remove(List *list, List *node){
 }
 */
 
-void remove_member(char* Mac,Peer *node){
+void remove_member(Peer *node){
 	Peer *tmp;
-	HASH_FIND_STR(hash_table, &Mac, tmp);
+	HASH_FIND(hash_table, &node->ls.MAC, tmp);
 	if(tmp != NULL){
-		HASH_DEL(hash_table, tmp);
+		HASH_DEL(hash_table, ls.MAC, tmp);
 	}
 }
 
-void add_member(char* Mac, Peer *node){
+void add_member(Peer *node){
 	Peer *tmp;
-	HASH_FIND_STR( hash_table, &Mac, tmp);
+	HASH_FIND(hash_table, &node->ls.MAC, tmp);
 	if(tmp == NULL){
-		HASH_ADD_STR(hash_table, mac, node);
+		HASH_ADD(hash_table, ls.MAC, node);
 	}
 }

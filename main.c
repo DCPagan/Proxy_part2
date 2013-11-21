@@ -5,7 +5,6 @@ int main(int argc, char **argv){
 	int *connfdptr, listenfd;	//	listening socket descriptor
 	struct sockaddr_in clientaddr;
 	unsigned int addrlen=sizeof(struct sockaddr_in);
-	unsigned short port;
 	char buf[256];
 	rio_t *rp;
 	pthread_t tap_tid, eth_tid, tid;	//	thread identifiers
@@ -23,6 +22,8 @@ int main(int argc, char **argv){
 		perror("error opening proxy.conf");
 		exit(-1);
 	}
+	memset(&linkState, 0, sizeof(linkState));
+	memset(&config, 0, sizeof(config));
 	while(!feof(fp)){
 		char buf[64];
 		if(fgets(buf, 256, fp)!=buf)
@@ -35,6 +36,7 @@ int main(int argc, char **argv){
 				perror("error opening listening socket");
 				exit(-1);
 			}
+			linkState.listenPort=config.listen_port;
 		}else if(!strncmp(buf, "linkPeriod", 10)){
 			sscanf(buf, "%*s %hu\n", buf1, &config.link_period);
 			printf("%s %hu\n", buf1, config.link_period);
@@ -49,7 +51,6 @@ int main(int argc, char **argv){
 				perror("error opening ethernet device");
 				exit(-1);
 			}
-			pthread_create(&eth_tid, NULL, eth_handler, );
 		}else if(!strncmp(buf, "quitAfter", 9)){
 			sscanf(buf, "%*s %hu\n", &config.quit_timer);
 			printf("%s %hu\n", config.quit_timer);
