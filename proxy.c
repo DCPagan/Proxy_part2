@@ -1,12 +1,13 @@
 #include"proxy.h"
 
 int tapfd=-1;
+pthread_t tap_tid;
 rio_t rio_tap;
 Config config;
 link_state linkState;
 
-char BROADCAST_ADDR[ETH_ALEN]=
-	['0xFF', '0xFF', '0xFF', '0xFF', '0xFF', '0xFF'];
+const char BROADCAST_ADDR[ETH_ALEN]=
+	{'\xFF', '\xFF', '\xFF', '\xFF', '\xFF', '\xFF'};
 
 /**************************************************
   * allocate_tunnel:
@@ -90,14 +91,14 @@ Peer *open_clientfd(char *hostname, unsigned short port){
 	Peer *pp;
 	if((clientfd=socket(AF_INET, SOCK_STREAM, 0))<0){
 		perror("error opening socket");
-		return -1;
+		return NULL;
 	}
 	/* avoid EADDRINUSE error on bind() */
 	if(setsockopt(clientfd, SOL_SOCKET, SO_REUSEADDR,
 		(char *)&optval, sizeof(optval)) < 0) {
 		perror("setsockopt()");
 		close(clientfd);
-		return -1;
+		return NULL;
 	}
 	/**
 	  * If the given hostname is an I.P. address in dotted decimal notation,
@@ -110,7 +111,7 @@ Peer *open_clientfd(char *hostname, unsigned short port){
 		||(hp=gethostbyname(hostname))==NULL){
 		perror("error retrieving host information");
 		close(clientfd);
-		return -1;
+		return NULL;
 	}
 	printf("Connecting to host at I.P. address %s...\n",
 		inet_ntoa(**(struct in_addr **)hp->h_addr_list));
@@ -122,7 +123,7 @@ Peer *open_clientfd(char *hostname, unsigned short port){
 		sizeof(serveraddr))<0){
 		perror("error connecting to server");
 		close(clientfd);
-		return -1;
+		return NULL;
 	}
 	printf("Successfully connected to host at I.P. address %s.\n",
 		inet_ntoa(serveraddr.sin_addr));
@@ -131,14 +132,11 @@ Peer *open_clientfd(char *hostname, unsigned short port){
 	  *	First, fields must be filled out.
 	  */
 	pp=(Peer *)malloc(sizeof(Peer));
-	getsockname(clientfd, &linkState.IPaddr, sizeof(linkState.IPaddr));
-	getpeername(clientfd, &pp->ls.IPaddr, sizeof(pp->ls.IPaddr));
-	pp->ls.listenPort=port;
-	memset(pp->ls.MAC, 0, ETH_ALEN);
+	memset(pp, 0, sizeof(Peer));
 	rio_readinit(&pp->rio, clientfd);
 	pthread_mutex_init(&pp->lock, NULL);
 	link_state_exchange_client(pp);
-	add_member(&pp);
+	add_member(pp);
 	return pp;
 }
 
@@ -148,6 +146,7 @@ Peer *open_clientfd(char *hostname, unsigned short port){
   */
 Peer *link_state_exchange_client(Peer *pp){
 	proxy_header prxyhdr;
+	void *buffer;
 	/**
 	  *	Calculate the length of the packet to send by adding the values
 	  *	of the single-record server holding this proxy's connection
@@ -164,6 +163,7 @@ Peer *link_state_exchange_client(Peer *pp){
 	/**
 	  *	Iterating through the membership list, write
 	  */
+	return pp;
 }
 
 /**
@@ -229,8 +229,8 @@ void *tap_handler(int *fd){
 		prxyhdr.length=htons(size);
 		memcpy(buffer, &prxyhdr, PROXY_HLEN);
 		//	Check if the packet received is a broadcast packet.
-		if(memcmp((struct ethhdr *)(buffer+PROXY_HLEN))->h_dest,
-			BROADCAST_ADDR, ETH_ALEN){
+		if(memcmp((struct ethhdr *)(buffer+PROXY_HLEN)->h_dest,
+			BROADCAST_ADDR, ETH_ALEN)){
 			HASH_ITER(hh, hash_table, pp, tmp){
 				if((size=rio_write(&pp->rio, buffer,
 					ntohs(prxyhdr.length)+PROXY_HLEN))<0){
@@ -239,7 +239,8 @@ void *tap_handler(int *fd){
 				}
 			}
 		}else{
-			HASH_FIND(hash_table, ls.MAC, pp);
+			HASH_FIND(hh, hash_table, &((link_state *)data)->MAC,
+				ETH_ALEN, pp);
 			//	Write the whole buffer to the Ethernet device.
 			if((size=rio_write(&pp->rio, buffer,
 				ntohs(prxyhdr.length)+PROXY_HLEN))<0){
@@ -269,7 +270,7 @@ void *eth_handler(Peer *pp){
 					"error reading from the Ethernet device.\n");
 			else
 				perror("connection severed\n");
-			close(&pp->rio->fd);
+			close(pp->rio.fd);
 			return NULL;
 		}
 		/**
@@ -468,7 +469,8 @@ int Data(void *data, unsigned short length){
 
 int Leave(void *data, unsigned short length){
 	Peer *pp;
-	HASH_FIND(hash_table, (link_state *)data->MAC, pp);
+	HASH_FIND(hh, hash_table, &((link_state *)data)->MAC,
+		ETH_ALEN, pp);
 	if(pp!=NULL)
 		remove_member(pp);
 	return 0;
@@ -501,7 +503,8 @@ int Link_State(void *data, unsigned short length){
 	  * Check if you are connected to the host that sent the packet.
 	  *	Define a struct to dereference the tap MAC address correctly.
 	  */
-	HASH_FIND(hash_table, ((link_state *)data)->MAC, pp);
+	HASH_FIND(hh, hash_table, &((link_state *)data)->MAC,
+		ETH_ALEN, pp);
 	if(pp==NULL){
 		inet_ntoa_r(((link_state *)data)->IPaddr, addr);
 		open_clientfd(addr, ((link_state *)data)->listenPort);

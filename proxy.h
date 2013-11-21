@@ -77,17 +77,21 @@ typedef struct __attribute__((packed)){
 typedef struct __attribute__((packed)){ 
 	struct in_addr IPaddr;
 	unsigned short listenPort;
-	unsigned char MAC[ETH_ALEN];
+	unsigned char tapMAC[ETH_ALEN];
+	unsigned char ethMAC[ETH_ALEN];
+	unsigned short numNbrs;
 } link_state;
 
 typedef struct __attribute__((packed)){
 	struct in_addr localIP;
 	unsigned short localListenPort;
-	unsigned char localMAC[ETH_ALEN];
+	unsigned char localTapMAC[ETH_ALEN];
+	unsigned char localEthMAC[ETH_ALEN];
 	struct in_addr remoteIP;
 	unsigned short remoteListenPort;
-	unsigned char remoteMAC[ETH_ALEN];
-	unsigned int averageRTT;
+	unsigned char remoteTapMAC[ETH_ALEN];
+	unsigned char remoteEthMAC[ETH_ALEN];
+	unsigned int linkWeight;
 } link_state_Neighbor;
 
 typedef struct{
@@ -110,9 +114,9 @@ typedef struct{
 extern int allocate_tunnel(char *, int);
 extern unsigned short get_port(char *);
 extern int open_listenfd(unsigned short);
-extern int open_clientfd(char *, unsigned short);
+extern Peer *open_clientfd(char *, unsigned short);
 extern void *tap_handler(int *);
-extern void *eth_handler(int *);
+extern void *eth_handler(Peer *);
 
 extern void printEthernet(struct ethhdr *);
 extern void printIP(struct iphdr *);
