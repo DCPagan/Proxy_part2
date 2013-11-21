@@ -6,7 +6,6 @@ int main(int argc, char **argv){
 	struct sockaddr_in clientaddr;
 	unsigned int addrlen=sizeof(struct sockaddr_in);
 	char buf[256];
-	pthread_t tap_tid;
 	Peer *pp, *tmp;
 	FILE *fp;
 	/**
@@ -47,7 +46,7 @@ int main(int argc, char **argv){
 			sscanf(buf, "%*s %s %hu\n", buf1, &port);
 			printf("%s %s %hu\n", buf1, port);
 			//	Connect to the server.
-			if((ethfd=open_clientfd(argv[1], config.listen_port))<0){
+			if((pp=open_clientfd(argv[1], config.listen_port))==NULL){
 				perror("error opening ethernet device");
 				exit(-1);
 			}

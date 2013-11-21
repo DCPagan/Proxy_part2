@@ -80,7 +80,7 @@ int open_listenfd(unsigned short port){
 	return listenfd;
 }
 
-int open_clientfd(char *hostname, unsigned short port){
+Peer *open_clientfd(char *hostname, unsigned short port){
 	int clientfd;
 	int optval=1;
 	struct hostent *hp;
@@ -131,17 +131,45 @@ int open_clientfd(char *hostname, unsigned short port){
 	  */
 	pp=(Peer *)malloc(sizeof(Peer));
 	getsockname(clientfd, &linkState.IPaddr, sizeof(linkState.IPaddr));
-	getpeername(clientfd, &peer.ls.IPaddr, sizeof(peer.ls.IPaddr));
-	peer.ls.listenPort=port;
-	memset(peer.ls.MAC, 0, ETH_ALEN);
-	rio_readinit(&peer.rio, clientfd);
-	pthread_mutex_init(&peer.lock, NULL);
-	link_state_exchange(&peer);
-	add_member(&peer);
-	return clientfd;
+	getpeername(clientfd, &pp->ls.IPaddr, sizeof(pp->ls.IPaddr));
+	pp->ls.listenPort=port;
+	memset(pp->ls.MAC, 0, ETH_ALEN);
+	rio_readinit(&pp->rio, clientfd);
+	pthread_mutex_init(&pp->lock, NULL);
+	link_state_exchange_client(pp);
+	add_member(&pp);
+	return pp;
 }
 
-Peer *link_state_exchange(Peer *pp){
+/**
+  *	Client side of link-state exchange.
+  *	Send link-state packet, then wait for a response from the server.
+  */
+Peer *link_state_exchange_client(Peer *pp){
+	proxy_header prxyhdr;
+	/**
+	  *	Calculate the length of the packet to send by adding the values
+	  *	of the single-record server holding this proxy's connection
+	  *	information, and the product of the number of neighbors times the
+	  *	size of a neighbor's record.
+	  */
+	prxyhdr.type=ntohs(LINK_STATE);
+	/**
+	  *	Allocate memory in the stack for a structure to hold the
+	  *	struct for a constant-sized single-record link-state structure
+	  *	by declaring such an automatic structure variable.
+	  */
+
+	/**
+	  *	Iterating through the membership list, write
+	  */
+}
+
+/**
+  *	Server side of link-state exchange.
+  *	Wait for link-state packet, then send a response to the client.
+  */
+Peer *link_state_exchange_server(Peer *pp){
 }
 
 void *tap_handler(int *fd){
@@ -234,13 +262,13 @@ void *eth_handler(Peer *pp){
 	Peer *tmp;
 	for(;;){
 		//	Read the proxy type directly into the proxy header structure.
-		if((size=rio_readnb(rp, &prxyhdr, PROXY_HLEN))<=0){
+		if((size=rio_readnb(&pp->rio, &prxyhdr, PROXY_HLEN))<=0){
 			if(size<0)
 				fprintf(stderr,
 					"error reading from the Ethernet device.\n");
 			else
 				perror("connection severed\n");
-			close(rp->fd);
+			close(&pp->rio->fd);
 			return NULL;
 		}
 		/**
@@ -252,18 +280,17 @@ void *eth_handler(Peer *pp){
 		prxyhdr.type=ntohs(prxyhdr.type);
 		prxyhdr.length=ntohs(prxyhdr.length);
 		buffer=malloc(prxyhdr.length);
-		if((size=rio_readnb(rp, buffer, prxyhdr.length))<=0){
+		if((size=rio_readnb(&pp->rio, buffer, prxyhdr.length))<=0){
 			if(size<0)
 				fprintf(stderr,
 					"error reading from the Ethernet device.\n");
 			else
 				perror("connection severed\n");
-			close(rp->fd);
-			if(rp!=&rio_eth)
-				free(rp);
+			free(buffer);
+			remove_member(pp);
 			return NULL;
 		}
-		rio_resetBuffer(rp);
+		rio_resetBuffer(&pp->rio);
 		switch(prxyhdr.type){
 			case DATA:
 				if(Data(buffer, prxyhdr.length)<0)
@@ -337,11 +364,9 @@ void *eth_handler(Peer *pp){
 			default:
 				fprintf(stderr, "error, incorrect type\n");
 				TYPE_ERROR:
-					close(rp->fd);
 					free(buffer);
-					if(rp!=&rio_eth)
-						free(rp);
-					exit(-1);
+					remove_member(pp);
+					return NULL;
 		}
 		free(buffer);
 	}
@@ -441,14 +466,34 @@ int Data(void *data, unsigned short length){
 }
 
 int Leave(void *data, unsigned short length){
+	Peer *pp;
+	HASH_FIND(hash_table, (link_state *)data->MAC, pp);
+	if(pp!=NULL)
+		remove_member(pp);
 	return 0;
 }
 
 int Quit(void *data, unsigned short length){
-	return 0;
+	Peer *pp, *tmp;
+	HASH_ITER(hh, hash_table, pp, tmp){
+		remove_member(pp);
+	}
+	pthread_cancel(tap_tid);
+	exit(0);
 }
 
 int Link_State(void *data, unsigned short length){
+	Peer *pp;
+	char *addr;
+	/**
+	  * Check if you are connected to the host that sent the packet.
+	  *	Define a struct to dereference the tap MAC address correctly.
+	  */
+	HASH_FIND(hash_table, ((link_state *)data)->MAC, pp);
+	if(pp==NULL){
+		inet_ntoa_r(((link_state *)data)->IPaddr, addr);
+		open_clientfd(addr, ((link_state *)data)->listenPort);
+	}
 	return 0;
 }
 

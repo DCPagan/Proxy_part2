@@ -116,6 +116,7 @@ extern int Bandwidth_Probe_Request(void *, unsigned short);
 extern int Bandwidth_Probe_Response(void *, unsigned short);
 
 extern int tapfd;
+extern pthread_t tap_tid;
 extern rio_t rio_tap;	//	Robust I/O struct for the tap device
 extern Config config;
 extern link_state linkState;

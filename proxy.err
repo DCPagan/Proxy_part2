@@ -24,37 +24,37 @@ In file included from proxy.h:9:0,
 main.c:71:2: error: ‘ls’ undeclared (first use in this function)
 main.c:71:2: warning: left-hand operand of comma expression has no effect [-Wunused-value]
 main.c:71:2: error: ‘Peer’ has no member named ‘hash_table’
-main.c:73:3: warning: passing argument 3 of ‘pthread_create’ from incompatible pointer type [enabled by default]
+main.c:72:3: warning: passing argument 3 of ‘pthread_create’ from incompatible pointer type [enabled by default]
 In file included from proxy.h:9:0,
                  from main.c:1:
 /usr/include/pthread.h:232:12: note: expected ‘void * (*)(void *)’ but argument is of type ‘void * (*)(int *)’
-main.c:76:2: warning: passing argument 3 of ‘pthread_create’ from incompatible pointer type [enabled by default]
+main.c:74:2: warning: passing argument 3 of ‘pthread_create’ from incompatible pointer type [enabled by default]
 In file included from proxy.h:9:0,
                  from main.c:1:
 /usr/include/pthread.h:232:12: note: expected ‘void * (*)(void *)’ but argument is of type ‘void * (*)(int *)’
-main.c:77:2: warning: passing argument 1 of ‘pthread_detach’ makes integer from pointer without a cast [enabled by default]
+main.c:75:2: warning: passing argument 1 of ‘pthread_detach’ makes integer from pointer without a cast [enabled by default]
 In file included from proxy.h:9:0,
                  from main.c:1:
 /usr/include/pthread.h:270:12: note: expected ‘pthread_t’ but argument is of type ‘pthread_t *’
-main.c:90:15: error: ‘clientfd’ undeclared (first use in this function)
-main.c:91:4: warning: passing argument 2 of ‘getsockname’ from incompatible pointer type [enabled by default]
+main.c:88:15: error: ‘clientfd’ undeclared (first use in this function)
+main.c:89:4: warning: passing argument 2 of ‘getsockname’ from incompatible pointer type [enabled by default]
 In file included from proxy.h:11:0,
                  from main.c:1:
 /usr/include/sys/socket.h:128:12: note: expected ‘struct sockaddr * __restrict__’ but argument is of type ‘struct in_addr *’
-main.c:91:4: warning: passing argument 3 of ‘getsockname’ makes pointer from integer without a cast [enabled by default]
+main.c:89:4: warning: passing argument 3 of ‘getsockname’ makes pointer from integer without a cast [enabled by default]
 In file included from proxy.h:11:0,
                  from main.c:1:
 /usr/include/sys/socket.h:128:12: note: expected ‘socklen_t * __restrict__’ but argument is of type ‘unsigned int’
-main.c:93:4: warning: passing argument 2 of ‘getpeername’ from incompatible pointer type [enabled by default]
+main.c:91:4: warning: passing argument 2 of ‘getpeername’ from incompatible pointer type [enabled by default]
 In file included from proxy.h:11:0,
                  from main.c:1:
 /usr/include/sys/socket.h:142:12: note: expected ‘struct sockaddr * __restrict__’ but argument is of type ‘struct in_addr *’
-main.c:93:4: warning: passing argument 3 of ‘getpeername’ makes pointer from integer without a cast [enabled by default]
+main.c:91:4: warning: passing argument 3 of ‘getpeername’ makes pointer from integer without a cast [enabled by default]
 In file included from proxy.h:11:0,
                  from main.c:1:
 /usr/include/sys/socket.h:142:12: note: expected ‘socklen_t * __restrict__’ but argument is of type ‘unsigned int’
-main.c:98:3: warning: implicit declaration of function ‘link_state_exchange’ [-Wimplicit-function-declaration]
-main.c:100:3: warning: passing argument 3 of ‘pthread_create’ from incompatible pointer type [enabled by default]
+main.c:96:3: warning: implicit declaration of function ‘link_state_exchange’ [-Wimplicit-function-declaration]
+main.c:98:3: warning: passing argument 3 of ‘pthread_create’ from incompatible pointer type [enabled by default]
 In file included from proxy.h:9:0,
                  from main.c:1:
 /usr/include/pthread.h:232:12: note: expected ‘void * (*)(void *)’ but argument is of type ‘void * (*)(int *)’
