@@ -1,39 +1,45 @@
-proxy.c: In function ‘get_port’:
-proxy.c:44:3: warning: suggest parentheses around ‘&&’ within ‘||’ [-Wparentheses]
-proxy.c: In function ‘open_clientfd’:
-proxy.c:111:3: warning: suggest parentheses around ‘&&’ within ‘||’ [-Wparentheses]
-proxy.c:138:2: warning: implicit declaration of function ‘link_state_exchange_client’ [-Wimplicit-function-declaration]
-proxy.c: At top level:
-proxy.c:147:7: error: conflicting types for ‘link_state_exchange_client’
-proxy.c:138:2: note: previous implicit declaration of ‘link_state_exchange_client’ was here
-proxy.c: In function ‘link_state_exchange_client’:
-proxy.c:149:8: warning: unused variable ‘buffer’ [-Wunused-variable]
-proxy.c:148:15: warning: variable ‘prxyhdr’ set but not used [-Wunused-but-set-variable]
-proxy.c: In function ‘tap_handler’:
-proxy.c:232:49: error: request for member ‘h_dest’ in something not a structure or union
-proxy.c:234:4: error: incompatible types when assigning to type ‘Peer’ from type ‘struct Peer *’
-proxy.c:234:4: error: incompatible types when assigning to type ‘struct Peer *’ from type ‘Peer’
-proxy.c:234:4: error: used struct type value where scalar is required
-proxy.c:234:4: error: invalid type argument of ‘->’ (have ‘Peer’)
-proxy.c:234:4: warning: left-hand operand of comma expression has no effect [-Wunused-value]
-proxy.c:242:4: error: ‘data’ undeclared (first use in this function)
-proxy.c:242:4: note: each undeclared identifier is reported only once for each function it appears in
-proxy.c:180:6: warning: unused variable ‘i’ [-Wunused-variable]
-proxy.c: In function ‘eth_handler’:
-proxy.c:264:8: warning: unused variable ‘tmp’ [-Wunused-variable]
-proxy.c: In function ‘Leave’:
-proxy.c:472:2: error: ‘link_state’ has no member named ‘MAC’
-proxy.c:472:2: error: ‘link_state’ has no member named ‘MAC’
-proxy.c: In function ‘Quit’:
-proxy.c:480:2: error: initializer element is not constant
-proxy.c:480:2: error: (near initialization for ‘prxyhdr.type’)
-proxy.c:480:2: error: initializer element is not constant
-proxy.c:480:2: error: (near initialization for ‘prxyhdr.length’)
-proxy.c:490:7: error: ‘size’ undeclared (first use in this function)
-proxy.c: In function ‘Link_State’:
-proxy.c:506:2: error: ‘link_state’ has no member named ‘MAC’
-proxy.c:506:2: error: ‘link_state’ has no member named ‘MAC’
-proxy.c:509:3: error: incompatible type for argument 1 of ‘inet_ntoa_r’
-proxy.c:383:6: note: expected ‘int’ but argument is of type ‘struct in_addr’
-proxy.c: In function ‘link_state_exchange_server’:
-proxy.c:174:1: warning: control reaches end of non-void function [-Wreturn-type]
+main.o: In function `main':
+/home/dcpagan/Documents/school/internet/proxy/main.c:63: undefined reference to `hash_table'
+/home/dcpagan/Documents/school/internet/proxy/main.c:63: undefined reference to `hash_table'
+/home/dcpagan/Documents/school/internet/proxy/main.c:63: undefined reference to `hash_table'
+/home/dcpagan/Documents/school/internet/proxy/main.c:84: undefined reference to `add_member'
+proxy.o: In function `open_clientfd':
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:139: undefined reference to `add_member'
+proxy.o: In function `tap_handler':
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:234: undefined reference to `hash_table'
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:234: undefined reference to `hash_table'
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:234: undefined reference to `hash_table'
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:237: undefined reference to `remove_member'
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:242: undefined reference to `hash_table'
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:242: undefined reference to `hash_table'
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:242: undefined reference to `hash_table'
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:242: undefined reference to `hash_table'
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:242: undefined reference to `hash_table'
+proxy.o:/home/dcpagan/Documents/school/internet/proxy/proxy.c:242: more undefined references to `hash_table' follow
+proxy.o: In function `tap_handler':
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:247: undefined reference to `remove_member'
+proxy.o: In function `eth_handler':
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:290: undefined reference to `remove_member'
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:368: undefined reference to `remove_member'
+proxy.o: In function `Leave':
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:470: undefined reference to `hash_table'
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:470: undefined reference to `hash_table'
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:470: undefined reference to `hash_table'
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:470: undefined reference to `hash_table'
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:470: undefined reference to `hash_table'
+proxy.o:/home/dcpagan/Documents/school/internet/proxy/proxy.c:470: more undefined references to `hash_table' follow
+proxy.o: In function `Leave':
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:473: undefined reference to `remove_member'
+proxy.o: In function `Quit':
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:487: undefined reference to `hash_table'
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:487: undefined reference to `hash_table'
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:487: undefined reference to `hash_table'
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:489: undefined reference to `remove_member'
+proxy.o: In function `Link_State':
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:502: undefined reference to `hash_table'
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:502: undefined reference to `hash_table'
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:502: undefined reference to `hash_table'
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:502: undefined reference to `hash_table'
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:502: undefined reference to `hash_table'
+proxy.o:/home/dcpagan/Documents/school/internet/proxy/proxy.c:502: more undefined references to `hash_table' follow
+collect2: error: ld returned 1 exit status

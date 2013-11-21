@@ -179,7 +179,7 @@ void *tap_handler(int *fd){
 	proxy_header prxyhdr;
 	int i;
 	pthread_detach(pthread_self());
-	Peer *pp, tmp;
+	Peer *pp, *tmp;
 	for(;;){
 		memset(buffer, 0, ETH_FRAME_LEN+PROXY_HLEN);
 		/**
@@ -229,7 +229,7 @@ void *tap_handler(int *fd){
 		prxyhdr.length=htons(size);
 		memcpy(buffer, &prxyhdr, PROXY_HLEN);
 		//	Check if the packet received is a broadcast packet.
-		if(memcmp((struct ethhdr *)(buffer+PROXY_HLEN)->h_dest,
+		if(memcmp(((struct ethhdr *)(buffer+PROXY_HLEN))->h_dest,
 			BROADCAST_ADDR, ETH_ALEN)){
 			HASH_ITER(hh, hash_table, pp, tmp){
 				if((size=rio_write(&pp->rio, buffer,
@@ -239,7 +239,7 @@ void *tap_handler(int *fd){
 				}
 			}
 		}else{
-			HASH_FIND(hh, hash_table, &((link_state *)data)->MAC,
+			HASH_FIND(hh, hash_table, &((link_state *)buffer)->tapMAC,
 				ETH_ALEN, pp);
 			//	Write the whole buffer to the Ethernet device.
 			if((size=rio_write(&pp->rio, buffer,
@@ -249,9 +249,7 @@ void *tap_handler(int *fd){
 			}
 		}
 		rio_resetBuffer(&rio_tap);
-	}
-}
-
+	} } 
 void *eth_handler(Peer *pp){
 	/**
   	  *	ethfd points to the socket descriptor to the Ethernet device that
@@ -380,7 +378,7 @@ void *eth_handler(Peer *pp){
   *	I.P. address, it writes the I.P. address as a character string to the
   *	given character pointer.
   */
-void inet_ntoa_r(int addr, char *s){
+void inet_ntoa_r(unsigned int addr, char *s){
 	sprintf(s, "%hhu:%hhu:%hhu:%hhu",
 		*(unsigned char *)&addr,
 		*((unsigned char *)&addr+1),
@@ -469,7 +467,7 @@ int Data(void *data, unsigned short length){
 
 int Leave(void *data, unsigned short length){
 	Peer *pp;
-	HASH_FIND(hh, hash_table, &((link_state *)data)->MAC,
+	HASH_FIND(hh, hash_table, &((link_state *)data)->tapMAC,
 		ETH_ALEN, pp);
 	if(pp!=NULL)
 		remove_member(pp);
@@ -477,7 +475,7 @@ int Leave(void *data, unsigned short length){
 }
 
 int Quit(void *data, unsigned short length){
-	static proxy_header prxyhdr={ntohs(QUIT), ntohs(QUIT_LEN)};
+	proxy_header prxyhdr= {ntohs(QUIT), ntohs(QUIT_LEN)};
 	char buffer[PROXY_HLEN+QUIT_LEN];
 	Peer *pp, *tmp;
 	if(length!=QUIT_LEN){
@@ -487,9 +485,7 @@ int Quit(void *data, unsigned short length){
 	memcpy(buffer, &prxyhdr, PROXY_HLEN);
 	memcpy(buffer+PROXY_HLEN, data, QUIT_LEN);
 	HASH_ITER(hh, hash_table, pp, tmp){
-		if((size=rio_write(&pp->rio, buffer, PROXY_HLEN+QUIT_LEN))<0){
-			fprintf(stderr, "error writing quit packet to peer\n");
-		}
+		rio_write(&pp->rio, buffer, PROXY_HLEN+QUIT_LEN);
 		remove_member(pp);
 	}
 	pthread_cancel(tap_tid);
@@ -503,10 +499,11 @@ int Link_State(void *data, unsigned short length){
 	  * Check if you are connected to the host that sent the packet.
 	  *	Define a struct to dereference the tap MAC address correctly.
 	  */
-	HASH_FIND(hh, hash_table, &((link_state *)data)->MAC,
+	HASH_FIND(hh, hash_table, &((link_state *)data)->tapMAC,
 		ETH_ALEN, pp);
 	if(pp==NULL){
-		inet_ntoa_r(((link_state *)data)->IPaddr, addr);
+		inet_ntoa_r((unsigned int)((link_state *)data)->IPaddr.s_addr,
+			addr);
 		open_clientfd(addr, ((link_state *)data)->listenPort);
 	}
 	return 0;

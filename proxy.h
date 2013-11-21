@@ -115,9 +115,12 @@ extern int allocate_tunnel(char *, int);
 extern unsigned short get_port(char *);
 extern int open_listenfd(unsigned short);
 extern Peer *open_clientfd(char *, unsigned short);
+extern Peer *link_state_exchange_client(Peer *pp);
+extern Peer *link_state_exchange_server(Peer *pp);
 extern void *tap_handler(int *);
 extern void *eth_handler(Peer *);
 
+extern void inet_ntoa_r(unsigned int addr, char *s);
 extern void printEthernet(struct ethhdr *);
 extern void printIP(struct iphdr *);
 extern void printARP(void *);
