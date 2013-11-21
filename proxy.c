@@ -4,6 +4,8 @@ int tapfd=-1;
 rio_t rio_tap;
 Config config;
 link_state linkState;
+char BROADCAST_ADDR[ETH_ALEN]=
+	['0xFF', '0xFF', '0xFF', '0xFF', '0xFF', '0xFF'];
 
 /**************************************************
   * allocate_tunnel:
@@ -84,7 +86,7 @@ int open_clientfd(char *hostname, unsigned short port){
 	struct hostent *hp;
 	struct in_addr addr;
 	struct sockaddr_in serveraddr;
-	Peer peer;
+	Peer *pp;
 	if((clientfd=socket(AF_INET, SOCK_STREAM, 0))<0){
 		perror("error opening socket");
 		return -1;
@@ -127,6 +129,7 @@ int open_clientfd(char *hostname, unsigned short port){
 	  *	Commence the link-state packet exchange with the peer.
 	  *	First, fields must be filled out.
 	  */
+	pp=(Peer *)malloc(sizeof(Peer));
 	getsockname(clientfd, &linkState.IPaddr, sizeof(linkState.IPaddr));
 	getpeername(clientfd, &peer.ls.IPaddr, sizeof(peer.ls.IPaddr));
 	peer.ls.listenPort=port;
@@ -147,6 +150,7 @@ void *tap_handler(int *fd){
 	proxy_header prxyhdr;
 	int i;
 	pthread_detach(pthread_self());
+	Peer *pp, tmp;
 	for(;;){
 		memset(buffer, 0, ETH_FRAME_LEN+PROXY_HLEN);
 		/**
@@ -195,18 +199,30 @@ void *tap_handler(int *fd){
 		prxyhdr.type=htons(DATA);
 		prxyhdr.length=htons(size);
 		memcpy(buffer, &prxyhdr, PROXY_HLEN);
-		//	Write the whole buffer to the Ethernet device.
-		if((size=rio_write(&rio_eth, buffer,
-			ntohs(prxyhdr.length)+PROXY_HLEN))<0){
-			perror("error writing to Ethernet device\n");
-			close(rio_eth.fd);
-			return NULL;
+		//	Check if the packet received is a broadcast packet.
+		if(memcmp((struct ethhdr *)(buffer+PROXY_HLEN))->h_dest,
+			BROADCAST_ADDR, ETH_ALEN){
+			HASH_ITER(hh, hash_table, pp, tmp){
+				if((size=rio_write(&pp->rio, buffer,
+					ntohs(prxyhdr.length)+PROXY_HLEN))<0){
+					remove_member(pp);
+					return NULL;
+				}
+			}
+		}else{
+			HASH_FIND(hash_table, ls.MAC, pp);
+			//	Write the whole buffer to the Ethernet device.
+			if((size=rio_write(&pp->rio, buffer,
+				ntohs(prxyhdr.length)+PROXY_HLEN))<0){
+				remove_member(pp);
+				return NULL;
+			}
 		}
 		rio_resetBuffer(&rio_tap);
 	}
 }
 
-void *eth_handler(int *fd){
+void *eth_handler(Peer *pp){
 	/**
   	  *	ethfd points to the socket descriptor to the Ethernet device that
 	  *	only this thread can read from. It is set to -1 after the thread
@@ -215,16 +231,7 @@ void *eth_handler(int *fd){
 	ssize_t size;
 	void *buffer;
 	proxy_header prxyhdr;
-	rio_t rio;
-	rio_t *rp;
-	if(*fd==ethfd)
-		rp=&rio_eth;
-	else{
-		rio_readinit(&rio, *fd);
-		rp=&rio;
-		free(fd);
-	}
-	pthread_detach(pthread_self());
+	Peer *tmp;
 	for(;;){
 		//	Read the proxy type directly into the proxy header structure.
 		if((size=rio_readnb(rp, &prxyhdr, PROXY_HLEN))<=0){

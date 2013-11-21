@@ -1,12 +1,10 @@
-#include "proxy.h"
-
 typedef struct Config{
 	char mac[6];
-	int listen_port;
-	int link_period;
-	int link_timeout;
+	unsigned short listen_port;
+	unsigned int link_period;
+	unsigned int link_timeout;
+	unsigned int quit_timer;
 	int tap;
-	int quit_timer;
 } Config;
 
 typedef struct Peer{
@@ -23,6 +21,6 @@ typedef struct Peer{
 //void ll_add(List list, List *node);
 //void ll_remove(List list, List *node);
 
-void remove_member(char* Mac, Peer *node);
+void remove_member(Peer *);
 //void remove_expired_member(char* mac, List *node)nk;
-void add_member(char* Mac, Peer *node);
+void add_member(Peer *);
