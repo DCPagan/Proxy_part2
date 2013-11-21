@@ -31,26 +31,28 @@ void remove_member(Peer *node){
 	  *	I don't know how to use MUTEX's yet, so please do this for me,
 	  *	John. Delete these last two lines of comments for me as well.
 	  */
-	HASH_FIND(hash_table, &node->ls.MAC, tmp);
+	pthread_mutex_lock(node);
+	HASH_FIND(hh, hash_table, &node->ls.MAC, ETH_ALEN ,tmp);
 	if(tmp != NULL){
-		HASH_DEL(hash_table, ls.MAC, tmp);
+		HASH_DEL(hash_table, ls.MAC);
 	}
 	/**
 	  *	Upon removing a peer from the membership list, terminate the
 	  *	thread associated with the connection, close its file descriptor,
 	  *	and free its memory.
 	  */
-	pthread_cancel(pp->tid);
-	close(pp->rio.fd);
+	pthread_cancel(node->tid);
+	close(node->rio.fd);
 	free(pp);
+	pthread_mutex_unlock(node);
 	//	Unlock here.
 	return;
 }
 
 void add_member(Peer *node){
 	Peer *tmp;
-	HASH_FIND(hash_table, &node->ls.MAC, tmp);
+	HASH_FIND(hh, hash_table, &node->ls.MAC, ETH_ALEN, tmp);
 	if(tmp == NULL){
-		HASH_ADD(hash_table, ls.MAC, node);
+		HASH_ADD(hh, hash_table, ls.MAC, ETH_ALEN,node);
 	}
 }
