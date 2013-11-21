@@ -4,6 +4,7 @@ int tapfd=-1;
 rio_t rio_tap;
 Config config;
 link_state linkState;
+
 char BROADCAST_ADDR[ETH_ALEN]=
 	['0xFF', '0xFF', '0xFF', '0xFF', '0xFF', '0xFF'];
 
@@ -459,7 +460,7 @@ int Data(void *data, unsigned short length){
 	ssize_t size;
 	//	Write the payload to the tap device.
 	if((size=rio_write(&rio_tap, data, length))<0){
-		perror("error writing to tap device");
+		fprintf(stderr, "error writing to tap device\n");
 		return -1;
 	}
 	return 0;
@@ -474,8 +475,19 @@ int Leave(void *data, unsigned short length){
 }
 
 int Quit(void *data, unsigned short length){
+	static proxy_header prxyhdr={ntohs(QUIT), ntohs(QUIT_LEN)};
+	char buffer[PROXY_HLEN+QUIT_LEN];
 	Peer *pp, *tmp;
+	if(length!=QUIT_LEN){
+		fprintf(stderr, "error: quit packet has wrong size\n");
+		return -1;
+	}
+	memcpy(buffer, &prxyhdr, PROXY_HLEN);
+	memcpy(buffer+PROXY_HLEN, data, QUIT_LEN);
 	HASH_ITER(hh, hash_table, pp, tmp){
+		if((size=rio_write(&pp->rio, buffer, PROXY_HLEN+QUIT_LEN))<0){
+			fprintf(stderr, "error writing quit packet to peer\n");
+		}
 		remove_member(pp);
 	}
 	pthread_cancel(tap_tid);

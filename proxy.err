@@ -1,60 +1,90 @@
-In file included from main.c:1:0:
-proxy.h:120:1: error: unknown type name ‘Config’
-main.c: In function ‘main’:
-main.c:32:36: error: request for member ‘listen_port’ in something not a structure or union
-main.c:33:29: error: request for member ‘listen_port’ in something not a structure or union
-main.c:35:37: error: request for member ‘listen_port’ in something not a structure or union
-main.c:39:31: error: request for member ‘listen_port’ in something not a structure or union
-main.c:41:42: error: request for member ‘link_period’ in something not a structure or union
-main.c:42:35: error: request for member ‘link_period’ in something not a structure or union
-main.c:44:36: error: request for member ‘link_timeout’ in something not a structure or union
-main.c:45:29: error: request for member ‘link_timeout’ in something not a structure or union
-main.c:47:39: error: ‘port’ undeclared (first use in this function)
-main.c:47:39: note: each undeclared identifier is reported only once for each function it appears in
-main.c:50:8: error: ‘ethfd’ undeclared (first use in this function)
-main.c:50:43: error: request for member ‘listen_port’ in something not a structure or union
-main.c:55:36: error: request for member ‘quit_timer’ in something not a structure or union
-main.c:56:29: error: request for member ‘quit_timer’ in something not a structure or union
-main.c:59:4: warning: format ‘%s’ expects a matching ‘char *’ argument [-Wformat]
-main.c:66:20: error: ‘tid’ undeclared (first use in this function)
-main.c:66:4: warning: passing argument 3 of ‘pthread_create’ from incompatible pointer type [enabled by default]
-In file included from proxy.h:9:0,
-                 from main.c:1:
-/usr/include/pthread.h:232:12: note: expected ‘void * (*)(void *)’ but argument is of type ‘void * (*)(int *)’
-main.c:71:2: error: ‘ls’ undeclared (first use in this function)
-main.c:71:2: warning: left-hand operand of comma expression has no effect [-Wunused-value]
-main.c:71:2: error: ‘Peer’ has no member named ‘hash_table’
-main.c:72:3: warning: passing argument 3 of ‘pthread_create’ from incompatible pointer type [enabled by default]
-In file included from proxy.h:9:0,
-                 from main.c:1:
-/usr/include/pthread.h:232:12: note: expected ‘void * (*)(void *)’ but argument is of type ‘void * (*)(int *)’
-main.c:74:2: warning: passing argument 3 of ‘pthread_create’ from incompatible pointer type [enabled by default]
-In file included from proxy.h:9:0,
-                 from main.c:1:
-/usr/include/pthread.h:232:12: note: expected ‘void * (*)(void *)’ but argument is of type ‘void * (*)(int *)’
-main.c:75:2: warning: passing argument 1 of ‘pthread_detach’ makes integer from pointer without a cast [enabled by default]
-In file included from proxy.h:9:0,
-                 from main.c:1:
-/usr/include/pthread.h:270:12: note: expected ‘pthread_t’ but argument is of type ‘pthread_t *’
-main.c:88:15: error: ‘clientfd’ undeclared (first use in this function)
-main.c:89:4: warning: passing argument 2 of ‘getsockname’ from incompatible pointer type [enabled by default]
+proxy.c:8:6: error: conflicting types for ‘BROADCAST_ADDR’
+In file included from proxy.c:1:0:
+proxy.h:153:19: note: previous declaration of ‘BROADCAST_ADDR’ was here
+proxy.c:9:2: error: expected expression before ‘[’ token
+proxy.c:9:3: warning: multi-character character constant [-Wmultichar]
+proxy.c:9:11: warning: multi-character character constant [-Wmultichar]
+proxy.c:9:9: warning: left-hand operand of comma expression has no effect [-Wunused-value]
+proxy.c:9:19: warning: multi-character character constant [-Wmultichar]
+proxy.c:9:17: warning: left-hand operand of comma expression has no effect [-Wunused-value]
+proxy.c:9:27: warning: multi-character character constant [-Wmultichar]
+proxy.c:9:25: warning: left-hand operand of comma expression has no effect [-Wunused-value]
+proxy.c:9:35: warning: multi-character character constant [-Wmultichar]
+proxy.c:9:33: warning: left-hand operand of comma expression has no effect [-Wunused-value]
+proxy.c:9:43: warning: multi-character character constant [-Wmultichar]
+proxy.c:9:41: warning: left-hand operand of comma expression has no effect [-Wunused-value]
+proxy.c: In function ‘get_port’:
+proxy.c:43:3: warning: suggest parentheses around ‘&&’ within ‘||’ [-Wparentheses]
+proxy.c: At top level:
+proxy.c:84:7: error: conflicting types for ‘open_clientfd’
+In file included from proxy.c:1:0:
+proxy.h:113:12: note: previous declaration of ‘open_clientfd’ was here
+proxy.c: In function ‘open_clientfd’:
+proxy.c:93:3: warning: return makes pointer from integer without a cast [enabled by default]
+proxy.c:100:3: warning: return makes pointer from integer without a cast [enabled by default]
+proxy.c:110:3: warning: suggest parentheses around ‘&&’ within ‘||’ [-Wparentheses]
+proxy.c:113:3: warning: return makes pointer from integer without a cast [enabled by default]
+proxy.c:125:3: warning: return makes pointer from integer without a cast [enabled by default]
+proxy.c:134:2: warning: passing argument 2 of ‘getsockname’ from incompatible pointer type [enabled by default]
 In file included from proxy.h:11:0,
-                 from main.c:1:
+                 from proxy.c:1:
 /usr/include/sys/socket.h:128:12: note: expected ‘struct sockaddr * __restrict__’ but argument is of type ‘struct in_addr *’
-main.c:89:4: warning: passing argument 3 of ‘getsockname’ makes pointer from integer without a cast [enabled by default]
+proxy.c:134:2: warning: passing argument 3 of ‘getsockname’ makes pointer from integer without a cast [enabled by default]
 In file included from proxy.h:11:0,
-                 from main.c:1:
+                 from proxy.c:1:
 /usr/include/sys/socket.h:128:12: note: expected ‘socklen_t * __restrict__’ but argument is of type ‘unsigned int’
-main.c:91:4: warning: passing argument 2 of ‘getpeername’ from incompatible pointer type [enabled by default]
+proxy.c:135:2: warning: passing argument 2 of ‘getpeername’ from incompatible pointer type [enabled by default]
 In file included from proxy.h:11:0,
-                 from main.c:1:
+                 from proxy.c:1:
 /usr/include/sys/socket.h:142:12: note: expected ‘struct sockaddr * __restrict__’ but argument is of type ‘struct in_addr *’
-main.c:91:4: warning: passing argument 3 of ‘getpeername’ makes pointer from integer without a cast [enabled by default]
+proxy.c:135:2: warning: passing argument 3 of ‘getpeername’ makes pointer from integer without a cast [enabled by default]
 In file included from proxy.h:11:0,
-                 from main.c:1:
+                 from proxy.c:1:
 /usr/include/sys/socket.h:142:12: note: expected ‘socklen_t * __restrict__’ but argument is of type ‘unsigned int’
-main.c:96:3: warning: implicit declaration of function ‘link_state_exchange’ [-Wimplicit-function-declaration]
-main.c:98:3: warning: passing argument 3 of ‘pthread_create’ from incompatible pointer type [enabled by default]
-In file included from proxy.h:9:0,
-                 from main.c:1:
-/usr/include/pthread.h:232:12: note: expected ‘void * (*)(void *)’ but argument is of type ‘void * (*)(int *)’
+proxy.c:140:2: warning: implicit declaration of function ‘link_state_exchange_client’ [-Wimplicit-function-declaration]
+proxy.c:141:2: warning: passing argument 1 of ‘add_member’ from incompatible pointer type [enabled by default]
+In file included from proxy.c:1:0:
+proxy.h:145:13: note: expected ‘struct Peer *’ but argument is of type ‘struct Peer **’
+proxy.c: At top level:
+proxy.c:149:7: error: conflicting types for ‘link_state_exchange_client’
+proxy.c:140:2: note: previous implicit declaration of ‘link_state_exchange_client’ was here
+proxy.c: In function ‘link_state_exchange_client’:
+proxy.c:150:15: warning: variable ‘prxyhdr’ set but not used [-Wunused-but-set-variable]
+proxy.c: In function ‘tap_handler’:
+proxy.c:232:21: error: too few arguments to function ‘memcmp’
+proxy.c:232:58: warning: left-hand operand of comma expression has no effect [-Wunused-value]
+proxy.c:233:18: warning: left-hand operand of comma expression has no effect [-Wunused-value]
+proxy.c:234:4: error: incompatible types when assigning to type ‘Peer’ from type ‘struct Peer *’
+proxy.c:234:4: error: incompatible types when assigning to type ‘struct Peer *’ from type ‘Peer’
+proxy.c:234:4: error: used struct type value where scalar is required
+proxy.c:234:4: error: invalid type argument of ‘->’ (have ‘Peer’)
+proxy.c:234:4: warning: left-hand operand of comma expression has no effect [-Wunused-value]
+proxy.c:242:36: error: macro "HASH_FIND" requires 5 arguments, but only 3 given
+proxy.c:242:4: error: ‘HASH_FIND’ undeclared (first use in this function)
+proxy.c:242:4: note: each undeclared identifier is reported only once for each function it appears in
+proxy.c:180:6: warning: unused variable ‘i’ [-Wunused-variable]
+proxy.c: At top level:
+proxy.c:254:7: error: conflicting types for ‘eth_handler’
+In file included from proxy.c:1:0:
+proxy.h:115:14: note: previous declaration of ‘eth_handler’ was here
+proxy.c: In function ‘eth_handler’:
+proxy.c:272:18: error: invalid type argument of ‘->’ (have ‘rio_t’)
+proxy.c:263:8: warning: unused variable ‘tmp’ [-Wunused-variable]
+proxy.c: In function ‘Leave’:
+proxy.c:471:51: error: macro "HASH_FIND" requires 5 arguments, but only 3 given
+proxy.c:471:2: error: ‘HASH_FIND’ undeclared (first use in this function)
+proxy.c: In function ‘Quit’:
+proxy.c:478:2: error: initializer element is not constant
+proxy.c:478:2: error: (near initialization for ‘prxyhdr.type’)
+proxy.c:478:2: error: initializer element is not constant
+proxy.c:478:2: error: (near initialization for ‘prxyhdr.length’)
+proxy.c:488:7: error: ‘size’ undeclared (first use in this function)
+proxy.c: In function ‘Link_State’:
+proxy.c:504:53: error: macro "HASH_FIND" requires 5 arguments, but only 3 given
+proxy.c:504:2: error: ‘HASH_FIND’ undeclared (first use in this function)
+proxy.c:506:3: error: incompatible type for argument 1 of ‘inet_ntoa_r’
+proxy.c:382:6: note: expected ‘int’ but argument is of type ‘struct in_addr’
+proxy.c: In function ‘link_state_exchange_server’:
+proxy.c:174:1: warning: control reaches end of non-void function [-Wreturn-type]
+proxy.c: In function ‘link_state_exchange_client’:
+proxy.c:167:1: warning: control reaches end of non-void function [-Wreturn-type]

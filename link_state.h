@@ -1,4 +1,4 @@
-typedef struct Config{
+typedef struct{
 	char mac[6];
 	unsigned short listen_port;
 	unsigned int link_period;
@@ -7,7 +7,7 @@ typedef struct Config{
 	int tap;
 } Config;
 
-typedef struct Peer{
+typedef struct{
 	link_state ls;
 	pthread_t tid;
 	rio_t rio;

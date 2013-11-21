@@ -1,4 +1,4 @@
-#include "link_state.h"
+#include "proxy.h"
 
 Peer *hash_table = NULL;
 /*

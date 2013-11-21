@@ -1,5 +1,4 @@
 #include"proxy.h"
-#include"link_state.h"
 
 int main(int argc, char **argv){
 	int *connfdptr, listenfd;	//	listening socket descriptor
@@ -29,7 +28,6 @@ int main(int argc, char **argv){
 			break;
 		if(!strncmp(buf, "listenPort", 10)){
 			sscanf(buf, "%*s %hu\n", &config.listen_port);
-			printf("%s %hu\n", config.listen_port);
 			//	Set up a socket to listen to clients' connection requests.
 			if((listenfd=open_listenfd(config.listen_port))<0){
 				perror("error opening listening socket");
@@ -37,37 +35,32 @@ int main(int argc, char **argv){
 			}
 			linkState.listenPort=config.listen_port;
 		}else if(!strncmp(buf, "linkPeriod", 10)){
-			sscanf(buf, "%*s %hu\n", buf1, &config.link_period);
-			printf("%s %hu\n", buf1, config.link_period);
+			sscanf(buf, "%*s %hu\n", &config.link_period);
 		}else if(!strncmp(buf, "linkTimeout", 11)){
 			sscanf(buf, "%*s %hu\n", &config.link_timeout);
-			printf("%s %hu\n", config.link_timeout);
 		}else if(!strncmp(buf, "peer", 4)){
-			sscanf(buf, "%*s %s %hu\n", buf1, &port);
-			printf("%s %s %hu\n", buf1, port);
+			sscanf(buf, "%*s %s %hu\n", buf1, &config.listen_port);
 			//	Connect to the server.
-			if((pp=open_clientfd(argv[1], config.listen_port))==NULL){
+			if((pp=open_clientfd(buf1, config.listen_port))==NULL){
 				perror("error opening ethernet device");
 				exit(-1);
 			}
 		}else if(!strncmp(buf, "quitAfter", 9)){
 			sscanf(buf, "%*s %hu\n", &config.quit_timer);
-			printf("%s %hu\n", config.quit_timer);
 		}else if(!strncmp(buf, "tapDevice", 9)){
 			sscanf(buf, "%*s %s\n", buf1);
-			printf("%s %s\n", buf1);
 			//	Set up the tap device.
 			if((tapfd=allocate_tunnel(buf, IFF_TAP|IFF_NO_PI))<0){
 				perror("error opening tap device");
 				exit(-1);
 			}
 			rio_readinit(&rio_tap, tapfd);
-			pthread_create(&tid, NULL, eth_handler, connfdptr);
+			pthread_create(&tap_tid, NULL, eth_handler, connfdptr);
 		}
 	}
 	fclose(fp);
 	//	Initialize all socket descriptors as -1.
-	HASH_ITER(hash_table, ls.MAC, pp, tmp){
+	HASH_ITER(hh, hash_table, pp, tmp){
 		pthread_create(&pp->tid, NULL, eth_handler, pp);
 	}
 	pthread_create(&tap_tid, NULL, tap_handler, &tapfd);
@@ -84,13 +77,8 @@ int main(int argc, char **argv){
 		printf("Successfully connected to host at I.P. address %s.\n",
 			inet_ntoa(clientaddr.sin_addr));
 		pp=(Peer *)malloc(sizeof(Peer));
-		getsockname(clientfd, &linkState.IPaddr,
-			sizeof(linkState.IPaddr));
-		getpeername(clientfd, &pp->ls.IPaddr,
-			sizeof(pp->ls.IPaddr));
-		pp->ls.listenPort=port;
-		memset(pp->ls.MAC, 0, ETH_ALEN);
-		rio_readinit(&pp->rio, clientfd);
+		memset(pp, 0, sizeof(Peer));
+		rio_readinit(&pp->rio, *connfdptr);
 		pthread_mutex_init(&pp->lock, NULL);
 		link_state_exchange(pp);
 		add_member(pp);

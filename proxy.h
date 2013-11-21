@@ -60,25 +60,27 @@
 #define BANDWIDTH_PROBE_REQUEST 0XAB45	//	extra credit
 #define BANDWIDTH_RESPONSE 0XAB46		//	extra credit
 
-typedef struct proxy_header{
+#define QUIT_LEN 20
+
+typedef struct __attribute__((packed)){
 	unsigned short type;
 	unsigned short length;
 } proxy_header;
 
-typedef struct{
+typedef struct __attribute__((packed)){
 	struct in_addr localIP;
 	unsigned short localListenPort;
 	unsigned char localMAC[ETH_ALEN];
 	unsigned long long ID;
-} __attribute__((packed)) leave;
+} leave;
 
-typedef struct{
+typedef struct __attribute__((packed)){ 
 	struct in_addr IPaddr;
 	unsigned short listenPort;
 	unsigned char MAC[ETH_ALEN];
-} __attribute__((packed)) link_state;
+} link_state;
 
-typedef struct{
+typedef struct __attribute__((packed)){
 	struct in_addr localIP;
 	unsigned short localListenPort;
 	unsigned char localMAC[ETH_ALEN];
@@ -86,7 +88,24 @@ typedef struct{
 	unsigned short remoteListenPort;
 	unsigned char remoteMAC[ETH_ALEN];
 	unsigned int averageRTT;
-}  __attribute__((packed)) link_state_Neighbor;
+} link_state_Neighbor;
+
+typedef struct{
+	char mac[6];
+	unsigned short listen_port;
+	unsigned int link_period;
+	unsigned int link_timeout;
+	unsigned int quit_timer;
+	int tap;
+} Config;
+
+typedef struct{
+	link_state ls;
+	pthread_t tid;
+	rio_t rio;
+	pthread_mutex_t lock;
+	UT_hash_handle hh;
+} Peer;
 
 extern int allocate_tunnel(char *, int);
 extern unsigned short get_port(char *);
@@ -115,9 +134,20 @@ extern int Signed_Link_State(void *, unsigned short);
 extern int Bandwidth_Probe_Request(void *, unsigned short);
 extern int Bandwidth_Probe_Response(void *, unsigned short);
 
+/*creates a head node for each list and initialized it to null*/
+/*Not needed for part 2*/
+//List *ll_create();
+//void ll_add(List list, List *node);
+//void ll_remove(List list, List *node);
+
+extern void remove_member(Peer *);
+//void remove_expired_member(char* mac, List *node)nk;
+extern void add_member(Peer *);
+
 extern int tapfd;
 extern pthread_t tap_tid;
 extern rio_t rio_tap;	//	Robust I/O struct for the tap device
+extern Peer *hash_table;
 extern Config config;
 extern link_state linkState;
 extern const char BROADCAST_ADDR[ETH_ALEN];
