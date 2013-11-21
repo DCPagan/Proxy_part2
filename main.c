@@ -49,9 +49,7 @@ int main(int argc, char **argv){
 				perror("error opening ethernet device");
 				exit(-1);
 			}
-			rp=(rio_t *)malloc(sizeof(rio_t));
-			rio_readinit(&rio_eth, ethfd);
-			pthread_create(&eth_tid, NULL, eth_handler, &ethfd);
+			pthread_create(&eth_tid, NULL, eth_handler, );
 		}else if(!strncmp(buf, "quitAfter", 9)){
 			sscanf(buf, "%*s %hu\n", &config.quit_timer);
 			printf("%s %hu\n", config.quit_timer);
@@ -64,12 +62,11 @@ int main(int argc, char **argv){
 				exit(-1);
 			}
 			rio_readinit(&rio_tap, tapfd);
+			pthread_create(&tid, NULL, eth_handler, connfdptr);
 		}
 	}
 	fclose(fp);
 	//	Initialize all socket descriptors as -1.
-	memset(buf, 0, sizeof(buf));
-	memset(&rio_eth, 0, sizeof(rio_eth));
 	pthread_create(&tap_tid, NULL, tap_handler, &tapfd);
 	for(;;){
 		//	Accept a connection request.
@@ -82,7 +79,6 @@ int main(int argc, char **argv){
 		}
 		printf("Successfully connected to host at I.P. address %s.\n",
 			inet_ntoa(clientaddr.sin_addr));
-		pthread_create(&tid, NULL, eth_handler, connfdptr);
 	}
 	return 0;
 }

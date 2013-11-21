@@ -13,7 +13,7 @@ typedef struct Peer{
 	link_state ls;
 	pthread_t tid;
 	rio_t rio;
-	pthread_mutex_t *lock;
+	pthread_mutex_t lock;
 	UT_hash_handle hh;
 } Peer;
 

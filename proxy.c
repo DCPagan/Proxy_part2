@@ -82,6 +82,8 @@ int open_clientfd(char *hostname, unsigned short port){
 	struct hostent *hp;
 	struct in_addr addr;
 	struct sockaddr_in serveraddr;
+	Peer peer;
+	Peer *pp;
 	if((clientfd=socket(AF_INET, SOCK_STREAM, 0))<0){
 		perror("error opening socket");
 		return -1;
@@ -118,6 +120,14 @@ int open_clientfd(char *hostname, unsigned short port){
 		close(clientfd);
 		return -1;
 	}
+	peer.ls.IPaddr=serveraddr.sin_addr;
+	peer.ls.listenPort=port;
+	memset(peer.ls.MAC, 0, ETH_ALEN);
+	rp=(rio_t *)malloc(sizeof(rio_t));
+	rio_readinit(&peer.rio, clientfd);
+	pthread_mutex_init(&peer.lock, NULL);
+	link_state_exchange(fd, &peer.ls.MAC);
+	addPeer(&peer);
 	printf("Successfully connected to host at I.P. address %s.\n",
 		inet_ntoa(serveraddr.sin_addr));
 	return clientfd;

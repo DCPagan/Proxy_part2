@@ -1,7 +1,6 @@
 #include "link_state.h"
 
 Peer *hash_table = NULL;
-Peer peer;
 /*
  *These functions not needed for part 2
  *

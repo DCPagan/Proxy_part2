@@ -70,13 +70,13 @@ typedef struct{
 	unsigned short localListenPort;
 	unsigned char localMAC[ETH_ALEN];
 	unsigned long long ID;
-} leave;
+} __attribute__((packed)) leave;
 
 typedef struct{
 	struct in_addr IPaddr;
 	unsigned short listenPort;
 	unsigned char MAC[ETH_ALEN];
-} link_state;
+} __attribute__((packed)) link_state;
 
 typedef struct{
 	struct in_addr localIP;
@@ -86,7 +86,7 @@ typedef struct{
 	unsigned short remoteListenPort;
 	unsigned char remoteMAC[ETH_ALEN];
 	unsigned int averageRTT;
-} link_state_Neighbor;
+}  __attribute__((packed)) link_state_Neighbor;
 
 extern int allocate_tunnel(char *, int);
 extern unsigned short get_port(char *);
