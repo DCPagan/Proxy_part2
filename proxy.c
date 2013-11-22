@@ -147,7 +147,9 @@ Peer *open_clientfd(char *hostname, unsigned short port){
   */
 Peer *link_state_exchange_client(Peer *pp){
 	proxy_header prxyhdr;
-	void *buffer;
+	void *buffer, *bufptr;
+	unsigned short N=HASH_COUNT(hash_table);	//	number of neighbors
+	Peer *pp1, *pp2;
 	/**
 	  *	Calculate the length of the packet to send by adding the values
 	  *	of the single-record server holding this proxy's connection
@@ -155,15 +157,25 @@ Peer *link_state_exchange_client(Peer *pp){
 	  *	size of a neighbor's record.
 	  */
 	prxyhdr.type=ntohs(LINK_STATE);
+	prxyhdr.length=2*sizeof(unsigned short)	//	2 numbers for neighbors
+		+sizeof(link_state_source)	//	1 source/origin link-state
+		+N*sizeof(link_state_record);	// N records
 	/**
-	  *	Allocate memory in the stack for a structure to hold the
-	  *	struct for a constant-sized single-record link-state structure
-	  *	by declaring such an automatic structure variable.
+	  *	Allocate memory for a structure to hold the struct for a
+	  *	constant-sized single-record link-state structure by declaring
+	  *	such an automatic structure variable.
 	  */
-
-	/**
-	  *	Iterating through the membership list, write
-	  */
+	buffer=bufptr=malloc(prxyhdr.length);
+	memcpy(bufptr, &prxyhdr, PROXY_HLEN);
+	bufptr+=PROXY_HLEN;
+	memcpy(bufptr, N, sizeof(N));
+	//	Iterate through the membership list.
+	HASH_ITER(hh, hash_table, pp1, pp2){
+		/**
+		  *	Write link-state records for each neighbor here.
+		  */
+		bufptr+=sizeof(link_state_record);
+	}
 	return pp;
 }
 
@@ -250,7 +262,9 @@ void *tap_handler(int *fd){
 			}
 		}
 		rio_resetBuffer(&rio_tap);
-	} } 
+	}
+} 
+
 void *eth_handler(Peer *pp){
 	/**
   	  *	ethfd points to the socket descriptor to the Ethernet device that
@@ -585,8 +599,8 @@ void remove_member(Peer *node){
 	  */
 	pthread_cancel(node->tid);
 	close(node->rio.fd);
-	free(node);
 	pthread_mutex_unlock(node);
+	free(node);
 	//	Unlock here.
 	return;
 }

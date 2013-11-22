@@ -79,20 +79,19 @@ typedef struct __attribute__((packed)){
 	unsigned short listenPort;
 	unsigned char tapMAC[ETH_ALEN];
 	unsigned char ethMAC[ETH_ALEN];
-	unsigned short numNbrs;
 } link_state;
 
 typedef struct __attribute__((packed)){
-	struct in_addr localIP;
-	unsigned short localListenPort;
-	unsigned char localTapMAC[ETH_ALEN];
-	unsigned char localEthMAC[ETH_ALEN];
-	struct in_addr remoteIP;
-	unsigned short remoteListenPort;
-	unsigned char remoteTapMAC[ETH_ALEN];
-	unsigned char remoteEthMAC[ETH_ALEN];
+	link_state ls;
+	unsigned short numNbrs;
+} link_state_source;
+
+typedef struct __attribute__((packed)){
+	unsigned long long ID;
+	link_state proxy1;
+	link_state proxy2;
 	unsigned int linkWeight;
-} link_state_Neighbor;
+} link_state_record;
 
 typedef struct{
 	char mac[6];
