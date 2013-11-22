@@ -207,7 +207,7 @@ Peer *link_state_exchange_client(Peer *pp){
 Peer *link_state_exchange_server(Peer *pp){
 	proxy_header prxyhdr;
 	void *buffer, *bufptr;
-	unsigned short N, i;	//	number of neighbors
+	unsigned short N;	//	number of neighbors
 	size_t size;
 	if((size=rio_readnb(&pp->rio, &prxyhdr, PROXY_HLEN))<0){
 		/**
