@@ -207,7 +207,8 @@ Peer *link_state_exchange_client(Peer *pp){
 Peer *link_state_exchange_server(Peer *pp){
 	proxy_header prxyhdr;
 	void *buffer, *bufptr;
-	unsigned short N=HASH_COUNT(hash_table);	//	number of neighbors
+	unsigned short N;	//	number of neighbors
+	N=HASH_COUNT(hash_table);
 	return pp;
 }
 
