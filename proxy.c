@@ -207,8 +207,41 @@ Peer *link_state_exchange_client(Peer *pp){
 Peer *link_state_exchange_server(Peer *pp){
 	proxy_header prxyhdr;
 	void *buffer, *bufptr;
-	unsigned short N;	//	number of neighbors
-	N=HASH_COUNT(hash_table);
+	unsigned short N, i;	//	number of neighbors
+	size_t size;
+	if((size=rio_readnb(&pp->rio, &prxyhdr, PROXY_HLEN))<0){
+		/**
+		  *	Link-state error condition
+		  */
+		return NULL;
+	}
+	buffer=malloc(prxyhdr.length);
+	if((size=rio_readnb(&pp->rio, buffer, prxyhdr.length))<0){
+		/**
+		  *	Link-state error condition
+		  */
+		return NULL;
+	}
+	bufptr=buffer+PROXY_HLEN;
+	//	Pointing to number of neighbors.
+	N=*(unsigned short *)bufptr;
+	bufptr+=sizeof(unsigned short);
+	//	Pointing to source/origin record.
+	pp->ls=*((link_state *)bufptr);
+	bufptr+=sizeof(link_state_source);
+	//	Pointing to neighbor record list.
+	for(; N>0; bufptr+=sizeof(link_state_record), N--){
+		/**
+		  *	bufptr now points to a link_state_record structure pertaining
+		  *	to a connection between the source and a peer. Dereference
+		  *	accordingly.
+		  *
+		  *	For part 3, include code for modifying edge information in
+		  *	the graph.
+		  */
+	}
+	rio_resetBuffer(&pp->rio);
+	free(buffer);
 	return pp;
 }
 

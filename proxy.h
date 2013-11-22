@@ -94,6 +94,14 @@ typedef struct __attribute__((packed)){
 } link_state_record;
 
 typedef struct{
+	link_state ls;
+	pthread_t tid;
+	rio_t rio;
+	pthread_mutex_t lock;
+	UT_hash_handle hh;
+} Peer;
+
+typedef struct{
 	char mac[6];
 	unsigned short listen_port;
 	unsigned int link_period;
@@ -101,14 +109,6 @@ typedef struct{
 	unsigned int quit_timer;
 	int tap;
 } Config;
-
-typedef struct{
-	link_state ls;
-	pthread_t tid;
-	rio_t rio;
-	pthread_mutex_t lock;
-	UT_hash_handle hh;
-} Peer;
 
 extern int allocate_tunnel(char *, int);
 extern unsigned short get_port(char *);
