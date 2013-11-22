@@ -49,6 +49,9 @@ void remove_member(Peer *node){
 	return;
 }
 
+/**
+  *	Lock memory accordingly in this procedure as well.
+  */
 void add_member(Peer *node){
 	Peer *tmp;
 	HASH_FIND(hh, hash_table, &node->ls.MAC, ETH_ALEN, tmp);

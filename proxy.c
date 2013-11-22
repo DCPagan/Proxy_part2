@@ -5,6 +5,7 @@ pthread_t tap_tid;
 rio_t rio_tap;
 Config config;
 link_state linkState;
+Peer *hash_table = NULL;
 
 const char BROADCAST_ADDR[ETH_ALEN]=
 	{'\xFF', '\xFF', '\xFF', '\xFF', '\xFF', '\xFF'};
@@ -547,4 +548,45 @@ int Bandwidth_Probe_Request(void *data, unsigned short length){
 
 int Bandwidth_Probe_Response(void *data, unsigned short length){
 	return 0;
+}
+
+/**
+  *	Lock accordingly in this process as well.
+  */
+void add_member(Peer *node){
+	Peer *tmp;
+	HASH_FIND(hh, hash_table, &node->ls.tapMAC, ETH_ALEN, tmp);
+	if(tmp == NULL){
+		HASH_ADD(hh, hash_table, ls.tapMAC, ETH_ALEN,node);
+	}
+}
+
+void remove_member(Peer *node){
+	Peer *tmp;
+	/**
+	  *	This is a write operation on shared data; to solve the
+	  *	readers/writers problem, use mutual exclusion to privilege
+	  *	the writer by granting exclusive access to the hash_table.
+	  */
+	/**
+	  * Lock here. I don't know how to use MUTEX's yet.
+	  *	I don't know how to use MUTEX's yet, so please do this for me,
+	  *	John. Delete these last two lines of comments for me as well.
+	  */
+	pthread_mutex_lock(node);
+	HASH_FIND(hh, hash_table, &node->ls.tapMAC, ETH_ALEN ,tmp);
+	if(tmp != NULL){
+		HASH_DEL(hash_table, node);
+	}
+	/**
+	  *	Upon removing a peer from the membership list, terminate the
+	  *	thread associated with the connection, close its file descriptor,
+	  *	and free its memory.
+	  */
+	pthread_cancel(node->tid);
+	close(node->rio.fd);
+	free(node);
+	pthread_mutex_unlock(node);
+	//	Unlock here.
+	return;
 }
