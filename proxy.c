@@ -147,9 +147,11 @@ Peer *open_clientfd(char *hostname, unsigned short port){
   */
 Peer *link_state_exchange_client(Peer *pp){
 	proxy_header prxyhdr;
-	void *buffer, *bufptr;
+	char buffer[ETH_FRAME_LEN];
+	void *bufptr=buffer;
 	unsigned short N=HASH_COUNT(hash_table);	//	number of neighbors
 	Peer *pp1, *pp2;
+	size_t size;
 	/**
 	  *	Calculate the length of the packet to send by adding the values
 	  *	of the single-record server holding this proxy's connection
@@ -165,7 +167,6 @@ Peer *link_state_exchange_client(Peer *pp){
 	  *	constant-sized single-record link-state structure by declaring
 	  *	such an automatic structure variable.
 	  */
-	buffer=bufptr=malloc(prxyhdr.length);
 	memcpy(bufptr, &prxyhdr, PROXY_HLEN);
 	bufptr+=PROXY_HLEN;
 	memcpy(bufptr, N, sizeof(N));
@@ -173,9 +174,29 @@ Peer *link_state_exchange_client(Peer *pp){
 	HASH_ITER(hh, hash_table, pp1, pp2){
 		/**
 		  *	Write link-state records for each neighbor here.
+		  *	Consult the struct link_state_record for information on how to
+		  *	write records on the buffer.
 		  */
 		bufptr+=sizeof(link_state_record);
 	}
+	if((size=rio_write(&pp->rio, buffer, prxyhdr.length+PROXY_HLEN))<0){
+		/**
+		  *	error condition; program accordingly.
+		  */
+		free(buffer);
+		return NULL;
+	}
+	/**
+	  *	Read the proxy header first, and then the rest of the packet.
+	  */
+	if((size=rio_read(&pp->rio, &prxyhdr, PROXY_HLEN))<0){
+		/**
+		  *	error condition; program accordingly.
+		  */
+		free(buffer);
+		return NULL;
+	}
+	free(buffer);
 	return pp;
 }
 
@@ -184,6 +205,10 @@ Peer *link_state_exchange_client(Peer *pp){
   *	Wait for link-state packet, then send a response to the client.
   */
 Peer *link_state_exchange_server(Peer *pp){
+	proxy_header prxyhdr;
+	void *buffer, *bufptr;
+	unsigned short N=HASH_COUNT(hash_table);	//	number of neighbors
+	return pp;
 }
 
 void *tap_handler(int *fd){
