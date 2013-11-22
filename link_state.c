@@ -26,20 +26,21 @@ void remove_member(Peer *node){
 	  *	readers/writers problem, use mutual exclusion to privilege
 	  *	the writer by granting exclusive access to the hash_table.
 	  */
-	pthread_mutex_lock(&node->lock);
 	HASH_FIND(hh, hash_table, &node->ls.MAC, ETH_ALEN ,tmp);
 	if(tmp != NULL){
+		pthread_mutex_lock(&node->lock);
 		HASH_DEL(hash_table, ls.MAC);
-	}
 	/**
 	  *	Upon removing a peer from the membership list, terminate the
 	  *	thread associated with the connection, close its file descriptor,
 	  *	and free its memory.
 	  */
+		pthread_mutex_unlock(&node->lock);
+		pthread_mutex_destroy(&node->lock);
+	}
 	pthread_cancel(node->tid);
 	close(node->rio.fd);
-	free(pp);
-	pthread_mutex_unlock(&node->lock);
+	free(node);
 	return;
 }
 
