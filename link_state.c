@@ -26,12 +26,7 @@ void remove_member(Peer *node){
 	  *	readers/writers problem, use mutual exclusion to privilege
 	  *	the writer by granting exclusive access to the hash_table.
 	  */
-	/**
-	  * Lock here. I don't know how to use MUTEX's yet.
-	  *	I don't know how to use MUTEX's yet, so please do this for me,
-	  *	John. Delete these last two lines of comments for me as well.
-	  */
-	pthread_mutex_lock(node);
+	pthread_mutex_lock(&node->lock);
 	HASH_FIND(hh, hash_table, &node->ls.MAC, ETH_ALEN ,tmp);
 	if(tmp != NULL){
 		HASH_DEL(hash_table, ls.MAC);
@@ -44,8 +39,7 @@ void remove_member(Peer *node){
 	pthread_cancel(node->tid);
 	close(node->rio.fd);
 	free(pp);
-	pthread_mutex_unlock(node);
-	//	Unlock here.
+	pthread_mutex_unlock(&node->lock);
 	return;
 }
 
@@ -54,8 +48,10 @@ void remove_member(Peer *node){
   */
 void add_member(Peer *node){
 	Peer *tmp;
+	pthread_mutex_lock(&node->lock);
 	HASH_FIND(hh, hash_table, &node->ls.MAC, ETH_ALEN, tmp);
 	if(tmp == NULL){
 		HASH_ADD(hh, hash_table, ls.MAC, ETH_ALEN,node);
 	}
+	pthread_mutex_unlock(&node->lock);
 }
