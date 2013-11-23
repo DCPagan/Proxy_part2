@@ -147,11 +147,11 @@ Peer *open_clientfd(char *hostname, unsigned short port){
   */
 Peer *link_state_exchange_client(Peer *pp){
 	proxy_header prxyhdr;
-	char buffer[ETH_FRAME_LEN];
-	void *bufptr=buffer;
-	unsigned short N=HASH_COUNT(hash_table);	//	number of neighbors
+	void *buffer, *bufptr;
+	unsigned short N;	//	number of neighbors
 	Peer *pp1, *pp2;
 	size_t size;
+	N=HASH_COUNT(hash_table);
 	/**
 	  *	Calculate the length of the packet to send by adding the values
 	  *	of the single-record server holding this proxy's connection
@@ -159,26 +159,19 @@ Peer *link_state_exchange_client(Peer *pp){
 	  *	size of a neighbor's record.
 	  */
 	prxyhdr.type=ntohs(LINK_STATE);
-	prxyhdr.length=2*sizeof(unsigned short)	//	2 numbers for neighbors
-		+sizeof(link_state_source)	//	1 source/origin link-state
+	prxyhdr.length=sizeof(unsigned short)	//	number of neighbors
+		+sizeof(link_state_source)	//	source/origin link-state
 		+N*sizeof(link_state_record);	// N records
 	/**
 	  *	Allocate memory for a structure to hold the struct for a
 	  *	constant-sized single-record link-state structure by declaring
 	  *	such an automatic structure variable.
 	  */
-	memcpy(bufptr, &prxyhdr, PROXY_HLEN);
-	bufptr+=PROXY_HLEN;
-	memcpy(bufptr, N, sizeof(N));
-	//	Iterate through the membership list.
-	HASH_ITER(hh, hash_table, pp1, pp2){
-		/**
-		  *	Write link-state records for each neighbor here.
-		  *	Consult the struct link_state_record for information on how to
-		  *	write records on the buffer.
-		  */
-		bufptr+=sizeof(link_state_record);
-	}
+	buffer=bufptr=malloc(prxyhdr.length+PROXY_HLEN);
+	*(proxy_header *)bufptr++=prxyhdr;
+	*(unsigned short *)bufptr++=N;
+	*(link_state *)bufptr++=linkState;
+	*(unsigned short *)bufptr++=N;
 	if((size=rio_write(&pp->rio, buffer, prxyhdr.length+PROXY_HLEN))<0){
 		/**
 		  *	error condition; program accordingly.
@@ -186,16 +179,25 @@ Peer *link_state_exchange_client(Peer *pp){
 		free(buffer);
 		return NULL;
 	}
-	/**
-	  *	Read the proxy header first, and then the rest of the packet.
-	  */
-	if((size=rio_read(&pp->rio, &prxyhdr, PROXY_HLEN))<0){
+	free(buffer);
+	if((size=rio_readnb(&pp->rio, &prxyhdr, PROXY_HLEN))<0){
 		/**
 		  *	error condition; program accordingly.
 		  */
-		free(buffer);
 		return NULL;
 	}
+	prxyhdr.type=ntohs(prxyhdr.type);
+	prxyhdr.length=ntohs(prxyhdr.length);
+	buffer=bufptr=malloc(prxyhdr.length);
+	if((size=rio_readnb(&pp->rio, buffer, prxyhdr.length))<0){
+		/**
+		  *	error condition; program accordingly.
+		  */
+		return NULL;
+	}
+	N=*(unsigned short *)bufptr++;
+	pp->ls=*(link_state *)bufptr++;
+	rio_resetBuffer(&pp->rio);
 	free(buffer);
 	return pp;
 }
@@ -207,54 +209,33 @@ Peer *link_state_exchange_client(Peer *pp){
 Peer *link_state_exchange_server(Peer *pp){
 	proxy_header prxyhdr;
 	void *buffer_cl, *buffer_srv, *bufptr;
-	unsigned short N_cl, N_srv;	//	number of neighbors
+	unsigned short N;	//	number of neighbors
 	size_t size;
 	Peer *pp1, *pp2;
-	N_srv=HASH_COUNT(hash_table);
-	prxyhdr.type=ntohs(LINK_STATE);
-	prxyhdr.length=PROXY_HLEN+2*sizeof(N_srv)
-		+sizeof(link_state_source)
-		+N_srv*sizeof(link_state_record);
-	buffer_srv=bufptr=malloc(prxyhdr.length);
-	//	Write proxy header.
-	memcpy(bufptr, &prxyhdr, PROXY_HLEN);
-	bufptr+=PROXY_HLEN;
-	//	Write number of neighbors.
-	memcpy(bufptr, &N_srv, sizeof(unsigned short));
-	bufptr+=sizeof(unsigned short);
-	//	Write source/origin link-state record.
-	memcpy(bufptr, &linkState, sizeof(link_state));
-	bufptr+=sizeof(link_state);
-	//	Write number of neighbors (again).
-	memcpy(bufptr, &N_srv, sizeof(unsigned short));
-	bufptr+=sizeof(unsigned short);
-	//	Iteratively write list of neighbor records.
-	HASH_ITER(hh, hash_table, pp1, pp2){
-		((link_state_record *)bufptr)->ID=0;
-		memcpy(&((link_state_record *)bufptr)->proxy1,
-			&linkState, sizeof(link_state));
-		memcpy(&((link_state_record *)bufptr)->proxy2,
-			&pp1->ls, sizeof(link_state));
-		((link_state_record *)bufptr)->linkWeight=1;
-		bufptr+=sizeof(link_state_record);
-	}
+	N=HASH_COUNT(hash_table);
+	prxyhdr.type=htons(LINK_STATE);
+	prxyhdr.length=htons(PROXY_HLEN+sizeof(N)
+		+sizeof(link_state_source));
+	buffer_srv=bufptr=malloc(ntohs(prxyhdr.length));
+	*(proxy_header *)bufptr++=prxyhdr;
+	*(unsigned short *)bufptr++=htons(N);
+	*(link_state *)bufptr++=linkState;
+	*(unsigned short *)bufptr++=htons(N);
 	if((size=rio_readnb(&pp->rio, &prxyhdr, PROXY_HLEN))<0){
 		/**
 		  *	Link-state error condition
 		  */
 		return NULL;
 	}
+	prxyhdr.type=ntohs(prxyhdr.type);
+	prxyhdr.length=ntohs(prxyhdr.length);
 	buffer_cl=bufptr=malloc(prxyhdr.length);
-	if((size=rio_readnb(&pp->rio, buffer_cl, prxyhdr.length))<0){
+	if((size=rio_readnb(&pp->rio, buffer_cl, ntohs(prxyhdr.length)))<0){
 		/**
 		  *	Link-state error condition
 		  */
 		return NULL;
 	}
-	/**
-  	  *	Send the link-state packet immediately after receiving one from
-	  *	the client.
-	  */
 	if((size=rio_write(&pp->rio, buffer_srv, PROXY_HLEN+prxyhdr.length))<0){
 		/**
 		  *	Link-state error condition
@@ -263,23 +244,8 @@ Peer *link_state_exchange_server(Peer *pp){
 	}
 	free(buffer_srv);
 	bufptr=buffer_cl+PROXY_HLEN;
-	//	Pointing to number of neighbors.
-	N_cl=*(unsigned short *)bufptr;
-	bufptr+=sizeof(unsigned short);
-	//	Pointing to source/origin record.
-	pp->ls=*((link_state *)bufptr);
-	bufptr+=sizeof(link_state_source);
-	//	Pointing to neighbor record list.
-	for(; N_cl>0; bufptr+=sizeof(link_state_record), N_cl--){
-		/**
-		  *	bufptr now points to a link_state_record structure pertaining
-		  *	to a connection between the source and a peer. Dereference
-		  *	accordingly. Handle neighbors if necessary.
-		  *
-		  *	For part 3, include code for modifying edge information in
-		  *	the graph.
-		  */
-	}
+	N=*(unsigned short *)bufptr++;
+	pp->ls=*(link_state *)bufptr++;
 	rio_resetBuffer(&pp->rio);
 	free(buffer_cl);
 	return pp;
