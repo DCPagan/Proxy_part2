@@ -156,7 +156,9 @@ Peer *link_state_exchange_client(Peer *pp){
 	unsigned short N;	//	number of neighbors
 	Peer *pp1, *pp2;
 	size_t size;
+	readBegin();
 	N=HASH_COUNT(hash_table);
+	readEnd();
 	/**
 	  *	Calculate the length of the packet to send by adding the values
 	  *	of the single-record server holding this proxy's connection
@@ -217,7 +219,9 @@ Peer *link_state_exchange_server(Peer *pp){
 	unsigned short N;	//	number of neighbors
 	size_t size;
 	Peer *pp1, *pp2;
+	readBegin();
 	N=HASH_COUNT(hash_table);
+	readEnd();
 	prxyhdr.type=htons(LINK_STATE);
 	prxyhdr.length=htons(PROXY_HLEN+sizeof(N)
 		+sizeof(link_state_source));
@@ -313,6 +317,7 @@ void *tap_handler(int *fd){
 		//	Check if the packet received is a broadcast packet.
 		if(memcmp(((struct ethhdr *)(buffer+PROXY_HLEN))->h_dest,
 			BROADCAST_ADDR, ETH_ALEN)){
+			readBegin();
 			HASH_ITER(hh, hash_table, pp, tmp){
 				if((size=rio_write(&pp->rio, buffer,
 					ntohs(prxyhdr.length)+PROXY_HLEN))<0){
@@ -320,6 +325,7 @@ void *tap_handler(int *fd){
 					return NULL;
 				}
 			}
+			readEnd();
 		}else{
 			HASH_FIND(hh, hash_table, &((link_state *)buffer)->tapMAC,
 				ETH_ALEN, pp);
@@ -551,10 +557,15 @@ int Data(void *data, unsigned short length){
 
 int Leave(void *data, unsigned short length){
 	Peer *pp;
+	writeBegin();
 	HASH_FIND(hh, hash_table, &((link_state *)data)->tapMAC,
 		ETH_ALEN, pp);
 	if(pp!=NULL)
-		remove_member(pp);
+		HASH_DEL(hash_table, pp);
+	writeEnd();
+	pthread_cancel(pp->tid);
+	close(pp->rio.fd);
+	free(pp);
 	return 0;
 }
 
@@ -568,10 +579,12 @@ int Quit(void *data, unsigned short length){
 	}
 	memcpy(buffer, &prxyhdr, PROXY_HLEN);
 	memcpy(buffer+PROXY_HLEN, data, QUIT_LEN);
+	readBegin();
 	HASH_ITER(hh, hash_table, pp, tmp){
 		rio_write(&pp->rio, buffer, PROXY_HLEN+QUIT_LEN);
 		remove_member(pp);
 	}
+	readEnd();
 	pthread_cancel(tap_tid);
 	exit(0);
 }
@@ -582,7 +595,12 @@ int Link_State(void *data, unsigned short length){
 	/**
 	  * Check if you are connected to the host that sent the packet.
 	  *	Define a struct to dereference the tap MAC address correctly.
+	  *
+	  *	Finding data in a shared resource is a read operation, and mutual
+	  *	exclusion of the shared membership list must be
+	  *	writer-preferential.
 	  */
+	readBegin();
 	HASH_FIND(hh, hash_table, &((link_state *)data)->tapMAC,
 		ETH_ALEN, pp);
 	if(pp==NULL){
@@ -590,6 +608,7 @@ int Link_State(void *data, unsigned short length){
 			addr);
 		open_clientfd(addr, ((link_state *)data)->listenPort);
 	}
+	readEnd();
 	return 0;
 }
 
@@ -644,20 +663,48 @@ int Bandwidth_Probe_Response(void *data, unsigned short length){
   *	structure; it may be necessary for the mutexes to be stored outside
   *	of the hash table.
   */
-void add_member(Peer *node){
-	Peer *tmp;
+
+void readBegin(){
+	pthread_mutex_lock(&mutex3);
+	pthread_mutex_lock(&r);
+	pthread_mutex_lock(&mutex1);
+	if(++readcount==1)
+		pthread_mutex_lock(&w);
+	pthread_mutex_unlock(&mutex1);
+	return;
+}
+
+void readEnd(){
+	pthread_mutex_lock(&mutex1);
+	if(--readcount==0)
+		pthread_mutex_unlock(&w);
+	pthread_mutex_unlock(&mutex1);
+	return;
+}
+
+void writeBegin(){
 	pthread_mutex_lock(&mutex2);
 	if(++writecount==1)
 		pthread_mutex_lock(&r);
 	pthread_mutex_unlock(&mutex2);
+	return;
+}
+
+void writeEnd(){
+	pthread_mutex_unlock(&mutex2);
+	if(--writecount==0)
+		pthread_mutex_unlock(&r);
+	pthread_mutex_lock(&mutex2);
+	return;
+}
+void add_member(Peer *node){
+	Peer *tmp;
+	writeBegin();
 	HASH_FIND(hh, hash_table, &node->ls.tapMAC, ETH_ALEN, tmp);
 	if(tmp == NULL){
 		HASH_ADD(hh, hash_table, ls.tapMAC, ETH_ALEN,node);
 	}
-	pthread_mutex_lock(&mutex2);
-	if(--writecount==0)
-		pthread_mutex_unlock(&r);
-	pthread_mutex_unlock(&mutex2);
+	writeEnd();
 	return;
 }
 
@@ -673,14 +720,12 @@ void remove_member(Peer *node){
 	  *	I don't know how to use MUTEX's yet, so please do this for me,
 	  *	John. Delete these last two lines of comments for me as well.
 	  */
-	pthread_mutex_lock(&mutex2);
-	if(++writecount==1)
-		pthread_mutex_lock(&r);
-	pthread_mutex_unlock(&mutex2);
+	writeBegin();
 	HASH_FIND(hh, hash_table, &node->ls.tapMAC, ETH_ALEN ,tmp);
 	if(tmp != NULL){
 		HASH_DEL(hash_table, node);
 	}
+	writeEnd();
 	/**
 	  *	Upon removing a peer from the membership list, terminate the
 	  *	thread associated with the connection, close its file descriptor,
@@ -689,10 +734,5 @@ void remove_member(Peer *node){
 	pthread_cancel(node->tid);
 	close(node->rio.fd);
 	free(node);
-	pthread_mutex_lock(&mutex2);
-	if(--writecount==0)
-		pthread_mutex_unlock(&r);
-	pthread_mutex_unlock(&mutex2);
-	//	Unlock here.
 	return;
 }

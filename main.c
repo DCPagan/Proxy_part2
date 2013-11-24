@@ -60,9 +60,11 @@ int main(int argc, char **argv){
 	}
 	fclose(fp);
 	//	Initialize all socket descriptors as -1.
+	readBegin();
 	HASH_ITER(hh, hash_table, pp, tmp){
 		pthread_create(&pp->tid, NULL, eth_handler, pp);
 	}
+	readEnd();
 	pthread_create(&tap_tid, NULL, tap_handler, &tapfd);
 	pthread_detach(&tap_tid);
 	for(;;){

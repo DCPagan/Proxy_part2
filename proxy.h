@@ -145,6 +145,10 @@ extern int Bandwidth_Probe_Response(void *, unsigned short);
 //void ll_add(List list, List *node);
 //void ll_remove(List list, List *node);
 
+extern void readBegin();
+extern void readEnd();
+extern void writeBegin();
+extern void writeEnd();
 extern void remove_member(Peer *);
 //void remove_expired_member(char* mac, List *node)nk;
 extern void add_member(Peer *);
