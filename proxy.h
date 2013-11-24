@@ -97,7 +97,6 @@ typedef struct{
 	link_state ls;
 	pthread_t tid;
 	rio_t rio;
-	pthread_mutex_t lock;
 	UT_hash_handle hh;
 } Peer;
 
@@ -157,3 +156,6 @@ extern Peer *hash_table;
 extern Config config;
 extern link_state linkState;
 extern const char BROADCAST_ADDR[ETH_ALEN];
+//	5 mutexes are required for write-preferential mutual exclusion
+extern int readcount, writecount;
+extern pthread_mutex_t mutex1, mutex2, mutex3, r, w;

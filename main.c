@@ -79,7 +79,6 @@ int main(int argc, char **argv){
 		pp=(Peer *)malloc(sizeof(Peer));
 		memset(pp, 0, sizeof(Peer));
 		rio_readinit(&pp->rio, *connfdptr);
-		pthread_mutex_init(&pp->lock, NULL);
 		link_state_exchange_server(pp);
 		add_member(pp);
 		pthread_create(&pp->tid, NULL, eth_handler, &pp);

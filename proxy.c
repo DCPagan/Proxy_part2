@@ -6,6 +6,12 @@ rio_t rio_tap;
 Config config;
 link_state linkState;
 Peer *hash_table = NULL;
+int readcount, writecount;
+pthread_mutex_t mutex1=PTHREAD_MUTEX_INITIALIZER,
+	mutex2=PTHREAD_MUTEX_INITIALIZER,
+	mutex3=PTHREAD_MUTEX_INITIALIZER,
+	r=PTHREAD_MUTEX_INITIALIZER,
+	w=PTHREAD_MUTEX_INITIALIZER;
 
 const char BROADCAST_ADDR[ETH_ALEN]=
 	{'\xFF', '\xFF', '\xFF', '\xFF', '\xFF', '\xFF'};
@@ -135,7 +141,6 @@ Peer *open_clientfd(char *hostname, unsigned short port){
 	pp=(Peer *)malloc(sizeof(Peer));
 	memset(pp, 0, sizeof(Peer));
 	rio_readinit(&pp->rio, clientfd);
-	pthread_mutex_init(&pp->lock, NULL);
 	link_state_exchange_client(pp);
 	add_member(pp);
 	return pp;
@@ -255,7 +260,6 @@ void *tap_handler(int *fd){
 	ssize_t size;
 	char buffer[ETH_FRAME_LEN+PROXY_HLEN];
 	proxy_header prxyhdr;
-	int i;
 	pthread_detach(pthread_self());
 	Peer *pp, *tmp;
 	for(;;){
@@ -630,14 +634,31 @@ int Bandwidth_Probe_Response(void *data, unsigned short length){
 }
 
 /**
-  *	Lock accordingly in this process as well.
+  *	Lock with writer's preference; in the instance of receiving new
+  *	information pertaining to the network, pre-existing data may be
+  *	old and false.
+  *
+  *	Because of the danger of an interleaving between a reader finding
+  *	a peer in the membership list and a writer deleting that peer from
+  *	the membership list, the mutex cannot be stored inside of the peer
+  *	structure; it may be necessary for the mutexes to be stored outside
+  *	of the hash table.
   */
 void add_member(Peer *node){
 	Peer *tmp;
+	pthread_mutex_lock(&mutex2);
+	if(++writecount==1)
+		pthread_mutex_lock(&r);
+	pthread_mutex_unlock(&mutex2);
 	HASH_FIND(hh, hash_table, &node->ls.tapMAC, ETH_ALEN, tmp);
 	if(tmp == NULL){
 		HASH_ADD(hh, hash_table, ls.tapMAC, ETH_ALEN,node);
 	}
+	pthread_mutex_lock(&mutex2);
+	if(--writecount==0)
+		pthread_mutex_unlock(&r);
+	pthread_mutex_unlock(&mutex2);
+	return;
 }
 
 void remove_member(Peer *node){
@@ -652,7 +673,10 @@ void remove_member(Peer *node){
 	  *	I don't know how to use MUTEX's yet, so please do this for me,
 	  *	John. Delete these last two lines of comments for me as well.
 	  */
-	pthread_mutex_lock(node);
+	pthread_mutex_lock(&mutex2);
+	if(++writecount==1)
+		pthread_mutex_lock(&r);
+	pthread_mutex_unlock(&mutex2);
 	HASH_FIND(hh, hash_table, &node->ls.tapMAC, ETH_ALEN ,tmp);
 	if(tmp != NULL){
 		HASH_DEL(hash_table, node);
@@ -664,8 +688,11 @@ void remove_member(Peer *node){
 	  */
 	pthread_cancel(node->tid);
 	close(node->rio.fd);
-	pthread_mutex_unlock(node);
 	free(node);
+	pthread_mutex_lock(&mutex2);
+	if(--writecount==0)
+		pthread_mutex_unlock(&r);
+	pthread_mutex_unlock(&mutex2);
 	//	Unlock here.
 	return;
 }
