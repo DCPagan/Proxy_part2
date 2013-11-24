@@ -452,7 +452,9 @@ void *eth_handler(Peer *pp){
 				fprintf(stderr, "error, incorrect type\n");
 				TYPE_ERROR:
 					free(buffer);
+					writeBegin();
 					remove_member(pp);
+					writeEnd();
 					return NULL;
 		}
 		free(buffer);
