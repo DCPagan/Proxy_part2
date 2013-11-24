@@ -462,7 +462,7 @@ void *eth_handler(Peer *pp){
 	}
 }
 
-int Link_State_broadcast(){
+int Link_State_Broadcast(){
 	void *buffer, *ptr;
 	Peer *pp, *tmp;
 	proxy_header prxyhdr;
@@ -492,19 +492,51 @@ int Link_State_broadcast(){
 	*(link_state *)ptr++=linkState;
 	*(unsigned short *)ptr++=N;
 	/**
+	  *	First write the link-state records of the edges from the origin
+	  *	proxy and its neighbors.
+	  */
+	HASH_ITER(hh, hash_table, pp, tmp){
+		((link_state_record *)ptr)->ID=htobe64(0);
+		((link_state_record *)ptr)->proxy1=linkState;
+		((link_state_record *)ptr)->proxy2=pp->ls;
+		((link_state_record *)ptr)->linkWeight=ntohl(1);
+		ptr+=sizeof(link_state_record);
+	}
+	/**
 	  *	Loop on all pairs between hosts to write neighbor records.
-	  *	According to an email, there are N*(N-1) records, one for each
+	  *	According to an email, there are N^2 records, one for each
 	  *	edge.
+	  *
+	  *	Read uthash.h to better understand the for-loop implementation.
 	  */
 	for(pp=hash_table; pp->hh.next!=NULL; pp=pp->hh.next){
-		for(tmp=pp->hh.next; tmp!=NULL; tmp=tmp->hh.next,
-			ptr+=sizeof(link_state_record)){
+		/**
+		  *	Write the link-state record of the edge from the neighbor to
+		  * the origin proxy before looping again through the neighbor
+		  *	list.
+		  */
+		((link_state_record *)ptr)->ID=htobe64(0);
+		((link_state_record *)ptr)->proxy1=pp->ls;
+		((link_state_record *)ptr)->proxy2=linkState;
+		((link_state_record *)ptr)->linkWeight=ntohl(1);
+		ptr+=sizeof(link_state_record);
+		/**
+		  *	This loop will cover all connections between all neighbors,
+		  *	excluding the origin proxy.
+		  */
+		for(tmp=hash_table; tmp!=NULL; tmp=tmp->hh.next){
+			if(pp==tmp)
+				continue;
 			((link_state_record *)ptr)->ID=htobe64(0);
 			((link_state_record *)ptr)->proxy1=pp->ls;
 			((link_state_record *)ptr)->proxy2=tmp->ls;
 			((link_state_record *)ptr)->linkWeight=ntohl(1);
+			ptr+=sizeof(link_state_record);
 		}
 	}
+	/**
+	  *	Write the packet to all neighbors.
+	  */
 	HASH_ITER(hh, hash_table, pp, tmp){
 		if((size=rio_write(&pp->rio, buffer,
 			PROXY_HLEN+ntohs(prxyhdr.length)))<0){
