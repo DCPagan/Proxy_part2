@@ -468,13 +468,25 @@ int Link_State_broadcast(){
 	proxy_header prxyhdr;
 	unsigned short N;
 	size_t size;
+	/**
+	  *	Broadcasting requires reading, but not writing, the membership
+	  *	list, so reader mutual exclusion procedures must be invoked.
+	  */
 	readBegin();
 	N=HASH_COUNT(hash_table);
-	buffer=ptr=malloc(N*(N-1)*sizeof(link_state_record));
+	//	Allocate just enough data to write the link-state packet.
+	buffer=ptr=malloc(PROXY_HLEN+sizeof(unsigned short)
+		+sizeof(link_state_source)
+		+N*(N-1)*sizeof(link_state_record));
+	//	Write the fields of the proxy header.
 	prxyhdr.type=ntohs(LINK_STATE);
 	prxyhdr.length=sizeof(unsigned short)	//	number of neighbors
 		+sizeof(link_state_source)	//	source/origin link-state
 		+N*sizeof(link_state_record);	// N records
+	/**
+	  *	Write the header, number of neighbors (twice), and the local
+	  *	proxy information.
+	  */
 	*(proxy_header *)ptr++=prxyhdr;
 	*(unsigned short *)ptr++=N;
 	*(link_state *)ptr++=linkState;
