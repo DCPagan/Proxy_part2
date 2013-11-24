@@ -462,6 +462,52 @@ void *eth_handler(Peer *pp){
 	}
 }
 
+int Link_State_broadcast(){
+	void *buffer, *ptr;
+	Peer *pp, *tmp;
+	proxy_header prxyhdr;
+	unsigned short N;
+	size_t size;
+	readBegin();
+	N=HASH_COUNT(hash_table);
+	buffer=ptr=malloc(N*(N-1)*sizeof(link_state_record));
+	prxyhdr.type=ntohs(LINK_STATE);
+	prxyhdr.length=sizeof(unsigned short)	//	number of neighbors
+		+sizeof(link_state_source)	//	source/origin link-state
+		+N*sizeof(link_state_record);	// N records
+	*(proxy_header *)ptr++=prxyhdr;
+	*(unsigned short *)ptr++=N;
+	*(link_state *)ptr++=linkState;
+	*(unsigned short *)ptr++=N;
+	/**
+	  *	Loop on all pairs between hosts to write neighbor records.
+	  *	According to an email, there are N*(N-1) records, one for each
+	  *	edge.
+	  */
+	for(pp=hash_table; pp->hh.next!=NULL; pp=pp->hh.next){
+		for(tmp=pp->hh.next; tmp!=NULL; tmp=tmp->hh.next,
+			ptr+=sizeof(link_state_record)){
+			((link_state_record *)ptr)->ID=htobe64(0);
+			((link_state_record *)ptr)->proxy1=pp->ls;
+			((link_state_record *)ptr)->proxy2=tmp->ls;
+			((link_state_record *)ptr)->linkWeight=ntohl(1);
+		}
+	}
+	HASH_ITER(hh, hash_table, pp, tmp){
+		if((size=rio_write(&pp->rio, buffer,
+			PROXY_HLEN+ntohs(prxyhdr.length)))<0){
+			/**
+			  *	Link-state error condition.
+			  */
+			free(buffer);
+			return -1;
+		}
+	}
+	readEnd();
+	free(buffer);
+	return -1;
+}
+
 /**
   *	Thread-safe implentation of inet_ntoa()
   *	Instead of returning a character pointer pointing to a string of the
@@ -590,8 +636,10 @@ int Quit(void *data, unsigned short length){
 }
 
 int Link_State(void *data, unsigned short length){
-	Peer *pp;
+	Peer *pp, *tmp;
 	char *addr;
+	void *ptr;
+	unsigned short N;
 	/**
 	  * Check if you are connected to the host that sent the packet.
 	  *	Define a struct to dereference the tap MAC address correctly.
@@ -600,15 +648,20 @@ int Link_State(void *data, unsigned short length){
 	  *	exclusion of the shared membership list must be
 	  *	writer-preferential.
 	  */
+	ptr=data;
+	N=*(unsigned short *)ptr++;
 	readBegin();
-	HASH_FIND(hh, hash_table, &((link_state *)data)->tapMAC,
+	HASH_FIND(hh, hash_table, &((link_state *)ptr)->tapMAC,
 		ETH_ALEN, pp);
-	if(pp==NULL){
-		inet_ntoa_r((unsigned int)((link_state *)data)->IPaddr.s_addr,
-			addr);
-		open_clientfd(addr, ((link_state *)data)->listenPort);
-	}
 	readEnd();
+	if(pp==NULL){
+		inet_ntoa_r((unsigned int)((link_state *)ptr)->IPaddr.s_addr,
+			addr);
+		writeBegin();
+		open_clientfd(addr, ((link_state *)ptr)->listenPort);
+		writeEnd();
+	}
+	ptr+=sizeof(link_state_source);
 	return 0;
 }
 

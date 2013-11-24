@@ -117,6 +117,7 @@ extern Peer *link_state_exchange_client(Peer *pp);
 extern Peer *link_state_exchange_server(Peer *pp);
 extern void *tap_handler(int *);
 extern void *eth_handler(Peer *);
+extern int Link_State_Broadcast();
 
 extern void inet_ntoa_r(unsigned int addr, char *s);
 extern void printEthernet(struct ethhdr *);
