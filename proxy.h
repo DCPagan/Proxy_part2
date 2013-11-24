@@ -140,19 +140,25 @@ extern int Signed_Link_State(void *, unsigned short);
 extern int Bandwidth_Probe_Request(void *, unsigned short);
 extern int Bandwidth_Probe_Response(void *, unsigned short);
 
+/**
+  *	Simple interface to writer-preferential mutual exclusion.
+  *	See the Readers-Writers Problem.
+  */
+
+extern void readBegin();
+extern void readEnd();
+extern void writeBegin();
+extern void writeEnd();
+
 /*creates a head node for each list and initialized it to null*/
 /*Not needed for part 2*/
 //List *ll_create();
 //void ll_add(List list, List *node);
 //void ll_remove(List list, List *node);
 
-extern void readBegin();
-extern void readEnd();
-extern void writeBegin();
-extern void writeEnd();
-extern void remove_member(Peer *);
 //void remove_expired_member(char* mac, List *node)nk;
 extern void add_member(Peer *);
+extern void remove_member(Peer *);
 
 extern int tapfd;
 extern pthread_t tap_tid;
