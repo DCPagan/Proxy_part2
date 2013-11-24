@@ -291,22 +291,6 @@ void *tap_handler(int *fd){
 			exit(-1);
 		}
 		/**
-		  *	Parse MAC addresses here. Dereference bufptr as
-		  *	(struct ethhdr *), and consult linux/if_ether.h.
-		  *
-		  *	Read the Wikipedia article concerning Ethertype. The final,
-		  *	two-octet field in the Ethernet frame header is used to
-		  *	indicate which protocol is encapsulated in the payload of the
-		  *	Ethernet frame. The value usually starts with a value of
-		  *	0x0800, which explains why the value of the field is greater
-		  *	than that value upon dereferencing and converting to host byte-
-		  *	order.
-		  *
-		  *	The length of the payload cannot be evaluated from reading the
-		  *	two-octet field as expected; it must be derived from the IPv4
-		  *	packet header.
-		  */
-		/**
 		  * Write the proxy header in network byte-order to the front of
 		  *	the buffer.
 		  *
@@ -317,7 +301,14 @@ void *tap_handler(int *fd){
 		prxyhdr.type=htons(DATA);
 		prxyhdr.length=htons(size);
 		memcpy(buffer, &prxyhdr, PROXY_HLEN);
-		//	Check if the packet received is a broadcast packet.
+		/**
+		  *	Evaluate MAC addresses here. Dereference bufptr as
+		  *	(struct ethhdr *), and consult linux/if_ether.h.
+		  *
+		  *	The length of the payload cannot be evaluated from reading the
+		  *	two-octet field as expected; it must be derived from the IPv4
+		  *	packet header.
+		  */
 		if(memcmp(((struct ethhdr *)(buffer+PROXY_HLEN))->h_dest,
 			BROADCAST_ADDR, ETH_ALEN)){
 			readBegin();
@@ -330,18 +321,21 @@ void *tap_handler(int *fd){
 			}
 			readEnd();
 		}else{
+			readBegin();
 			HASH_FIND(hh, hash_table, &((link_state *)buffer)->tapMAC,
 				ETH_ALEN, pp);
 			//	Write the whole buffer to the Ethernet device.
 			if((size=rio_write(&pp->rio, buffer,
 				ntohs(prxyhdr.length)+PROXY_HLEN))<0){
 				remove_member(pp);
+				readEnd();
 				return NULL;
 			}
+			readEnd();
 		}
 		rio_resetBuffer(&rio_tap);
 	}
-} 
+}
 
 void *eth_handler(Peer *pp){
 	/**
