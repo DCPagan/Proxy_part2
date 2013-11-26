@@ -174,10 +174,14 @@ Peer *link_state_exchange_client(Peer *pp){
 	  *	such an automatic structure variable.
 	  */
 	buffer=bufptr=malloc(PROXY_HLEN+ntohs(prxyhdr.length));
-	*(proxy_header *)bufptr++=prxyhdr;
-	*(unsigned short *)bufptr++=N;
-	*(link_state *)bufptr++=linkState;
-	*(unsigned short *)bufptr++=N;
+	*(proxy_header *)bufptr=prxyhdr;
+	bufptr+=PROXY_HLEN;
+	*(unsigned short *)bufptr=N;
+	bufptr+=sizeof(unsigned short);
+	*(link_state *)bufptr=linkState;
+	bufptr+=sizeof(link_state);
+	*(unsigned short *)bufptr=N;
+	bufptr+=sizeof(unsigned short);
 	if((size=rio_write(&pp->rio, buffer,
 		PROXY_HLEN+ntohs(prxyhdr.length)))<0){
 		/**
@@ -202,8 +206,10 @@ Peer *link_state_exchange_client(Peer *pp){
 		  */
 		return NULL;
 	}
-	N=*(unsigned short *)bufptr++;
-	pp->ls=*(link_state *)bufptr++;
+	N=*(unsigned short *)bufptr;
+	bufptr+=sizeof(unsigned short);
+	pp->ls=*(link_state *)bufptr;
+	bufptr+=sizeof(link_state);
 	rio_resetBuffer(&pp->rio);
 	free(buffer);
 	return pp;
@@ -226,10 +232,14 @@ Peer *link_state_exchange_server(Peer *pp){
 	prxyhdr.length=htons(PROXY_HLEN+sizeof(N)
 		+sizeof(link_state_source));
 	buffer_srv=bufptr=malloc(ntohs(prxyhdr.length));
-	*(proxy_header *)bufptr++=prxyhdr;
-	*(unsigned short *)bufptr++=htons(N);
-	*(link_state *)bufptr++=linkState;
-	*(unsigned short *)bufptr++=htons(N);
+	*(proxy_header *)bufptr=prxyhdr;
+	bufptr+=PROXY_HLEN;
+	*(unsigned short *)bufptr=htons(N);
+	bufptr+=sizeof(unsigned short);
+	*(link_state *)bufptr=linkState;
+	bufptr+=sizeof(link_state);
+	*(unsigned short *)bufptr=htons(N);
+	bufptr+=sizeof(unsigned short);
 	//	Read and evaluate the proxy header.
 	if((size=rio_readnb(&pp->rio, &prxyhdr, PROXY_HLEN))<0){
 		/**
@@ -256,8 +266,9 @@ Peer *link_state_exchange_server(Peer *pp){
 		return NULL;
 	}
 	free(buffer_srv);
-	N=*(unsigned short *)bufptr++;
-	pp->ls=*(link_state *)bufptr++;
+	N=*(unsigned short *)bufptr;
+	bufptr+=sizeof(unsigned short);
+	pp->ls=*(link_state *)bufptr;
 	rio_resetBuffer(&pp->rio);
 	free(buffer_cl);
 	return pp;
@@ -461,6 +472,62 @@ void *eth_handler(Peer *pp){
 	}
 }
 
+void leave_handler(int signo){
+	struct{
+		proxy_header prxyhdr;
+		leave lv;
+	} leave_packet;
+	Peer *pp, *tmp;
+	size_t size;
+	leave_packet.prxyhdr.type=htons(LEAVE);
+	leave_packet.lv.localIP=linkState.IPaddr;
+	leave_packet.lv.localListenPort=linkState.listenPort;
+	memcpy(&leave_packet.lv.localMAC, &linkState.tapMAC, ETH_ALEN);
+	/**
+	  *	Get time of day and store it in the ID field.
+	  */
+	readBegin();
+	HASH_ITER(hh, hash_table, pp, tmp){
+		//	Write the leave packet.
+		if((size=rio_write(&pp->rio, &leave_packet,
+			sizeof(leave_packet)))<0){
+			/**
+			  *	error broadcasting leave packet
+			  */
+		}
+		//	Remove the peer from the system entirely.
+		HASH_DEL(hash_table, pp);
+		pthread_cancel(pp->tid);
+		close(pp->rio.fd);
+		free(pp);
+	}
+	readEnd();
+	exit(0);
+}
+
+void (*Signal(int signo, void (*sig_handler)(int)))(int){
+	struct sigaction act, oact;	//	sigaction, old sigaction
+	sigemptyset(&act.sa_mask);
+	act.sa_flags=0;
+	/**
+	  *	Interrupt system calls when an alarm signal is received, as the
+	  *	purpose of the alarm is to place a timeout on an I/O operation.
+	  *	Otherwise, restart the system call.
+	  */
+	if(signo==SIGALRM){
+#ifdef SA_INTERRUPT
+		act.sa_flags|=SA_INTERRUPT;
+#endif
+	}else{
+#ifdef SA_RESTART
+		act.sa_flags|=SA_RESTART;
+#endif
+	}
+	if(sigaction(signo, &act, &oact)<0)
+		return SIG_ERR;
+	return oact.sa_handler;
+}
+
 int Link_State_Broadcast(){
 	void *buffer, *ptr;
 	Peer *pp, *tmp;
@@ -480,7 +547,7 @@ int Link_State_Broadcast(){
 	prxyhdr.type=ntohs(LINK_STATE);
 	prxyhdr.length=sizeof(unsigned short)	//	number of neighbors
 		+sizeof(link_state_source)	//	source/origin link-state
-		+N*(N-1)*sizeof(link_state_record);	// N records
+		+N*(N+1)*sizeof(link_state_record);	// N records
 	//	Allocate just enough data to write the link-state packet.
 	buffer=ptr=malloc(PROXY_HLEN+ntohs(prxyhdr.length));
 	/**
@@ -833,3 +900,4 @@ void remove_member(Peer *node){
 	free(node);
 	return;
 }
+

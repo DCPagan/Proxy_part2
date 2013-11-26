@@ -1,15 +1,17 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
-#include<limits.h>
 #include<unistd.h>
+#include<signal.h>
+#include<limits.h>
 #include<stdarg.h>
 #include<errno.h>
 #include<fcntl.h>
 #include<pthread.h>
+#include<netdb.h>
+#include<sys/stat.h>
 #include<sys/types.h>
 #include<sys/socket.h>
-#include<sys/stat.h>
 #include<sys/ioctl.h>
 #include<sys/select.h>
 #include<sys/time.h>
@@ -20,7 +22,6 @@
 #include<linux/ip.h>		//	for IPv4 structures and macros
 #include<linux/icmp.h>		//	for ICMP structures and macros
 #include<linux/if_tun.h>
-#include<netdb.h>
 #include"rio.h"
 #include"uthash.h"
 #include"utlist.h"
@@ -118,6 +119,8 @@ extern Peer *link_state_exchange_server(Peer *pp);
 extern void *tap_handler(int *);
 extern void *eth_handler(Peer *);
 extern int Link_State_Broadcast();
+extern void leave_handler(int);
+extern void (*Signal(int, void (*)(int)))(int);
 
 extern void inet_ntoa_r(unsigned int addr, char *s);
 extern void printEthernet(struct ethhdr *);

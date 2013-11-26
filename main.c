@@ -66,7 +66,11 @@ int main(int argc, char **argv){
 	}
 	readEnd();
 	pthread_create(&tap_tid, NULL, tap_handler, &tapfd);
-	pthread_detach(&tap_tid);
+	/**
+	  *	Associate a signal handler to the termination signal to
+	  *	construct and broadcast the leave packet.
+	  */
+	Signal(SIGSTOP, leave_handler);
 	for(;;){
 		//	Accept a connection request.
 		connfdptr=(int *)malloc(sizeof(int));
