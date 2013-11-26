@@ -505,6 +505,10 @@ void leave_handler(int signo){
 	exit(0);
 }
 
+/**
+  *	@param	int, void (*)(int): signal number, and the new signal handler
+  *	@return	void (*)(int):		the old handler for that signal.
+  */
 void (*Signal(int signo, void (*sig_handler)(int)))(int){
 	struct sigaction act, oact;	//	sigaction, old sigaction
 	sigemptyset(&act.sa_mask);

@@ -3,10 +3,11 @@
 #include<string.h>
 #include<unistd.h>
 #include<signal.h>
+#include<time.h>
 #include<limits.h>
-#include<stdarg.h>
 #include<errno.h>
 #include<fcntl.h>
+#include<poll.h>			//	for poll()
 #include<pthread.h>
 #include<netdb.h>
 #include<sys/stat.h>
@@ -15,7 +16,6 @@
 #include<sys/ioctl.h>
 #include<sys/select.h>
 #include<sys/time.h>
-#include<poll.h>			//	for poll()
 #include<net/if.h>
 #include<arpa/inet.h>
 #include<linux/if_ether.h>	//	for Ethernet structures and macros
@@ -120,6 +120,11 @@ extern void *tap_handler(int *);
 extern void *eth_handler(Peer *);
 extern int Link_State_Broadcast();
 extern void leave_handler(int);
+
+/**
+  *	@param	int, void (*)(int): signal number, and the new signal handler
+  *	@return	void (*)(int):		the old handler for that signal.
+  */
 extern void (*Signal(int, void (*)(int)))(int);
 
 extern void inet_ntoa_r(unsigned int addr, char *s);
