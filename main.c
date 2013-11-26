@@ -16,6 +16,11 @@ int main(int argc, char **argv){
 		fprintf(stderr, "proxy configuration file not specified\n");
 		return -1;
 	}
+	/**
+	  *	Associate a signal handler to the termination signal to
+	  *	construct and broadcast the leave packet.
+	  */
+	Signal(SIGSTOP, leave_handler);
 	if((fp=fopen(argv[2], "r"))==NULL){
 		perror("error opening proxy.conf");
 		exit(-1);
@@ -66,11 +71,6 @@ int main(int argc, char **argv){
 	}
 	readEnd();
 	pthread_create(&tap_tid, NULL, tap_handler, &tapfd);
-	/**
-	  *	Associate a signal handler to the termination signal to
-	  *	construct and broadcast the leave packet.
-	  */
-	Signal(SIGSTOP, leave_handler);
 	for(;;){
 		//	Accept a connection request.
 		connfdptr=(int *)malloc(sizeof(int));

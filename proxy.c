@@ -479,6 +479,7 @@ void leave_handler(int signo){
 	} leave_packet;
 	Peer *pp, *tmp;
 	size_t size;
+	readBegin();
 	leave_packet.prxyhdr.type=htons(LEAVE);
 	leave_packet.lv.localIP=linkState.IPaddr;
 	leave_packet.lv.localListenPort=linkState.listenPort;
@@ -486,7 +487,7 @@ void leave_handler(int signo){
 	/**
 	  *	Get time of day and store it in the ID field.
 	  */
-	readBegin();
+
 	HASH_ITER(hh, hash_table, pp, tmp){
 		//	Write the leave packet.
 		if((size=rio_write(&pp->rio, &leave_packet,
