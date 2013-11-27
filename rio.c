@@ -36,10 +36,11 @@ int Wait(int fd, int events){
 	pfd.fd=fd;
 	pfd.events=events;
 	//	Loop blocking poll call in case of signal interrupt.
-	while(poll(&pfd, 1, -1)<0&&errno==EINTR);
-	if(errno!=EINTR){
-		perror("poll() error");
-		return -1;
+	while(poll(&pfd, 1, -1)<0){
+		if(errno!=EINTR){
+			perror("poll() error");
+			return -1;
+		}
 	}
 	return 0;
 }
@@ -53,14 +54,15 @@ int Lock(int fd, int type){
 	static struct flock lock={0, 0, 0, 0, 0};
 	lock.l_type=type;
 	//	Loop a blocking lock call in case of signal interruption.
-	while(fcntl(fd, F_SETLKW, &lock)<0&&errno==EINTR);
-	//	If fcntl() encounters an error, return error status.
-	if(errno!=EINTR){
-		perror("F_SETLKW error");
-		return -1;
+	while(fcntl(fd, F_SETLKW, &lock)<0){
+		//	If fcntl() encounters an error, return error status.
+		if(errno!=EINTR){
+			perror("F_SETLKW error");
+			return -1;
+		}
 	}
 	return 0;
-};
+}
 
 ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 	int cnt;

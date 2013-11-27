@@ -12,7 +12,7 @@ int main(int argc, char **argv){
 	  *	code for handling the configuration file. Revise all instances
 	  *	of arguments accordingly.
 	  */
-	if(argc!=3){
+	if(argc!=2){
 		fprintf(stderr, "proxy configuration file not specified\n");
 		return -1;
 	}
@@ -21,7 +21,7 @@ int main(int argc, char **argv){
 	  *	construct and broadcast the leave packet.
 	  */
 	Signal(SIGSTOP, leave_handler);
-	if((fp=fopen(argv[2], "r"))==NULL){
+	if((fp=fopen(argv[1], "r"))==NULL){
 		perror("error opening proxy.conf");
 		exit(-1);
 	}
@@ -40,9 +40,9 @@ int main(int argc, char **argv){
 			}
 			linkState.listenPort=config.listen_port;
 		}else if(!strncmp(buf, "linkPeriod", 10)){
-			sscanf(buf, "%*s %hu\n", &config.link_period);
+			sscanf(buf, "%*s %u\n", &config.link_period);
 		}else if(!strncmp(buf, "linkTimeout", 11)){
-			sscanf(buf, "%*s %hu\n", &config.link_timeout);
+			sscanf(buf, "%*s %u\n", &config.link_timeout);
 		}else if(!strncmp(buf, "peer", 4)){
 			sscanf(buf, "%*s %s %hu\n", buf1, &config.listen_port);
 			//	Connect to the server.
@@ -51,16 +51,15 @@ int main(int argc, char **argv){
 				exit(-1);
 			}
 		}else if(!strncmp(buf, "quitAfter", 9)){
-			sscanf(buf, "%*s %hu\n", &config.quit_timer);
+			sscanf(buf, "%*s %u\n", &config.quit_timer);
 		}else if(!strncmp(buf, "tapDevice", 9)){
 			sscanf(buf, "%*s %s\n", buf1);
 			//	Set up the tap device.
-			if((tapfd=allocate_tunnel(buf, IFF_TAP|IFF_NO_PI))<0){
+			if((tapfd=allocate_tunnel(buf1, IFF_TAP|IFF_NO_PI))<0){
 				perror("error opening tap device");
 				exit(-1);
 			}
 			rio_readinit(&rio_tap, tapfd);
-			pthread_create(&tap_tid, NULL, eth_handler, connfdptr);
 		}
 	}
 	fclose(fp);
