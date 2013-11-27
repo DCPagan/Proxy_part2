@@ -984,10 +984,11 @@ void *timer_handler( int sig, siginfo_t *si, void *uc){
     for(;;){
     	tidp = si->si_value.sival_ptr;
     	HASH_ITER(hh, hash_table, pp, tmp){
-    	if(*tidp == pp->timerID){
+    	if(*(tidp) == pp->timerID){
     		//terminate signal
     		remove_member(pp);
 	    	}
 	    }
 	}
 }
+
