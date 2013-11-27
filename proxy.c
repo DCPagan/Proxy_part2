@@ -958,7 +958,7 @@ int make_timer(Peer *peer, int timout){
 	sa.sa_flags = SA_SIGINFO;
 	sa.sa_sigaction = timer_handler;
 	sigemptyset(&sa.sa_mask);
-	if(sigaction(sigNo, &sa, NULL) == -1){
+	if(sigaction(sigNo, &sa) == -1){
 		//Failed to set up signal
 		return -1;
 	}
