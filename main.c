@@ -20,7 +20,13 @@ int main(int argc, char **argv){
 	  *	Associate a signal handler to the termination signal to
 	  *	construct and broadcast the leave packet.
 	  */
-	Signal(SIGSTOP, leave_handler);
+	Signal(SIGINT, leave_handler);
+	Signal(SIGTERM, leave_handler);
+	/**
+	  *	set up a timer to periodically broadcast link-state packets.
+	  */
+	Signal(SIGALRM, Link_State_Broadcast);
+	alarm(config.link_period);
 	if((fp=fopen(argv[1], "r"))==NULL){
 		perror("error opening proxy.conf");
 		exit(-1);

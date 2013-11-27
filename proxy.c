@@ -229,7 +229,7 @@ Peer *link_state_exchange_server(Peer *pp){
 	size_t size;
 	Peer *pp1, *pp2;
 	prxyhdr.type=htons(LINK_STATE);
-	prxyhdr.length=htons(PROXY_HLEN+sizeof(link_state_source));
+	prxyhdr.length=htons(PROXY_HLEN+sizeof(link_state));
 	buffer_srv=bufptr=malloc(ntohs(prxyhdr.length));
 	*(proxy_header *)bufptr=prxyhdr;
 	bufptr+=PROXY_HLEN;
@@ -468,6 +468,10 @@ void *eth_handler(Peer *pp){
 	}
 }
 
+/**
+  *	This handles terminal signals and other terminal conditions.
+  *	Before exiting, the proxy must broadcast a leave packet.
+  */
 void leave_handler(int signo){
 	struct{
 		proxy_header prxyhdr;
@@ -620,6 +624,7 @@ int Link_State_Broadcast(){
 	}
 	readEnd();
 	free(buffer);
+	alarm(config.link_period);
 	return -1;
 }
 
@@ -942,10 +947,4 @@ void remove_member(Peer *node){
 	close(node->rio.fd);
 	free(node);
 	return;
-}
-
-unsigned long long curr_time_as_MS(){
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	return (time.tv_sec<<sizeof(time.tv_sec))+time.tv_usec;
 }
