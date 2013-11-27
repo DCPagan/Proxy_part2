@@ -25,6 +25,8 @@ int allocate_tunnel(char *dev, int flags) {
 	int fd, error;
 	struct ifreq ifr;
 	char *device_name="/dev/net/tun";
+	char buffer[256];
+
 	if((fd=open(device_name , O_RDWR))<0) {
 		perror("error opening /dev/net/tun");
 		return fd;
