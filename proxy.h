@@ -98,6 +98,7 @@ typedef struct{
 	link_state ls;
 	pthread_t tid;
 	rio_t rio;
+	time_t timestamp;
 	UT_hash_handle hh;
 } Peer;
 

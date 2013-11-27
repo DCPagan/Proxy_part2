@@ -906,3 +906,9 @@ void remove_member(Peer *node){
 	return;
 }
 
+unsigned long long curr_time_as_MS(){
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	return (time.tv_sec<<sizeof(time.tv_sec))+time.tv_usec;
+}
+}
