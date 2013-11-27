@@ -568,7 +568,7 @@ int Link_State_Broadcast(){
 	  *	proxy and its neighbors.
 	  */
 	HASH_ITER(hh, hash_table, pp, tmp){
-		((link_state_record *)ptr)->ID=0;
+		((link_state_record *)ptr)->ID=curr_time();
 		((link_state_record *)ptr)->proxy1=linkState;
 		((link_state_record *)ptr)->proxy2=pp->ls;
 		((link_state_record *)ptr)->linkWeight=ntohl(1);
@@ -587,7 +587,7 @@ int Link_State_Broadcast(){
 		  * the origin proxy before looping again through the neighbor
 		  *	list.
 		  */
-		((link_state_record *)ptr)->ID=0;
+		((link_state_record *)ptr)->ID=curr_time();
 		((link_state_record *)ptr)->proxy1=pp->ls;
 		((link_state_record *)ptr)->proxy2=linkState;
 		((link_state_record *)ptr)->linkWeight=ntohl(1);
@@ -599,7 +599,7 @@ int Link_State_Broadcast(){
 		for(tmp=hash_table; tmp!=NULL; tmp=tmp->hh.next){
 			if(pp==tmp)
 				continue;
-			((link_state_record *)ptr)->ID=0;
+			((link_state_record *)ptr)->ID=curr_time();
 			((link_state_record *)ptr)->proxy1=pp->ls;
 			((link_state_record *)ptr)->proxy2=tmp->ls;
 			((link_state_record *)ptr)->linkWeight=ntohl(1);
