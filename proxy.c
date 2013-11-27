@@ -840,6 +840,8 @@ void readBegin(){
 	if(++readcount==1)
 		pthread_mutex_lock(&w);
 	pthread_mutex_unlock(&mutex1);
+	pthread_mutex_unlock(&r);
+	pthread_mutex_unlock(&mutex3);
 	return;
 }
 
