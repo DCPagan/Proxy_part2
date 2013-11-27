@@ -949,7 +949,7 @@ void remove_member(Peer *node){
 	return;
 }
 
-void make_timer(Peer *peer, int timout){
+int make_timer(Peer *peer, int timout){
 	struct sigevent te;
 	struct itimerspec its;
 	struct sigaction sa;
@@ -974,6 +974,8 @@ void make_timer(Peer *peer, int timout){
 	its.it_value.tv_sec = timout;
 	its.it_value.tv_nsec = 0;
 	timer_settime(peer->timerID, 0, &its, NULL);
+
+	return 0;
 }
 
 void timer_handler( int sig, siginfo_t *si){
