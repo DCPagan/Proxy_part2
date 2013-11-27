@@ -21,7 +21,7 @@ const char BROADCAST_ADDR[ETH_ALEN]=
   * open a tun or tap device and returns the file
   * descriptor to read/write back to the caller
   *****************************************/
-int allocate_tunnel(char *dev, int flags) {
+int allocate_tunnel(char *dev, int flags, char *localMAC) {
 	int fd, error;
 	struct ifreq ifr;
 	char *device_name="/dev/net/tun";
@@ -39,6 +39,15 @@ int allocate_tunnel(char *dev, int flags) {
 		return error;
 	}
 	strcpy(dev, ifr.ifr_name);
+
+	// Get device MAC address //
+	sprintf(localMAC,"/sys/class/net/%s/address",dev);
+	FILE* f = fopen(buffer,"r");
+	fread(buffer,1,MAX_DEV_LINE,f);
+	sscanf(buffer,"%hhX:%hhX:%hhX:%hhX:%hhX:
+	%hhX",local_mac,local_mac+1,local_mac+2,local_mac+3,local_mac+4,local_mac+5);
+	fclose(f);
+
 	return fd;
 }
 
@@ -935,5 +944,4 @@ unsigned long long curr_time_as_MS(){
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
 	return (time.tv_sec<<sizeof(time.tv_sec))+time.tv_usec;
-}
 }

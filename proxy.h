@@ -149,6 +149,9 @@ extern int Signed_Link_State(void *, unsigned short);
 extern int Bandwidth_Probe_Request(void *, unsigned short);
 extern int Bandwidth_Probe_Response(void *, unsigned short);
 
+//get time
+unsigned long long curr_time();
+
 /**
   *	Simple interface to writer-preferential mutual exclusion.
   *	See the Readers-Writers Problem.
