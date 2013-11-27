@@ -154,7 +154,7 @@ Peer *open_clientfd(char *hostname, unsigned short port){
 	pp=(Peer *)malloc(sizeof(Peer));
 	memset(pp, 0, sizeof(Peer));
 	rio_readinit(&pp->rio, clientfd);
-	link_state_exchange_client(pp);
+	initial_join_client(pp);
 	add_member(pp);
 	return pp;
 }
@@ -163,7 +163,7 @@ Peer *open_clientfd(char *hostname, unsigned short port){
   *	Client side of link-state exchange.
   *	Send link-state packet, then wait for a response from the server.
   */
-Peer *link_state_exchange_client(Peer *pp){
+Peer *initial_join_client(Peer *pp){
 	proxy_header prxyhdr;
 	void *buffer, *bufptr;
 	Peer *pp1, *pp2;
@@ -223,21 +223,24 @@ Peer *link_state_exchange_client(Peer *pp){
   *	Server side of link-state exchange.
   *	Wait for link-state packet, then send a response to the client.
   */
-Peer *link_state_exchange_server(Peer *pp){
+Peer *initial_join_server(Peer *pp){
 	proxy_header prxyhdr;
 	void *buffer_cl, *buffer_srv, *bufptr;
 	size_t size;
 	Peer *pp1, *pp2;
+	//	Construct the proxy header.
 	prxyhdr.type=htons(LINK_STATE);
 	prxyhdr.length=htons(PROXY_HLEN+sizeof(link_state));
 	buffer_srv=bufptr=malloc(ntohs(prxyhdr.length));
+	//	Write the proxy header in the buffer.
 	*(proxy_header *)bufptr=prxyhdr;
 	bufptr+=PROXY_HLEN;
+	//	Write the connection information of the server to the buffer.
 	*(link_state *)bufptr=linkState;
 	bufptr+=sizeof(link_state);
 	/**
 	  *	Read, then write, because this is on the server side.
-	  *	Read and evaluate the proxy header.
+	  *	Read and evaluate the proxy header of the incoming packet.
 	  */
 	if((size=rio_readnb(&pp->rio, &prxyhdr, PROXY_HLEN))<0){
 		/**
@@ -248,7 +251,7 @@ Peer *link_state_exchange_server(Peer *pp){
 	prxyhdr.type=ntohs(prxyhdr.type);
 	prxyhdr.length=ntohs(prxyhdr.length);
 	buffer_cl=bufptr=malloc(prxyhdr.length);
-	//	Read the rest of the link-state packet.
+	//	Read the rest of the link-state packet in a separate buffer.
 	if((size=rio_readnb(&pp->rio, buffer_cl,
 		ntohs(prxyhdr.length)))<0){
 		/**
@@ -256,7 +259,7 @@ Peer *link_state_exchange_server(Peer *pp){
 		  */
 		return NULL;
 	}
-	//	Write the local link-state packet after reading from the client.
+	//	Write the local link-state packet after receiving from the client.
 	if((size=rio_write(&pp->rio, buffer_srv, prxyhdr.length))<0){
 		/**
 		  *	Link-state error condition

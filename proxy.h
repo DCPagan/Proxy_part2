@@ -74,7 +74,7 @@ typedef struct __attribute__((packed)){
 	struct in_addr localIP;
 	unsigned short localListenPort;
 	unsigned char localMAC[ETH_ALEN];
-	unsigned long long ID;
+	struct timespec ID;
 } leave;
 
 typedef struct __attribute__((packed)){ 
@@ -118,8 +118,8 @@ extern int getMAC(char *, char *);
 extern unsigned short get_port(char *);
 extern int open_listenfd(unsigned short);
 extern Peer *open_clientfd(char *, unsigned short);
-extern Peer *link_state_exchange_client(Peer *pp);
-extern Peer *link_state_exchange_server(Peer *pp);
+extern Peer *initial_join_client(Peer *pp);
+extern Peer *initial_join_server(Peer *pp);
 extern void *tap_handler(int *);
 extern void *eth_handler(Peer *);
 extern int Link_State_Broadcast(int);

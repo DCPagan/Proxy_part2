@@ -1,7 +1,7 @@
 #include"proxy.h"
 
 int main(int argc, char **argv){
-	int *connfdptr, listenfd;	//	listening socket descriptor
+	int connfdptr, listenfd;	//	listening socket descriptor
 	struct sockaddr_in clientaddr;
 	unsigned int addrlen=sizeof(struct sockaddr_in);
 	char buf[256];
@@ -60,6 +60,12 @@ int main(int argc, char **argv){
 		}
 	}
 	fclose(fp);
+	writeBegin();
+	HASH_ITER(hh, hash_table, pp, tmp){
+		pthread_create(&pp->tid, NULL, eth_handler, pp);
+	}
+	writeEnd();
+	pthread_create(&tap_tid, NULL, tap_handler, &tapfd);
 	/**
 	  *	Associate a signal handler to the termination signal to
 	  *	construct and broadcast the leave packet.
@@ -71,16 +77,10 @@ int main(int argc, char **argv){
 	  */
 	Signal(SIGALRM, Link_State_Broadcast);
 	alarm(config.link_period);
-	writeBegin();
-	HASH_ITER(hh, hash_table, pp, tmp){
-		pthread_create(&pp->tid, NULL, eth_handler, pp);
-	}
-	writeEnd();
-	pthread_create(&tap_tid, NULL, tap_handler, &tapfd);
 	for(;;){
 		//	Accept a connection request.
 		connfdptr=(int *)malloc(sizeof(int));
-		if((*connfdptr=accept(listenfd,
+		if((connfdptr=accept(listenfd,
 			(struct sockaddr *)&clientaddr, &addrlen))<0){
 			perror("error opening socket to client");
 			close(listenfd);
@@ -90,11 +90,10 @@ int main(int argc, char **argv){
 			inet_ntoa(clientaddr.sin_addr));
 		pp=(Peer *)malloc(sizeof(Peer));
 		memset(pp, 0, sizeof(Peer));
-		rio_readinit(&pp->rio, *connfdptr);
-		link_state_exchange_server(pp);
+		rio_readinit(&pp->rio, connfdptr);
+		initial_join_server(pp);
 		add_member(pp);
 		pthread_create(&pp->tid, NULL, eth_handler, &pp);
-		pthread_detach(pp->tid);
 	}
 	return 0;
 }
