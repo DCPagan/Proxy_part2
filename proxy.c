@@ -533,7 +533,7 @@ void (*Signal(int signo, void (*sig_handler)(int)))(int){
 	return oact.sa_handler;
 }
 
-int Link_State_Broadcast(){
+int Link_State_Broadcast(int signo){
 	void *buffer, *ptr;
 	Peer *pp, *tmp;
 	proxy_header prxyhdr;
