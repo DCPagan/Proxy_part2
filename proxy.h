@@ -100,6 +100,7 @@ typedef struct{
 	link_state ls;
 	pthread_t tid;
 	rio_t rio;
+	timer_t timerID;
 	struct timespec timestamp;
 	UT_hash_handle hh;
 } Peer;

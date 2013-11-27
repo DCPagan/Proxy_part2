@@ -948,3 +948,43 @@ void remove_member(Peer *node){
 	free(node);
 	return;
 }
+
+void make_timer(Peer *peer, int timout){
+	struct sigevent te;
+	struct itimerspec its;
+	struct sigaction sa;
+	int sigNo = SIGRTMIN;
+
+	sa.sa_flags = SA_SIGINFO;
+	sa.sa_sigaction = timer_handler;
+	sigemptyset(&sa.sa_mask);
+	if(sigaction(sigNo, &sa, NULL) == -1){
+		//Failed to set up signal
+		return -1;
+	}
+
+	/*set and arm alarm*/
+	te.sigev_notify = SIGEV_SIGNAL;
+	te.sigev_signo = sigNo;
+	te.sigev_value.sival_ptr = &peer->timerID;
+	timer_create(CLOCK_REALTIME, &te, &peer->timerID);
+
+	its.it_interval.tv_sec = 1;
+	its.it_interval.tv_nsec = 0;
+	its.it_value.tv_sec = timout;
+	its.it_value.tv_nsec = 0;
+	timer_settime(peer->timerID, 0, &its, NULL);
+}
+
+void timerHandler( int sig, siginfo_t *si){
+    timer_t *tidp;
+    tidp = si->si_value.sival_ptr;
+    Peer *pp, *tmp;
+    for(;;){
+    	HASH_ITER(hh, hash_table, pp, tmp){
+    	if(*tidp == pp->timerID){
+    		//terminate signal
+	    	}
+	    }
+	}
+}
