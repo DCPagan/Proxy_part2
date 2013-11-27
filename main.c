@@ -16,17 +16,6 @@ int main(int argc, char **argv){
 		fprintf(stderr, "proxy configuration file not specified\n");
 		return -1;
 	}
-	/**
-	  *	Associate a signal handler to the termination signal to
-	  *	construct and broadcast the leave packet.
-	  */
-	Signal(SIGINT, leave_handler);
-	Signal(SIGTERM, leave_handler);
-	/**
-	  *	set up a timer to periodically broadcast link-state packets.
-	  */
-	Signal(SIGALRM, Link_State_Broadcast);
-	alarm(config.link_period);
 	if((fp=fopen(argv[1], "r"))==NULL){
 		perror("error opening proxy.conf");
 		exit(-1);
@@ -71,12 +60,22 @@ int main(int argc, char **argv){
 		}
 	}
 	fclose(fp);
-	//	Initialize all socket descriptors as -1.
-	readBegin();
+	/**
+	  *	Associate a signal handler to the termination signal to
+	  *	construct and broadcast the leave packet.
+	  */
+	Signal(SIGINT, leave_handler);
+	Signal(SIGTERM, leave_handler);
+	/**
+	  *	set up a timer to periodically broadcast link-state packets.
+	  */
+	Signal(SIGALRM, Link_State_Broadcast);
+	alarm(config.link_period);
+	writeBegin();
 	HASH_ITER(hh, hash_table, pp, tmp){
 		pthread_create(&pp->tid, NULL, eth_handler, pp);
 	}
-	readEnd();
+	writeEnd();
 	pthread_create(&tap_tid, NULL, tap_handler, &tapfd);
 	for(;;){
 		//	Accept a connection request.
