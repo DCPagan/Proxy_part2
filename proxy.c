@@ -39,6 +39,15 @@ int allocate_tunnel(char *dev, int flags) {
 		return error;
 	}
 	strcpy(dev, ifr.ifr_name);
+
+	// Get device MAC address //
+	sprintf(buffer,"/sys/class/net/%s/address",dev);
+	FILE* f = fopen(buffer,"r");
+	fread(buffer,1,MAX_DEV_LINE,f);
+	sscanf(buffer,"%hhX:%hhX:%hhX:%hhX:%hhX:
+	%hhX",local_mac,local_mac+1,local_mac+2,local_mac+3,local_mac+4,local_mac+5);
+	fclose(f);
+
 	return fd;
 }
 
