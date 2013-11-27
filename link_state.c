@@ -1,4 +1,3 @@
-#include "proxy.h"
 
 Peer *hash_table = NULL;
 /*
