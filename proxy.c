@@ -296,7 +296,8 @@ void *tap_handler(int *fd){
 		  *	ETH_FCS_LEN (valued at 4) to the third parameter of the following
 		  *	reading procedure.
 		  */
-		if((size=rio_read(&rio_tap, buffer+PROXY_HLEN, ETH_FRAME_LEN))<=0){
+		if((size=rio_read(&rio_tap, buffer+PROXY_HLEN,
+			PROXY_HLEN+ETH_FRAME_LEN))<=0){
 			perror("error reading from the tap device.\n");
 			exit(-1);
 		}
@@ -319,12 +320,12 @@ void *tap_handler(int *fd){
 		  *	two-octet field as expected; it must be derived from the IPv4
 		  *	packet header.
 		  */
-		if(memcmp(((struct ethhdr *)(buffer+PROXY_HLEN))->h_dest,
+		if(!memcmp(&((struct ethhdr *)(buffer+PROXY_HLEN))->h_dest,
 			BROADCAST_ADDR, ETH_ALEN)){
 			readBegin();
 			HASH_ITER(hh, hash_table, pp, tmp){
 				if((size=rio_write(&pp->rio, buffer,
-					ntohs(prxyhdr.length)+PROXY_HLEN))<0){
+					PROXY_HLEN+ntohs(prxyhdr.length)))<0){
 					remove_member(pp);
 					return NULL;
 				}
@@ -335,7 +336,7 @@ void *tap_handler(int *fd){
 			HASH_FIND(hh, hash_table, &((link_state *)buffer)->tapMAC,
 				ETH_ALEN, pp);
 			//	Write the whole buffer to the Ethernet device.
-			if((size=rio_write(&pp->rio, buffer,
+			if(pp!=NULL&&(size=rio_write(&pp->rio, buffer,
 				ntohs(prxyhdr.length)+PROXY_HLEN))<0){
 				remove_member(pp);
 				readEnd();
