@@ -63,9 +63,11 @@ int main(int argc, char **argv){
 	writeBegin();
 	HASH_ITER(hh, hash_table, pp, tmp){
 		pthread_create(&pp->tid, NULL, eth_handler, pp);
+		pthread_join(pp->tid, NULL);
 	}
 	writeEnd();
 	pthread_create(&tap_tid, NULL, tap_handler, &tapfd);
+	pthread_join(tap_tid, NULL);
 	/**
 	  *	Associate a signal handler to the termination signal to
 	  *	construct and broadcast the leave packet.
@@ -94,6 +96,8 @@ int main(int argc, char **argv){
 		initial_join_server(pp);
 		add_member(pp);
 		pthread_create(&pp->tid, NULL, eth_handler, &pp);
+		pthread_join(pp->tid, NULL);
+		make_timer(pp, config.link_timeout);
 	}
 	return 0;
 }
