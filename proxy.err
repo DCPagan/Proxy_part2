@@ -1,25 +1,19 @@
-In file included from proxy.c:1:
-proxy.h:192:61: warning: no newline at end of file
 proxy.c: In function ‘get_port’:
-proxy.c:64: warning: suggest parentheses around && within ||
+proxy.c:64:3: warning: suggest parentheses around ‘&&’ within ‘||’ [-Wparentheses]
 proxy.c: In function ‘open_clientfd’:
-proxy.c:131: warning: suggest parentheses around && within ||
-proxy.c: In function ‘link_state_exchange_client’:
-proxy.c:169: warning: unused variable ‘pp2’
-proxy.c:169: warning: unused variable ‘pp1’
-proxy.c: In function ‘link_state_exchange_server’:
-proxy.c:230: warning: unused variable ‘pp2’
-proxy.c:230: warning: unused variable ‘pp1’
-proxy.c: In function ‘eth_handler’:
-proxy.c:356: warning: unused variable ‘tmp’
-proxy.c: In function ‘Link_State’:
-proxy.c:759: warning: unused variable ‘tmp’
+proxy.c:131:3: warning: suggest parentheses around ‘&&’ within ‘||’ [-Wparentheses]
 proxy.c: In function ‘make_timer’:
-proxy.c:970: warning: passing argument 3 of ‘timer_create’ from incompatible pointer type
-proxy.c:976: warning: passing argument 1 of ‘timer_settime’ makes pointer from integer without a cast
+proxy.c:974:2: warning: passing argument 3 of ‘timer_create’ from incompatible pointer type [enabled by default]
+In file included from proxy.h:7:0,
+                 from proxy.c:1:
+/usr/include/time.h:363:12: note: expected ‘void ** __restrict__’ but argument is of type ‘long long unsigned int *’
+proxy.c:980:2: warning: passing argument 1 of ‘timer_settime’ makes pointer from integer without a cast [enabled by default]
+In file included from proxy.h:7:0,
+                 from proxy.c:1:
+/usr/include/time.h:371:12: note: expected ‘timer_t’ but argument is of type ‘long long unsigned int’
 proxy.c: At top level:
-proxy.c:981: error: conflicting types for ‘timer_handler’
-proxy.h:192: error: previous declaration of ‘timer_handler’ was here
+proxy.c:985:7: error: conflicting types for ‘timer_handler’
+In file included from proxy.c:1:0:
+proxy.h:223:13: note: previous declaration of ‘timer_handler’ was here
 proxy.c: In function ‘timer_handler’:
-proxy.c:987: warning: comparison between pointer and integer
-proxy.c:993:2: warning: no newline at end of file
+proxy.c:991:17: warning: comparison between pointer and integer [enabled by default]

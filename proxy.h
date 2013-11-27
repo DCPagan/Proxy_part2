@@ -119,10 +119,29 @@ extern int getMAC(char *, char *);
 extern unsigned short get_port(char *);
 extern int open_listenfd(unsigned short);
 extern Peer *open_clientfd(char *, unsigned short);
+
+/**
+  *	The difference between the client-side and the server-side of the
+  *	initial join procedures is that the client sends the packet first,
+  *	and then the server sends the packet.
+  */
 extern Peer *initial_join_client(Peer *pp);
 extern Peer *initial_join_server(Peer *pp);
+
+/**
+  *	thread handlers for listening to the tap device, and every ethernet
+  *	socket.
+  */
 extern void *tap_handler(int *);
 extern void *eth_handler(Peer *);
+
+/**
+  *	Link_State_Broadcast(int) handles the alarm signal for periodic
+  *	packet broadcasts.
+  *
+  *	leave_handler(int) handles termination signals so as to broadcast
+  *	leave packets and TCP FIN packets after shutting down connections.
+  */
 extern int Link_State_Broadcast(int);
 extern void leave_handler(int);
 
@@ -132,12 +151,28 @@ extern void leave_handler(int);
   */
 extern void (*Signal(int, void (*)(int)))(int);
 
+/**
+  * thread-safe procedure for writing an IP address in dotted decimal
+  *	notation.
+  */
 extern void inet_ntoa_r(unsigned int addr, char *s);
+
+/**
+  *	These procedures are auxiliary and are only used for debugging or
+  *	for the curious who want to peek into each packet. They are normally
+  *	never called, but can be called to print packet information for
+  *	debugging purposes.
+  */
 extern void printEthernet(struct ethhdr *);
 extern void printIP(struct iphdr *);
 extern void printARP(void *);
 extern void printICMP(struct icmphdr *);
 
+/**
+  *	All of the procedures for handling different packet types.
+  *	Not all of them are implemented; the unimplemented ones merely
+  *	return, doing nothing.
+  */
 extern int Data(void *, unsigned short);
 extern int Leave(void *, unsigned short);
 extern int Quit(void *, unsigned short);
@@ -153,14 +188,10 @@ extern int Signed_Link_State(void *, unsigned short);
 extern int Bandwidth_Probe_Request(void *, unsigned short);
 extern int Bandwidth_Probe_Response(void *, unsigned short);
 
-//get time
-unsigned long long curr_time();
-
 /**
   *	Simple interface to writer-preferential mutual exclusion.
   *	See the Readers-Writers Problem.
   */
-
 extern void readBegin();
 extern void readEnd();
 extern void writeBegin();

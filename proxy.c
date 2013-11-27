@@ -166,7 +166,6 @@ Peer *open_clientfd(char *hostname, unsigned short port){
 Peer *initial_join_client(Peer *pp){
 	proxy_header prxyhdr;
 	void *buffer, *bufptr;
-	Peer *pp1, *pp2;
 	size_t size;
 	/**
 	  *	Calculate the length of the packet to send by adding the values
@@ -227,7 +226,6 @@ Peer *initial_join_server(Peer *pp){
 	proxy_header prxyhdr;
 	void *buffer_cl, *buffer_srv, *bufptr;
 	size_t size;
-	Peer *pp1, *pp2;
 	//	Construct the proxy header.
 	prxyhdr.type=htons(LINK_STATE);
 	prxyhdr.length=htons(PROXY_HLEN+sizeof(link_state));
@@ -356,7 +354,6 @@ void *eth_handler(Peer *pp){
 	ssize_t size;
 	void *buffer;
 	proxy_header prxyhdr;
-	Peer *tmp;
 	for(;;){
 		//	Read the proxy type directly into the proxy header structure.
 		if((size=rio_readnb(&pp->rio, &prxyhdr, PROXY_HLEN))<=0){
@@ -562,10 +559,14 @@ int Link_State_Broadcast(int signo){
 	  *	Write the header, number of neighbors (twice), and the local
 	  *	proxy information.
 	  */
-	*(proxy_header *)ptr++=prxyhdr;
-	*(unsigned short *)ptr++=N;
-	*(link_state *)ptr++=linkState;
-	*(unsigned short *)ptr++=N;
+	*(proxy_header *)ptr=prxyhdr;
+	ptr+=sizeof(proxy_header);
+	*(unsigned short *)ptr=N;
+	ptr+=sizeof(unsigned short);
+	*(link_state *)ptr=linkState;
+	ptr+=sizeof(link_state);
+	*(unsigned short *)ptr=N;
+	ptr+=sizeof(unsigned short);
 	/**
 	  *	First write the link-state records of the edges from the origin
 	  *	proxy and its neighbors.
@@ -759,7 +760,7 @@ int Quit(void *data, unsigned short length){
 }
 
 int Link_State(void *data, unsigned short length){
-	Peer *pp, *tmp;
+	Peer *pp;
 	char addr[16];
 	void *ptr;
 	unsigned short N;
