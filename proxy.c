@@ -572,7 +572,7 @@ int Link_State_Broadcast(int signo){
 	  *	proxy and its neighbors.
 	  */
 	HASH_ITER(hh, hash_table, pp, tmp){
-		clock_gettime(CLOCK_MONOTONIC,
+		clock_gettime(CLOCK_MONOTONIC, 
 			&((link_state_record *)ptr)->ID);
 		((link_state_record *)ptr)->proxy1=linkState;
 		((link_state_record *)ptr)->proxy2=pp->ls;
@@ -970,8 +970,9 @@ int make_timer(Peer *peer, int timout){
 	/*set and arm alarm*/
 	te.sigev_notify = SIGEV_SIGNAL;
 	te.sigev_signo = sigNo;
-	te.sigev_value.sival_ptr = &peer->timerID;
-	timer_create(CLOCK_REALTIME, &te, &peer->timerID);
+	te.sigev_value.sival_ptr = peer;
+	//te.sigev_notify_thread_id = peer->tid;
+	timer_create(CLOCK_REALTIME, &te, (time_t)peer->timerID);
 
 	its.it_interval.tv_sec = 1;
 	its.it_interval.tv_nsec = 0;
@@ -983,16 +984,9 @@ int make_timer(Peer *peer, int timout){
 }
 
 void *timer_handler( int sig, siginfo_t *si, void *uc){
-    timer_t *tidp;
-    Peer *pp, *tmp;
-    for(;;){
-    	tidp = si->si_value.sival_ptr;
-    	HASH_ITER(hh, hash_table, pp, tmp){
-    	if(*(tidp) == pp->timerID){
-    		//terminate signal
-    		remove_member(pp);
-	    	}
-	    }
-	}
+    Peer *peerID;
+    peerID = si->si_value.sival_ptr;
+	remove_member(peerID);
+	
 }
 

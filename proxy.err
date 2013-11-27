@@ -1,19 +1,4 @@
-proxy.c: In function ‘get_port’:
-proxy.c:64:3: warning: suggest parentheses around ‘&&’ within ‘||’ [-Wparentheses]
-proxy.c: In function ‘open_clientfd’:
-proxy.c:131:3: warning: suggest parentheses around ‘&&’ within ‘||’ [-Wparentheses]
-proxy.c: In function ‘make_timer’:
-proxy.c:974:2: warning: passing argument 3 of ‘timer_create’ from incompatible pointer type [enabled by default]
-In file included from proxy.h:7:0,
-                 from proxy.c:1:
-/usr/include/time.h:363:12: note: expected ‘void ** __restrict__’ but argument is of type ‘long long unsigned int *’
-proxy.c:980:2: warning: passing argument 1 of ‘timer_settime’ makes pointer from integer without a cast [enabled by default]
-In file included from proxy.h:7:0,
-                 from proxy.c:1:
-/usr/include/time.h:371:12: note: expected ‘timer_t’ but argument is of type ‘long long unsigned int’
-proxy.c: At top level:
-proxy.c:985:7: error: conflicting types for ‘timer_handler’
-In file included from proxy.c:1:0:
-proxy.h:223:13: note: previous declaration of ‘timer_handler’ was here
-proxy.c: In function ‘timer_handler’:
-proxy.c:991:17: warning: comparison between pointer and integer [enabled by default]
+proxy.o: In function `make_timer':
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:975: undefined reference to `timer_create'
+/home/dcpagan/Documents/school/internet/proxy/proxy.c:981: undefined reference to `timer_settime'
+collect2: error: ld returned 1 exit status
