@@ -976,7 +976,7 @@ void make_timer(Peer *peer, int timout){
 	timer_settime(peer->timerID, 0, &its, NULL);
 }
 
-void timerHandler( int sig, siginfo_t *si){
+void timer_handler( int sig, siginfo_t *si){
     timer_t *tidp;
     tidp = si->si_value.sival_ptr;
     Peer *pp, *tmp;
