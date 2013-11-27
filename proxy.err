@@ -3,21 +3,20 @@ proxy.c:51:3: warning: suggest parentheses around ‘&&’ within ‘||’ [-Wpa
 proxy.c: In function ‘open_clientfd’:
 proxy.c:118:3: warning: suggest parentheses around ‘&&’ within ‘||’ [-Wparentheses]
 proxy.c: In function ‘link_state_exchange_client’:
-proxy.c:157:14: warning: unused variable ‘pp2’ [-Wunused-variable]
-proxy.c:157:8: warning: unused variable ‘pp1’ [-Wunused-variable]
+proxy.c:156:14: warning: unused variable ‘pp2’ [-Wunused-variable]
+proxy.c:156:8: warning: unused variable ‘pp1’ [-Wunused-variable]
 proxy.c: In function ‘link_state_exchange_server’:
-proxy.c:227:14: warning: unused variable ‘pp2’ [-Wunused-variable]
-proxy.c:227:8: warning: unused variable ‘pp1’ [-Wunused-variable]
+proxy.c:217:14: warning: unused variable ‘pp2’ [-Wunused-variable]
+proxy.c:217:8: warning: unused variable ‘pp1’ [-Wunused-variable]
 proxy.c: In function ‘eth_handler’:
-proxy.c:360:8: warning: unused variable ‘tmp’ [-Wunused-variable]
+proxy.c:343:8: warning: unused variable ‘tmp’ [-Wunused-variable]
 proxy.c: In function ‘Link_State’:
-proxy.c:758:17: warning: variable ‘N’ set but not used [-Wunused-but-set-variable]
-proxy.c:755:13: warning: unused variable ‘tmp’ [-Wunused-variable]
+proxy.c:741:13: warning: unused variable ‘tmp’ [-Wunused-variable]
 proxy.c: In function ‘curr_time_as_MS’:
-proxy.c:912:14: error: request for member ‘tv_sec’ in something not a structure or union
-proxy.c:912:34: error: request for member ‘tv_sec’ in something not a structure or union
-proxy.c:912:48: error: request for member ‘tv_usec’ in something not a structure or union
+proxy.c:937:14: error: request for member ‘tv_sec’ in something not a structure or union
+proxy.c:937:34: error: request for member ‘tv_sec’ in something not a structure or union
+proxy.c:937:48: error: request for member ‘tv_usec’ in something not a structure or union
 proxy.c: At top level:
-proxy.c:914:1: error: expected identifier or ‘(’ before ‘}’ token
+proxy.c:939:1: error: expected identifier or ‘(’ before ‘}’ token
 proxy.c: In function ‘curr_time_as_MS’:
-proxy.c:913:1: warning: control reaches end of non-void function [-Wreturn-type]
+proxy.c:938:1: warning: control reaches end of non-void function [-Wreturn-type]

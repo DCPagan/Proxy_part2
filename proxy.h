@@ -88,7 +88,7 @@ typedef struct __attribute__((packed)){
 } link_state_source;
 
 typedef struct __attribute__((packed)){
-	unsigned long long ID;
+	struct timespec ID;
 	link_state proxy1;
 	link_state proxy2;
 	unsigned int linkWeight;
@@ -98,7 +98,7 @@ typedef struct{
 	link_state ls;
 	pthread_t tid;
 	rio_t rio;
-	time_t timestamp;
+	struct timespec timestamp;
 	UT_hash_handle hh;
 } Peer;
 

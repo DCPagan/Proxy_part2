@@ -153,12 +153,8 @@ Peer *open_clientfd(char *hostname, unsigned short port){
 Peer *link_state_exchange_client(Peer *pp){
 	proxy_header prxyhdr;
 	void *buffer, *bufptr;
-	unsigned short N;	//	number of neighbors
 	Peer *pp1, *pp2;
 	size_t size;
-	readBegin();
-	N=HASH_COUNT(hash_table);
-	readEnd();
 	/**
 	  *	Calculate the length of the packet to send by adding the values
 	  *	of the single-record server holding this proxy's connection
@@ -176,12 +172,9 @@ Peer *link_state_exchange_client(Peer *pp){
 	buffer=bufptr=malloc(PROXY_HLEN+ntohs(prxyhdr.length));
 	*(proxy_header *)bufptr=prxyhdr;
 	bufptr+=PROXY_HLEN;
-	*(unsigned short *)bufptr=N;
-	bufptr+=sizeof(unsigned short);
 	*(link_state *)bufptr=linkState;
 	bufptr+=sizeof(link_state);
-	*(unsigned short *)bufptr=N;
-	bufptr+=sizeof(unsigned short);
+	//	Write, then read, because this is on the client side.
 	if((size=rio_write(&pp->rio, buffer,
 		PROXY_HLEN+ntohs(prxyhdr.length)))<0){
 		/**
@@ -206,8 +199,6 @@ Peer *link_state_exchange_client(Peer *pp){
 		  */
 		return NULL;
 	}
-	N=*(unsigned short *)bufptr;
-	bufptr+=sizeof(unsigned short);
 	pp->ls=*(link_state *)bufptr;
 	bufptr+=sizeof(link_state);
 	rio_resetBuffer(&pp->rio);
@@ -222,25 +213,19 @@ Peer *link_state_exchange_client(Peer *pp){
 Peer *link_state_exchange_server(Peer *pp){
 	proxy_header prxyhdr;
 	void *buffer_cl, *buffer_srv, *bufptr;
-	unsigned short N;	//	number of neighbors
 	size_t size;
 	Peer *pp1, *pp2;
-	readBegin();
-	N=HASH_COUNT(hash_table);
-	readEnd();
 	prxyhdr.type=htons(LINK_STATE);
-	prxyhdr.length=htons(PROXY_HLEN+sizeof(N)
-		+sizeof(link_state_source));
+	prxyhdr.length=htons(PROXY_HLEN+sizeof(link_state_source));
 	buffer_srv=bufptr=malloc(ntohs(prxyhdr.length));
 	*(proxy_header *)bufptr=prxyhdr;
 	bufptr+=PROXY_HLEN;
-	*(unsigned short *)bufptr=htons(N);
-	bufptr+=sizeof(unsigned short);
 	*(link_state *)bufptr=linkState;
 	bufptr+=sizeof(link_state);
-	*(unsigned short *)bufptr=htons(N);
-	bufptr+=sizeof(unsigned short);
-	//	Read and evaluate the proxy header.
+	/**
+	  *	Read, then write, because this is on the server side.
+	  *	Read and evaluate the proxy header.
+	  */
 	if((size=rio_readnb(&pp->rio, &prxyhdr, PROXY_HLEN))<0){
 		/**
 		  *	Link-state error condition
@@ -266,8 +251,6 @@ Peer *link_state_exchange_server(Peer *pp){
 		return NULL;
 	}
 	free(buffer_srv);
-	N=*(unsigned short *)bufptr;
-	bufptr+=sizeof(unsigned short);
 	pp->ls=*(link_state *)bufptr;
 	rio_resetBuffer(&pp->rio);
 	free(buffer_cl);
@@ -568,7 +551,8 @@ int Link_State_Broadcast(){
 	  *	proxy and its neighbors.
 	  */
 	HASH_ITER(hh, hash_table, pp, tmp){
-		((link_state_record *)ptr)->ID=0;
+		clock_gettime(CLOCK_MONOTONIC,
+			&((link_state_record *)ptr)->ID);
 		((link_state_record *)ptr)->proxy1=linkState;
 		((link_state_record *)ptr)->proxy2=pp->ls;
 		((link_state_record *)ptr)->linkWeight=ntohl(1);
@@ -587,7 +571,8 @@ int Link_State_Broadcast(){
 		  * the origin proxy before looping again through the neighbor
 		  *	list.
 		  */
-		((link_state_record *)ptr)->ID=0;
+		clock_gettime(CLOCK_MONOTONIC,
+			&((link_state_record *)ptr)->ID);
 		((link_state_record *)ptr)->proxy1=pp->ls;
 		((link_state_record *)ptr)->proxy2=linkState;
 		((link_state_record *)ptr)->linkWeight=ntohl(1);
@@ -599,7 +584,8 @@ int Link_State_Broadcast(){
 		for(tmp=hash_table; tmp!=NULL; tmp=tmp->hh.next){
 			if(pp==tmp)
 				continue;
-			((link_state_record *)ptr)->ID=0;
+			clock_gettime(CLOCK_MONOTONIC,
+				&((link_state_record *)ptr)->ID);
 			((link_state_record *)ptr)->proxy1=pp->ls;
 			((link_state_record *)ptr)->proxy2=tmp->ls;
 			((link_state_record *)ptr)->linkWeight=ntohl(1);
@@ -753,7 +739,7 @@ int Quit(void *data, unsigned short length){
 
 int Link_State(void *data, unsigned short length){
 	Peer *pp, *tmp;
-	char *addr;
+	char addr[16];
 	void *ptr;
 	unsigned short N;
 	/**
@@ -765,19 +751,56 @@ int Link_State(void *data, unsigned short length){
 	  *	writer-preferential.
 	  */
 	ptr=data;
-	N=*(unsigned short *)ptr++;
-	readBegin();
-	HASH_FIND(hh, hash_table, &((link_state *)ptr)->tapMAC,
-		ETH_ALEN, pp);
-	readEnd();
-	if(pp==NULL){
-		inet_ntoa_r((unsigned int)((link_state *)ptr)->IPaddr.s_addr,
-			addr);
-		writeBegin();
-		open_clientfd(addr, ((link_state *)ptr)->listenPort);
-		writeEnd();
+	N=*(unsigned short *)ptr;
+	if(2*sizeof(N)+sizeof(link_state)
+		+(N*N+N)*sizeof(link_state_record)!=length){
+		/**
+		  *	The length of the packet must equal the size of the number
+		  *	of neighbors, the size of the source/origin information,
+		  *	and the size of all N*N+N link-state records.
+		  *
+		  *	If this is not the case, then an error has occured.
+		  */
+		return -1;
 	}
-	ptr+=sizeof(link_state_source);
+	ptr+=sizeof(unsigned short);
+	/**
+	  *	The source is connected to N neighbors.
+	  *	Therefore, the number of edges between all nodes, the source plus
+	  *	neighbors (N+1) equals (N+1)*N. There are N*N+N records in the
+	  *	packet.
+	  *
+	  *	If the peer is not in the membership list, then connect to it.
+	  */
+	writeBegin();
+	HASH_FIND(hh, hash_table,
+		&((link_state *)ptr)->tapMAC, ETH_ALEN, pp);
+	if(pp==NULL){
+		inet_ntoa_r((unsigned int)
+			((link_state *)ptr)->IPaddr.s_addr,
+			addr);
+		pp=open_clientfd(addr, ((link_state *)ptr)->listenPort);
+		clock_gettime(CLOCK_MONOTONIC, &pp->timestamp);
+	}
+	for(N=N*N+N; N>0; N--){
+		HASH_FIND(hh, hash_table,
+			&((link_state_record *)ptr)->proxy1.tapMAC, ETH_ALEN, pp);
+		if(pp==NULL){
+			inet_ntoa_r((unsigned int)
+				((link_state_record *)ptr)->proxy1.IPaddr.s_addr,
+				addr);
+			pp=open_clientfd(addr, ((link_state *)ptr)->listenPort);
+			clock_gettime(CLOCK_MONOTONIC, &pp->timestamp);
+		}else{
+			//	Compare the packet's timestamp with the saved timestamp.
+			pp->timestamp.tv_sec=
+				ntohs(((link_state_record *)ptr)->ID.tv_sec);
+			pp->timestamp.tv_nsec=
+				ntohs(((link_state_record *)ptr)->ID.tv_nsec);
+		}
+		ptr+=sizeof(link_state_source);
+	}
+	writeEnd();
 	return 0;
 }
 
@@ -850,8 +873,8 @@ void readEnd(){
 	if(--readcount==0)
 		pthread_mutex_unlock(&w);
 	pthread_mutex_unlock(&mutex1);
-	return;
-}
+	return; }
+
 
 void writeBegin(){
 	pthread_mutex_lock(&mutex2);
