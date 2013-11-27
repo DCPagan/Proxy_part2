@@ -1,6 +1,7 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
+#include<stdint.h>
 #include<unistd.h>
 #include<signal.h>
 #include<time.h>
@@ -16,6 +17,7 @@
 #include<sys/ioctl.h>
 #include<sys/select.h>
 #include<sys/time.h>
+#include<time.h>
 #include<net/if.h>
 #include<arpa/inet.h>
 #include<linux/if_ether.h>	//	for Ethernet structures and macros
