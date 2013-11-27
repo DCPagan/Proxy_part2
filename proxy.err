@@ -1,31 +1,19 @@
-proxy.c: In function ‘allocate_tunnel’:
-proxy.c:44:10: error: ‘buffer’ undeclared (first use in this function)
-proxy.c:44:10: note: each undeclared identifier is reported only once for each function it appears in
-proxy.c:46:17: error: ‘MAX_DEV_LINE’ undeclared (first use in this function)
-proxy.c:47:16: warning: missing terminating " character [enabled by default]
-proxy.c:47:2: error: missing terminating " character
-proxy.c:48:2: error: expected expression before ‘%’ token
-proxy.c:48:6: warning: missing terminating " character [enabled by default]
-proxy.c:48:2: error: missing terminating " character
-proxy.c:52:1: error: expected ‘;’ before ‘}’ token
 proxy.c: In function ‘get_port’:
-proxy.c:60:3: warning: suggest parentheses around ‘&&’ within ‘||’ [-Wparentheses]
+proxy.c:64:3: warning: suggest parentheses around ‘&&’ within ‘||’ [-Wparentheses]
 proxy.c: In function ‘open_clientfd’:
-proxy.c:127:3: warning: suggest parentheses around ‘&&’ within ‘||’ [-Wparentheses]
+proxy.c:131:3: warning: suggest parentheses around ‘&&’ within ‘||’ [-Wparentheses]
 proxy.c: In function ‘link_state_exchange_client’:
-proxy.c:165:14: warning: unused variable ‘pp2’ [-Wunused-variable]
-proxy.c:165:8: warning: unused variable ‘pp1’ [-Wunused-variable]
+proxy.c:169:14: warning: unused variable ‘pp2’ [-Wunused-variable]
+proxy.c:169:8: warning: unused variable ‘pp1’ [-Wunused-variable]
 proxy.c: In function ‘link_state_exchange_server’:
-proxy.c:226:14: warning: unused variable ‘pp2’ [-Wunused-variable]
-proxy.c:226:8: warning: unused variable ‘pp1’ [-Wunused-variable]
+proxy.c:230:14: warning: unused variable ‘pp2’ [-Wunused-variable]
+proxy.c:230:8: warning: unused variable ‘pp1’ [-Wunused-variable]
 proxy.c: In function ‘eth_handler’:
-proxy.c:352:8: warning: unused variable ‘tmp’ [-Wunused-variable]
+proxy.c:356:8: warning: unused variable ‘tmp’ [-Wunused-variable]
 proxy.c: In function ‘Link_State’:
-proxy.c:750:13: warning: unused variable ‘tmp’ [-Wunused-variable]
+proxy.c:754:13: warning: unused variable ‘tmp’ [-Wunused-variable]
 proxy.c: In function ‘curr_time_as_MS’:
-proxy.c:946:14: error: request for member ‘tv_sec’ in something not a structure or union
-proxy.c:946:34: error: request for member ‘tv_sec’ in something not a structure or union
-proxy.c:946:48: error: request for member ‘tv_usec’ in something not a structure or union
-proxy.c:947:1: warning: control reaches end of non-void function [-Wreturn-type]
-proxy.c: In function ‘allocate_tunnel’:
-proxy.c:52:1: warning: control reaches end of non-void function [-Wreturn-type]
+proxy.c:950:14: error: request for member ‘tv_sec’ in something not a structure or union
+proxy.c:950:34: error: request for member ‘tv_sec’ in something not a structure or union
+proxy.c:950:48: error: request for member ‘tv_usec’ in something not a structure or union
+proxy.c:951:1: warning: control reaches end of non-void function [-Wreturn-type]

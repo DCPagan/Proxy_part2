@@ -60,6 +60,8 @@ int main(int argc, char **argv){
 				exit(-1);
 			}
 			rio_readinit(&rio_tap, tapfd);
+			getMAC(buf1, &linkState.tapMAC);
+			getMAC("eth0", &linkState.ethMAC);
 		}
 	}
 	fclose(fp);

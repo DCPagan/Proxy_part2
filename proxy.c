@@ -21,12 +21,10 @@ const char BROADCAST_ADDR[ETH_ALEN]=
   * open a tun or tap device and returns the file
   * descriptor to read/write back to the caller
   *****************************************/
-int allocate_tunnel(char *dev, int flags, char *localMAC) {
+int allocate_tunnel(char *dev, int flags) {
 	int fd, error;
 	struct ifreq ifr;
 	char *device_name="/dev/net/tun";
-	char buffer[256];
-
 	if((fd=open(device_name , O_RDWR))<0) {
 		perror("error opening /dev/net/tun");
 		return fd;
@@ -41,16 +39,20 @@ int allocate_tunnel(char *dev, int flags, char *localMAC) {
 		return error;
 	}
 	strcpy(dev, ifr.ifr_name);
-
-	// Get device MAC address //
-	sprintf(localMAC,"/sys/class/net/%s/address",dev);
-	FILE* f = fopen(buffer,"r");
-	fread(buffer,1,MAX_DEV_LINE,f);
-	sscanf(buffer,"%hhX:%hhX:%hhX:%hhX:%hhX:
-	%hhX",local_mac,local_mac+1,local_mac+2,local_mac+3,local_mac+4,local_mac+5);
-	fclose(f);
-
 	return fd;
+}
+
+int getMAC(char *dev, char *local_mac){
+	char buffer[64];
+	// Get device MAC address //
+	sprintf(buffer,"/sys/class/net/%s/address",dev);
+	FILE* f = fopen(buffer,"r");
+	fgets(buffer, 64, f);
+	fclose(f);
+	sscanf(buffer,"%hhX:%hhX:%hhX:%hhX:%hhX:%hhX",
+		local_mac,local_mac+1,local_mac+2,
+		local_mac+3,local_mac+4,local_mac+5);
+	return 0;
 }
 
 unsigned short get_port(char *s){
