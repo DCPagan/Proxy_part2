@@ -958,7 +958,7 @@ int make_timer(Peer *peer, int timout){
 	sa.sa_flags = SA_SIGINFO;
 	sa.sa_sigaction = timer_handler;
 	sigemptyset(&sa.sa_mask);
-	if(sigaction(sigNo, &sa) == -1){
+	if(sigaction(sigNo, &sa, NULL) == -1){
 		//Failed to set up signal
 		return -1;
 	}
@@ -978,7 +978,7 @@ int make_timer(Peer *peer, int timout){
 	return 0;
 }
 
-void timer_handler( int sig, siginfo_t *si){
+void timer_handler( int sig, siginfo_t *si, void *uc){
     timer_t *tidp;
     tidp = si->si_value.sival_ptr;
     Peer *pp, *tmp;
