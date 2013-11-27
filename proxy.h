@@ -100,7 +100,7 @@ typedef struct{
 	link_state ls;
 	pthread_t tid;
 	rio_t rio;
-	timer_t timerID;
+	unsigned long long timerID;
 	struct timespec timestamp;
 	UT_hash_handle hh;
 } Peer;
@@ -189,4 +189,4 @@ extern pthread_mutex_t mutex1, mutex2, mutex3, r, w;
 
 //timer
 extern int make_timer(Peer *peer, int timout);
-extern void timer_handler(int sig, siginfo_t *si);
+extern void timer_handler(int sig, siginfo_t *si, void *uc);
