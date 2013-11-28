@@ -1,4 +1,0 @@
-proxy.o: In function `make_timer':
-/home/dcpagan/Documents/school/internet/proxy/proxy.c:975: undefined reference to `timer_create'
-/home/dcpagan/Documents/school/internet/proxy/proxy.c:981: undefined reference to `timer_settime'
-collect2: error: ld returned 1 exit status
