@@ -101,6 +101,13 @@ typedef struct __attribute__((packed)){
 	unsigned int linkWeight;
 } link_state_record;
 
+typedef struct __attribute__((packed)){
+	proxy_header prxyhdr;
+	unsigned short numNbrs1;
+	link_state ls;
+	unsigned short numNbrs2;
+}initial_join_packet;
+
 typedef struct{
 	link_state ls;
 	pthread_t tid;

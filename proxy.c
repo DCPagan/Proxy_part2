@@ -164,8 +164,7 @@ Peer *open_clientfd(char *hostname, unsigned short port){
   *	Send link-state packet, then wait for a response from the server.
   */
 Peer *initial_join_client(Peer *pp){
-	proxy_header prxyhdr;
-	void *buffer, *bufptr;
+	initial_join_packet pkt;
 	size_t size;
 	/**
 	  *	Calculate the length of the packet to send by adding the values
@@ -173,48 +172,44 @@ Peer *initial_join_client(Peer *pp){
 	  *	information, and the product of the number of neighbors times the
 	  *	size of a neighbor's record.
 	  */
-	prxyhdr.type=htons(LINK_STATE);
-	prxyhdr.length=htons(sizeof(unsigned short)	//	number of neighbors
+	pkt.prxyhdr.type=htons(LINK_STATE);
+	pkt.prxyhdr.length=htons(sizeof(unsigned short)	//	number of neighbors
 		+sizeof(link_state_source));	//	source/origin link-state
 	/**
 	  *	Allocate memory for a structure to hold the struct for a
 	  *	constant-sized single-record link-state structure by declaring
 	  *	such an automatic structure variable.
 	  */
-	buffer=bufptr=malloc(PROXY_HLEN+ntohs(prxyhdr.length));
-	*(proxy_header *)bufptr=prxyhdr;
-	bufptr+=PROXY_HLEN;
-	*(link_state *)bufptr=linkState;
-	bufptr+=sizeof(link_state);
+	pkt.ls=linkState;
+	pkt.ls.listenPort=htons(pkt.ls.listenPort);
+	readBegin();
+	pkt.numNbrs1=pkt.numNbrs2=htons(HASH_COUNT(hash_table));
+	readEnd();
 	//	Write, then read, because this is on the client side.
-	if((size=rio_write(&pp->rio, buffer,
-		PROXY_HLEN+ntohs(prxyhdr.length)))<0){
-		/**
-		  *	error condition; program accordingly.
-		  */
-		free(buffer);
-		return NULL;
-	}
-	free(buffer);
-	if((size=rio_readnb(&pp->rio, &prxyhdr, PROXY_HLEN))<0){
+	if((size=rio_write(&pp->rio, &pkt, sizeof(pkt)))<=0){
 		/**
 		  *	error condition; program accordingly.
 		  */
 		return NULL;
 	}
-	prxyhdr.type=ntohs(prxyhdr.type);
-	prxyhdr.length=ntohs(prxyhdr.length);
-	buffer=bufptr=malloc(prxyhdr.length);
-	if((size=rio_readnb(&pp->rio, buffer, prxyhdr.length))<0){
+	if((size=rio_readnb(&pp->rio, &pkt, sizeof(pkt)))<=0){
 		/**
 		  *	error condition; program accordingly.
 		  */
 		return NULL;
 	}
-	pp->ls=*(link_state *)bufptr;
-	bufptr+=sizeof(link_state);
+	/**
+	  *	Only check if the type is correct, and copy the connection
+	  *	information.
+	  */
+	if(ntohs(pkt.prxyhdr.type)!=LINK_STATE){
+		/**
+		  *	Link-state error condition
+		  */
+		return NULL;
+	}
+	pp->ls=pkt.ls;
 	rio_resetBuffer(&pp->rio);
-	free(buffer);
 	return pp;
 }
 
@@ -223,51 +218,46 @@ Peer *initial_join_client(Peer *pp){
   *	Wait for link-state packet, then send a response to the client.
   */
 Peer *initial_join_server(Peer *pp){
-	proxy_header prxyhdr;
-	void *buffer_cl, *buffer_srv, *bufptr;
+	initial_join_packet pkt;
 	size_t size;
-	//	Construct the proxy header.
-	prxyhdr.type=htons(LINK_STATE);
-	prxyhdr.length=htons(PROXY_HLEN+sizeof(link_state));
-	buffer_srv=bufptr=malloc(ntohs(prxyhdr.length));
-	//	Write the proxy header in the buffer.
-	*(proxy_header *)bufptr=prxyhdr;
-	bufptr+=PROXY_HLEN;
-	//	Write the connection information of the server to the buffer.
-	*(link_state *)bufptr=linkState;
-	bufptr+=sizeof(link_state);
 	/**
 	  *	Read, then write, because this is on the server side.
 	  *	Read and evaluate the proxy header of the incoming packet.
 	  */
-	if((size=rio_readnb(&pp->rio, &prxyhdr, PROXY_HLEN))<0){
+	if((size=rio_readnb(&pp->rio, &pkt, sizeof(pkt)))<=0){
 		/**
 		  *	Link-state error condition
 		  */
 		return NULL;
 	}
-	prxyhdr.type=ntohs(prxyhdr.type);
-	prxyhdr.length=ntohs(prxyhdr.length);
-	buffer_cl=bufptr=malloc(prxyhdr.length);
-	//	Read the rest of the link-state packet in a separate buffer.
-	if((size=rio_readnb(&pp->rio, buffer_cl,
-		ntohs(prxyhdr.length)))<0){
+	/**
+	  *	Only check if the type is correct, and copy the connection
+	  *	information.
+	  */
+	if(ntohs(pkt.prxyhdr.type)!=LINK_STATE){
 		/**
 		  *	Link-state error condition
 		  */
 		return NULL;
 	}
+	pkt.ls.listenPort=ntohs(pkt.ls.listenPort);
+	pp->ls=pkt.ls;
 	//	Write the local link-state packet after receiving from the client.
-	if((size=rio_write(&pp->rio, buffer_srv, prxyhdr.length))<0){
+	pkt.prxyhdr.type=htons(LINK_STATE);
+	pkt.prxyhdr.length=htons(sizeof(unsigned short)	//	number of neighbors
+		+sizeof(link_state_source));	//	source/origin link-state
+	pkt.ls=linkState;
+	pkt.ls.listenPort=htons(pkt.ls.listenPort);
+	readBegin();
+	pkt.numNbrs1=pkt.numNbrs2=htons(HASH_COUNT(hash_table));
+	readEnd();
+	if((size=rio_write(&pp->rio, &pkt, sizeof(pkt)))<=0){
 		/**
 		  *	Link-state error condition
 		  */
 		return NULL;
 	}
-	free(buffer_srv);
-	pp->ls=*(link_state *)bufptr;
 	rio_resetBuffer(&pp->rio);
-	free(buffer_cl);
 	return pp;
 }
 
@@ -322,7 +312,7 @@ void *tap_handler(int *fd){
 			readBegin();
 			HASH_ITER(hh, hash_table, pp, tmp){
 				if((size=rio_write(&pp->rio, buffer,
-					PROXY_HLEN+ntohs(prxyhdr.length)))<0){
+					PROXY_HLEN+ntohs(prxyhdr.length)))<=0){
 					remove_member(pp);
 					return NULL;
 				}
@@ -334,7 +324,7 @@ void *tap_handler(int *fd){
 				ETH_ALEN, pp);
 			//	Write the whole buffer to the Ethernet device.
 			if(pp!=NULL&&(size=rio_write(&pp->rio, buffer,
-				ntohs(prxyhdr.length)+PROXY_HLEN))<0){
+				ntohs(prxyhdr.length)+PROXY_HLEN))<=0){
 				remove_member(pp);
 				readEnd();
 				return NULL;
@@ -715,7 +705,7 @@ void printICMP(struct icmphdr *data){
 int Data(void *data, unsigned short length){
 	ssize_t size;
 	//	Write the payload to the tap device.
-	if((size=rio_write(&rio_tap, data, length))<0){
+	if((size=rio_write(&rio_tap, data, length))<=0){
 		fprintf(stderr, "error writing to tap device\n");
 		return -1;
 	}
