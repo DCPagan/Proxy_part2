@@ -475,18 +475,19 @@ void *eth_handler(Peer *pp){
 void leave_handler(int signo){
 	Peer *pp, *tmp;
 	size_t size;
+	leave_packet lvpkt;
 	readBegin();
-	leave_packet.prxyhdr.type=htons(LEAVE);
-	leave_packet.lv.localIP=linkState.IPaddr;
-	leave_packet.lv.localListenPort=linkState.listenPort;
-	memcpy(&leave_packet.lv.localMAC, &linkState.tapMAC, ETH_ALEN);
+	lvpkt.prxyhdr.type=htons(LEAVE);
+	lvpkt.lv.localIP=linkState.IPaddr;
+	lvpkt.lv.localListenPort=linkState.listenPort;
+	memcpy(&lvpkt.lv.localMAC, &linkState.tapMAC, ETH_ALEN);
 	/**
 	  *	Get time of day and store it in the ID field.
 	  */
 
 	HASH_ITER(hh, hash_table, pp, tmp){
 		//	Write the leave packet.
-		if((size=rio_write(&pp->rio, &leave_packet,
+		if((size=rio_write(&pp->rio, &lvpkt,
 			sizeof(leave_packet)))<0){
 			/**
 			  *	error broadcasting leave packet

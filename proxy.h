@@ -77,6 +77,11 @@ typedef struct __attribute__((packed)){
 	struct timespec ID;
 } leave;
 
+typedef struct __attribute__((packed)){
+	proxy_header prxyhdr;
+	leave lv;
+} leave_packet;
+
 typedef struct __attribute__((packed)){ 
 	struct in_addr IPaddr;
 	unsigned short listenPort;
