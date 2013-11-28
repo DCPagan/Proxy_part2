@@ -469,12 +469,11 @@ void leave_handler(int signo){
 	readBegin();
 	lvpkt.prxyhdr.type=htons(LEAVE);
 	lvpkt.lv.localIP=linkState.IPaddr;
-	lvpkt.lv.localListenPort=linkState.listenPort;
+	lvpkt.lv.localListenPort=htons(linkState.listenPort);
 	memcpy(&lvpkt.lv.localMAC, &linkState.tapMAC, ETH_ALEN);
-	/**
-	  *	Get time of day and store it in the ID field.
-	  */
-
+	clock_gettime(CLOCK_MONOTONIC, &lvpkt.lv.ID);
+	lvpkt.lv.ID.tv_sec=htonl(lvpkt.lv.ID.tv_sec);
+	lvpkt.lv.ID.tv_nsec=htonl(lvpkt.lv.ID.tv_nsec);
 	HASH_ITER(hh, hash_table, pp, tmp){
 		//	Write the leave packet.
 		if((size=rio_write(&pp->rio, &lvpkt,
