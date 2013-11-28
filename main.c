@@ -71,13 +71,17 @@ int main(int argc, char **argv){
 	/**
 	  *	Associate a signal handler to the termination signal to
 	  *	construct and broadcast the leave packet.
+	  *
+	  *	For some reason, I am encountering a segmentation fault every
+	  *	time that I send a keyboard termination signal.
+	  *
+	signal(SIGINT, leave_handler);
+	signal(SIGTERM, leave_handler);
 	  */
-	Signal(SIGINT, leave_handler);
-	Signal(SIGTERM, leave_handler);
 	/**
 	  *	set up a timer to periodically broadcast link-state packets.
 	  */
-	Signal(SIGALRM, Link_State_Broadcast);
+	signal(SIGALRM, Link_State_Broadcast);
 	alarm(config.link_period);
 	for(;;){
 		//	Accept a connection request.
