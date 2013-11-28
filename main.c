@@ -1,9 +1,9 @@
 #include"proxy.h"
 
 int main(int argc, char **argv){
-	int connfdptr, listenfd;	//	listening socket descriptor
+	int connfd, listenfd;	//	listening socket descriptor
 	struct sockaddr_in clientaddr;
-	unsigned int addrlen=sizeof(struct sockaddr_in);
+	socklen_t addrlen=sizeof(struct sockaddr_in);
 	char buf[256];
 	Peer *pp, *tmp;
 	FILE *fp;
@@ -79,8 +79,7 @@ int main(int argc, char **argv){
 	alarm(config.link_period);
 	for(;;){
 		//	Accept a connection request.
-		connfdptr=(int *)malloc(sizeof(int));
-		if((connfdptr=accept(listenfd,
+		if((connfd=accept(listenfd,
 			(struct sockaddr *)&clientaddr, &addrlen))<0){
 			perror("error opening socket to client");
 			close(listenfd);
@@ -90,7 +89,7 @@ int main(int argc, char **argv){
 			inet_ntoa(clientaddr.sin_addr));
 		pp=(Peer *)malloc(sizeof(Peer));
 		memset(pp, 0, sizeof(Peer));
-		rio_readinit(&pp->rio, connfdptr);
+		rio_readinit(&pp->rio, connfd);
 		initial_join_server(pp);
 		add_member(pp);
 		pthread_create(&pp->tid, NULL, eth_handler, &pp);

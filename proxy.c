@@ -473,10 +473,6 @@ void *eth_handler(Peer *pp){
   *	Before exiting, the proxy must broadcast a leave packet.
   */
 void leave_handler(int signo){
-	struct{
-		proxy_header prxyhdr;
-		leave lv;
-	} leave_packet;
 	Peer *pp, *tmp;
 	size_t size;
 	readBegin();
@@ -983,10 +979,8 @@ int make_timer(Peer *peer, int timout){
 	return 0;
 }
 
-void *timer_handler( int sig, siginfo_t *si, void *uc){
+void timer_handler( int sig, siginfo_t *si, void *uc){
     Peer *peerID;
     peerID = si->si_value.sival_ptr;
 	remove_member(peerID);
-	
 }
-
