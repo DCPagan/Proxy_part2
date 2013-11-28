@@ -893,10 +893,10 @@ void writeBegin(){
 }
 
 void writeEnd(){
-	pthread_mutex_unlock(&mutex2);
+	pthread_mutex_lock(&mutex2);
 	if(--writecount==0)
 		pthread_mutex_unlock(&r);
-	pthread_mutex_lock(&mutex2);
+	pthread_mutex_unlock(&mutex2);
 	return;
 }
 void add_member(Peer *node){
