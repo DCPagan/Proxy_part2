@@ -78,6 +78,8 @@ int main(int argc, char **argv){
 	signal(SIGINT, leave_handler);
 	signal(SIGTERM, leave_handler);
 	  */
+	signal(SIGINT, leave_handler);
+	signal(SIGTERM, leave_handler);
 	/**
 	  *	set up a timer to periodically broadcast link-state packets.
 	  */
