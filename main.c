@@ -3,7 +3,7 @@
 int main(int argc, char **argv){
 	int connfd, listenfd;	//	listening socket descriptor
 	struct sockaddr_in clientaddr;
-	socklen_t addrlen=sizeof(struct sockaddr_in);
+	socklen_t addrlen=sizeof(clientaddr);
 	char buf[256];
 	Peer *pp, *tmp;
 	FILE *fp;
@@ -93,14 +93,25 @@ int main(int argc, char **argv){
 		}
 		printf("Successfully connected to host at I.P. address %s.\n",
 			inet_ntoa(clientaddr.sin_addr));
+		/**
+		  *	Get local IP address via getsockname() if this is the first
+		  *	socket.
+		  */
+		if(hash_table==NULL){
+			if(getsockname(connfd,
+				(struct sockaddr *)&clientaddr, &addrlen)<0){
+				perror("error: getsockname()");
+				exit(-1);
+			}
+			linkState.IPaddr=clientaddr.sin_addr;
+		}
 		pp=(Peer *)malloc(sizeof(Peer));
 		memset(pp, 0, sizeof(Peer));
 		rio_readinit(&pp->rio, connfd);
-		add_member(pp);
-		pthread_once(&once, IPaddr_init);
 		initial_join_server(pp);
+		add_member(pp);
 		pthread_create(&pp->tid, NULL, eth_handler, pp);
-		make_timer(pp, config.link_timeout);
+		//	make_timer(pp, config.link_timeout);
 	}
 	return 0;
 }

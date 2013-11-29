@@ -7,7 +7,6 @@ Config config;
 link_state linkState;
 Peer *hash_table = NULL;
 int readcount, writecount;
-pthread_once_t once=PTHREAD_ONCE_INIT;
 pthread_mutex_t mutex1=PTHREAD_MUTEX_INITIALIZER,
 	mutex2=PTHREAD_MUTEX_INITIALIZER,
 	mutex3=PTHREAD_MUTEX_INITIALIZER,
@@ -109,6 +108,7 @@ Peer *open_clientfd(char *hostname, unsigned short port){
 	struct hostent *hp;
 	struct in_addr addr;
 	struct sockaddr_in serveraddr;
+	socklen_t addrlen=sizeof(serveraddr);
 	Peer *pp;
 	if((clientfd=socket(AF_INET, SOCK_STREAM, 0))<0){
 		perror("error opening socket");
@@ -149,28 +149,24 @@ Peer *open_clientfd(char *hostname, unsigned short port){
 	printf("Successfully connected to host at I.P. address %s.\n",
 		inet_ntoa(serveraddr.sin_addr));
 	/**
-	  *	Commence the link-state packet exchange with the peer.
-	  *	First, fields must be filled out.
+	  *	Get local IP address via getsockname() if this is the first
+	  *	socket.
 	  */
+	if(hash_table==NULL){
+		if(getsockname(clientfd,
+			(struct sockaddr *)&serveraddr, &addrlen)<0){
+			perror("error: getsockname()");
+			exit(-1);
+		}
+		linkState.IPaddr=serveraddr.sin_addr;
+	}
+	//	Commence the link-state packet exchange with the peer.
 	pp=(Peer *)malloc(sizeof(Peer));
 	memset(pp, 0, sizeof(Peer));
 	rio_readinit(&pp->rio, clientfd);
-	add_member(pp);
-	pthread_once(&once, IPaddr_init);
 	initial_join_client(pp);
+	add_member(pp);
 	return pp;
-}
-
-void IPaddr_init(){
-	static struct sockaddr_in localaddr;
-	static socklen_t addrlen=sizeof(localaddr);
-	if(getsockname(hash_table->rio.fd,
-		(struct sockaddr *)&localaddr, &addrlen)<0){
-		perror("error: getsockname()");
-		exit(-1);
-	}
-	linkState.IPaddr=localaddr.sin_addr;
-	return;
 }
 
 /**
@@ -953,6 +949,7 @@ void remove_member(Peer *node){
 	return;
 }
 
+/*
 int make_timer(Peer *peer, int timout){
 	struct sigevent te;
 	struct itimerspec its;
@@ -967,7 +964,7 @@ int make_timer(Peer *peer, int timout){
 		return -1;
 	}
 
-	/*set and arm alarm*/
+	//	set and arm alarm
 	te.sigev_notify = SIGEV_SIGNAL;
 	te.sigev_signo = sigNo;
 	te.sigev_value.sival_ptr = peer;
@@ -988,3 +985,4 @@ void timer_handler( int sig, siginfo_t *si, void *uc){
     peerID = si->si_value.sival_ptr;
 	remove_member(peerID);
 }
+*/
