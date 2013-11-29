@@ -781,7 +781,10 @@ int Link_State(void *data, unsigned short length){
 		  */
 		return -1;
 	}
-	ptr+=sizeof(unsigned short);
+	//	Check if the link-state packet came from this proxy.
+	if(!memcpy(((link_state *)ptr)->tapMAC, linkState.tapMAC, ETH_ALEN)){
+		return 0;
+	}
 	/**
 	  *	The source is connected to N neighbors.
 	  *	Therefore, the number of edges between all nodes, the source plus
@@ -790,6 +793,7 @@ int Link_State(void *data, unsigned short length){
 	  *
 	  *	If the peer is not in the membership list, then connect to it.
 	  */
+	ptr+=sizeof(unsigned short);
 	writeBegin();
 	HASH_FIND(hh, hash_table,
 		&((link_state *)ptr)->tapMAC, ETH_ALEN, pp);
