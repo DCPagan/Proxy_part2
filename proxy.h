@@ -131,6 +131,7 @@ extern int getMAC(char *, char *);
 extern unsigned short get_port(char *);
 extern int open_listenfd(unsigned short);
 extern Peer *open_clientfd(char *, unsigned short);
+extern void IPaddr_init();
 
 /**
   *	The difference between the client-side and the server-side of the
@@ -219,6 +220,10 @@ extern void writeEnd();
 extern void add_member(Peer *);
 extern void remove_member(Peer *);
 
+//timer
+extern int make_timer(Peer *peer, int timout);
+extern void timer_handler(int sig, siginfo_t *si, void *uc);
+
 extern int tapfd;
 extern pthread_t tap_tid;
 extern rio_t rio_tap;	//	Robust I/O struct for the tap device
@@ -229,7 +234,4 @@ extern const char BROADCAST_ADDR[ETH_ALEN];
 //	5 mutexes are required for write-preferential mutual exclusion
 extern int readcount, writecount;
 extern pthread_mutex_t mutex1, mutex2, mutex3, r, w;
-
-//timer
-extern int make_timer(Peer *peer, int timout);
-extern void timer_handler(int sig, siginfo_t *si, void *uc);
+extern pthread_once_t once;

@@ -7,6 +7,7 @@ Config config;
 link_state linkState;
 Peer *hash_table = NULL;
 int readcount, writecount;
+pthread_once_t once=PTHREAD_ONCE_INIT;
 pthread_mutex_t mutex1=PTHREAD_MUTEX_INITIALIZER,
 	mutex2=PTHREAD_MUTEX_INITIALIZER,
 	mutex3=PTHREAD_MUTEX_INITIALIZER,
@@ -154,9 +155,22 @@ Peer *open_clientfd(char *hostname, unsigned short port){
 	pp=(Peer *)malloc(sizeof(Peer));
 	memset(pp, 0, sizeof(Peer));
 	rio_readinit(&pp->rio, clientfd);
-	initial_join_client(pp);
 	add_member(pp);
+	pthread_once(&once, IPaddr_init);
+	initial_join_client(pp);
 	return pp;
+}
+
+void IPaddr_init(){
+	static struct sockaddr_in localaddr;
+	static socklen_t addrlen=sizeof(localaddr);
+	if(getsockname(hash_table->rio.fd,
+		(struct sockaddr *)&localaddr, &addrlen)<0){
+		perror("error: getsockname()");
+		exit(-1);
+	}
+	linkState.IPaddr=localaddr.sin_addr;
+	return;
 }
 
 /**
