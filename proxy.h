@@ -118,13 +118,18 @@ typedef struct{
 } Peer;
 
 typedef struct{
-	char mac[6];
 	unsigned short listen_port;
 	unsigned int link_period;
 	unsigned int link_timeout;
 	unsigned int quit_timer;
 	int tap;
 } Config;
+
+typedef struct{
+	char hostname[64];
+	unsigned int port;
+	struct llnode *next;
+} llnode;
 
 extern int allocate_tunnel(char *, int);
 extern int getMAC(char *, char *);
@@ -227,6 +232,7 @@ extern int tapfd;
 extern pthread_t tap_tid;
 extern rio_t rio_tap;	//	Robust I/O struct for the tap device
 extern Peer *hash_table;
+extern llnode *llhead;
 extern Config config;
 extern link_state linkState;
 extern const char BROADCAST_ADDR[ETH_ALEN];

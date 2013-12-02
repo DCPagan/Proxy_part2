@@ -6,6 +6,7 @@ rio_t rio_tap;
 Config config;
 link_state linkState;
 Peer *hash_table = NULL;
+llnode *llhead=NULL;
 int readcount, writecount;
 pthread_mutex_t mutex1=PTHREAD_MUTEX_INITIALIZER,
 	mutex2=PTHREAD_MUTEX_INITIALIZER,
@@ -545,23 +546,25 @@ int Link_State_Broadcast(int signo){
 	readBegin();
 	N=HASH_COUNT(hash_table);
 	//	Write the fields of the proxy header.
-	prxyhdr.type=ntohs(LINK_STATE);
-	prxyhdr.length=sizeof(unsigned short)	//	number of neighbors
+	prxyhdr.type=htons(LINK_STATE);
+	prxyhdr.length=htons(sizeof(unsigned short)	//	number of neighbors
 		+sizeof(link_state_source)	//	source/origin link-state
-		+N*(N+1)*sizeof(link_state_record);	// N records
+		+N*(N+1)*sizeof(link_state_record));	// N records
 	//	Allocate just enough data to write the link-state packet.
 	buffer=ptr=malloc(PROXY_HLEN+ntohs(prxyhdr.length));
 	/**
 	  *	Write the header, number of neighbors (twice), and the local
 	  *	proxy information.
+	  *
+	  *	Mind the byte-order
 	  */
 	*(proxy_header *)ptr=prxyhdr;
 	ptr+=sizeof(proxy_header);
-	*(unsigned short *)ptr=N;
+	*(unsigned short *)ptr=htons(N);
 	ptr+=sizeof(unsigned short);
 	*(link_state *)ptr=linkState;
 	ptr+=sizeof(link_state);
-	*(unsigned short *)ptr=N;
+	*(unsigned short *)ptr=htons(N);
 	ptr+=sizeof(unsigned short);
 	/**
 	  *	First write the link-state records of the edges from the origin
@@ -770,6 +773,7 @@ int Link_State(void *data, unsigned short length){
 	  */
 	ptr=data;
 	N=*(unsigned short *)ptr;
+	ptr+=sizeof(unsigned short);
 	if(2*sizeof(N)+sizeof(link_state)
 		+(N*N+N)*sizeof(link_state_record)!=length){
 		/**
@@ -782,9 +786,8 @@ int Link_State(void *data, unsigned short length){
 		return -1;
 	}
 	//	Check if the link-state packet came from this proxy.
-	if(!memcpy(((link_state *)ptr)->tapMAC, linkState.tapMAC, ETH_ALEN)){
+	if(!memcmp(((link_state *)ptr)->tapMAC, linkState.tapMAC, ETH_ALEN))
 		return 0;
-	}
 	/**
 	  *	The source is connected to N neighbors.
 	  *	Therefore, the number of edges between all nodes, the source plus
@@ -793,25 +796,27 @@ int Link_State(void *data, unsigned short length){
 	  *
 	  *	If the peer is not in the membership list, then connect to it.
 	  */
-	ptr+=sizeof(unsigned short);
 	writeBegin();
 	HASH_FIND(hh, hash_table,
 		&((link_state *)ptr)->tapMAC, ETH_ALEN, pp);
 	if(pp==NULL){
 		inet_ntoa_r((unsigned int)
-			((link_state *)ptr)->IPaddr.s_addr,
-			addr);
-		pp=open_clientfd(addr, ((link_state *)ptr)->listenPort);
+			((link_state *)ptr)->IPaddr.s_addr, addr);
+		pp=open_clientfd(addr, ntohs(((link_state *)ptr)->listenPort));
 		clock_gettime(CLOCK_MONOTONIC, &pp->timestamp);
 	}
 	for(N=N*N+N; N>0; N--){
+		if(!memcmp(((link_state *)ptr)->tapMAC,
+			linkState.tapMAC, ETH_ALEN))
+			continue;
 		HASH_FIND(hh, hash_table,
 			&((link_state_record *)ptr)->proxy1.tapMAC, ETH_ALEN, pp);
 		if(pp==NULL){
 			inet_ntoa_r((unsigned int)
 				((link_state_record *)ptr)->proxy1.IPaddr.s_addr,
 				addr);
-			pp=open_clientfd(addr, ((link_state *)ptr)->listenPort);
+			pp=open_clientfd(addr,
+				htons(((link_state *)ptr)->listenPort));
 			clock_gettime(CLOCK_MONOTONIC, &pp->timestamp);
 		}else{
 			//	Compare the packet's timestamp with the saved timestamp.

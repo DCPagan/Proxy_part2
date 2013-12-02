@@ -7,6 +7,7 @@ int main(int argc, char **argv){
 	char buf[256];
 	Peer *pp, *tmp;
 	FILE *fp;
+	llnode *add, *lltmp;
 	/**
 	  *	The old parameter scheme may become redundant when we include
 	  *	code for handling the configuration file. Revise all instances
@@ -22,6 +23,7 @@ int main(int argc, char **argv){
 	}
 	memset(&linkState, -1, sizeof(linkState));
 	memset(&config, -1, sizeof(config));
+	memset(&add, 0, sizeof(add));
 	while(!feof(fp)){
 		char buf1[64];
 		if(fgets(buf, 256, fp)!=buf)
@@ -33,18 +35,24 @@ int main(int argc, char **argv){
 				perror("error opening listening socket");
 				exit(-1);
 			}
-			linkState.listenPort=config.listen_port;
+			linkState.listenPort=htons(config.listen_port);
 		}else if(!strncmp(buf, "linkPeriod", 10)){
 			sscanf(buf, "%*s %u\n", &config.link_period);
 		}else if(!strncmp(buf, "linkTimeout", 11)){
 			sscanf(buf, "%*s %u\n", &config.link_timeout);
+		/**
+		  *	ERROR HERE: cannot commence the initial join packet
+		  *	exchange until the local MAC addresses have been
+		  *	acquired.
+		  *
+		  *	Use a linked list data structure to list the peers,
+		  *	and connect to them after the configuration file has
+		  *	been read.
+		  */
 		}else if(!strncmp(buf, "peer", 4)){
-			sscanf(buf, "%*s %s %hu\n", buf1, &config.listen_port);
-			//	Connect to the server.
-			if((pp=open_clientfd(buf1, config.listen_port))==NULL){
-				perror("error opening ethernet device");
-				exit(-1);
-			}
+			add=(llnode *)malloc(sizeof(llnode));
+			sscanf(buf, "%*s %s %hu\n", &add->hostname, &add->port);
+			LL_PREPEND(llhead, add);
 		}else if(!strncmp(buf, "quitAfter", 9)){
 			sscanf(buf, "%*s %u\n", &config.quit_timer);
 		}else if(!strncmp(buf, "tapDevice", 9)){
@@ -61,8 +69,14 @@ int main(int argc, char **argv){
 	}
 	fclose(fp);
 	writeBegin();
+	LL_FOREACH_SAFE(llhead, add, lltmp){
+		if((pp=open_clientfd(add->hostname, add->port))==NULL){
+			perror("error opening ethernet device");
+			exit(-1);
+		}
+	}
 	HASH_ITER(hh, hash_table, pp, tmp){
-			pthread_create(&pp->tid, NULL, eth_handler, pp);
+		pthread_create(&pp->tid, NULL, eth_handler, pp);
 	}
 	writeEnd();
 	pthread_create(&tap_tid, NULL, tap_handler, &tapfd);
