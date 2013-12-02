@@ -159,7 +159,7 @@ extern void *eth_handler(Peer *);
   *	leave_handler(int) handles termination signals so as to broadcast
   *	leave packets and TCP FIN packets after shutting down connections.
   */
-extern int Link_State_Broadcast(int);
+extern void Link_State_Broadcast(int);
 extern void leave_handler(int);
 
 /**

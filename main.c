@@ -68,13 +68,13 @@ int main(int argc, char **argv){
 		}
 	}
 	fclose(fp);
-	writeBegin();
 	LL_FOREACH_SAFE(llhead, add, lltmp){
 		if((pp=open_clientfd(add->hostname, add->port))==NULL){
 			perror("error opening ethernet device");
 			exit(-1);
 		}
 	}
+	writeBegin();
 	HASH_ITER(hh, hash_table, pp, tmp){
 		pthread_create(&pp->tid, NULL, eth_handler, pp);
 	}

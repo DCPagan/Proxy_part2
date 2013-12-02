@@ -192,7 +192,6 @@ Peer *initial_join_client(Peer *pp){
 	  *	such an automatic structure variable.
 	  */
 	pkt.ls=linkState;
-	pkt.ls.listenPort=htons(pkt.ls.listenPort);
 	readBegin();
 	pkt.numNbrs1=pkt.numNbrs2=htons(HASH_COUNT(hash_table));
 	readEnd();
@@ -219,6 +218,7 @@ Peer *initial_join_client(Peer *pp){
 		  */
 		return NULL;
 	}
+	pkt.ls.listenPort=ntohs(pkt.ls.listenPort);
 	pp->ls=pkt.ls;
 	rio_resetBuffer(&pp->rio);
 	return pp;
@@ -530,7 +530,7 @@ void (*Signal(int signo, void (*sig_handler)(int)))(int){
 	return oact.sa_handler;
 }
 
-int Link_State_Broadcast(int signo){
+void Link_State_Broadcast(int signo){
 	void *buffer, *ptr;
 	Peer *pp, *tmp;
 	proxy_header prxyhdr;
@@ -561,11 +561,11 @@ int Link_State_Broadcast(int signo){
 	*(proxy_header *)ptr=prxyhdr;
 	ptr+=sizeof(proxy_header);
 	*(unsigned short *)ptr=htons(N);
-	ptr+=sizeof(unsigned short);
+	ptr+=sizeof(N);
 	*(link_state *)ptr=linkState;
 	ptr+=sizeof(link_state);
 	*(unsigned short *)ptr=htons(N);
-	ptr+=sizeof(unsigned short);
+	ptr+=sizeof(N);
 	/**
 	  *	First write the link-state records of the edges from the origin
 	  *	proxy and its neighbors.
@@ -585,7 +585,7 @@ int Link_State_Broadcast(int signo){
 	  *
 	  *	Read uthash.h to better understand the for-loop implementation.
 	  */
-	for(pp=hash_table; pp->hh.next!=NULL; pp=pp->hh.next){
+	for(pp=hash_table; pp!=NULL; pp=pp->hh.next){
 		/**
 		  *	Write the link-state record of the edge from the neighbor to
 		  * the origin proxy before looping again through the neighbor
@@ -628,7 +628,7 @@ int Link_State_Broadcast(int signo){
 	readEnd();
 	free(buffer);
 	alarm(config.link_period);
-	return -1;
+	return;
 }
 
 /**
@@ -772,7 +772,7 @@ int Link_State(void *data, unsigned short length){
 	  *	writer-preferential.
 	  */
 	ptr=data;
-	N=*(unsigned short *)ptr;
+	N=ntohs(*(unsigned short *)ptr);
 	ptr+=sizeof(unsigned short);
 	if(2*sizeof(N)+sizeof(link_state)
 		+(N*N+N)*sizeof(link_state_record)!=length){
@@ -805,8 +805,14 @@ int Link_State(void *data, unsigned short length){
 		pp=open_clientfd(addr, ntohs(((link_state *)ptr)->listenPort));
 		clock_gettime(CLOCK_MONOTONIC, &pp->timestamp);
 	}
+	ptr+=sizeof(link_state_source);
+	/**
+	  *	ptr now points to the beginning of the membership list.
+	  *	Iterate through the records
+	  */
 	for(N=N*N+N; N>0; N--){
-		if(!memcmp(((link_state *)ptr)->tapMAC,
+		//	If the tap MAC address is the same as this proxy, continue.
+		if(!memcmp(((link_state_record *)ptr)->proxy1.tapMAC,
 			linkState.tapMAC, ETH_ALEN))
 			continue;
 		HASH_FIND(hh, hash_table,
@@ -816,7 +822,7 @@ int Link_State(void *data, unsigned short length){
 				((link_state_record *)ptr)->proxy1.IPaddr.s_addr,
 				addr);
 			pp=open_clientfd(addr,
-				htons(((link_state *)ptr)->listenPort));
+				ntohs(((link_state_record *)ptr)->proxy1.listenPort));
 			clock_gettime(CLOCK_MONOTONIC, &pp->timestamp);
 		}else{
 			//	Compare the packet's timestamp with the saved timestamp.
@@ -825,7 +831,7 @@ int Link_State(void *data, unsigned short length){
 			pp->timestamp.tv_nsec=
 				ntohs(((link_state_record *)ptr)->ID.tv_nsec);
 		}
-		ptr+=sizeof(link_state_source);
+		ptr+=sizeof(link_state_record);
 	}
 	writeEnd();
 	return 0;
