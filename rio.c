@@ -24,6 +24,7 @@ void rio_readinit(rio_t *rp, int fd){
 void rio_resetBuffer(rio_t *rp){
 	memset(rp->buf, 0, ETH_FRAME_LEN+PROXY_HLEN);
 	rp->bufp=rp->buf;
+	rp->cnt=0;
 }
 
 int Wait(int fd, int events){
@@ -94,15 +95,14 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 		if(rp->cnt<0){
 			//	signal interrupt case
 			if(errno!=EINTR){
-				if(Lock(rp->fd, F_UNLCK)<0)
+				Lock(rp->fd, F_UNLCK);
 					return -1;
 				return -1;
 			}
 		}
 		//	EOF case
 		else if(rp->cnt==0){
-			if(Lock(rp->fd, F_UNLCK)<0)
-				return -1;
+			Lock(rp->fd, F_UNLCK);
 			return 0;
 		}
 		//	no error
