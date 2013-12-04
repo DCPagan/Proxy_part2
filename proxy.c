@@ -220,7 +220,6 @@ Peer *initial_join_client(Peer *pp){
 	}
 	pkt.ls.listenPort=ntohs(pkt.ls.listenPort);
 	pp->ls=pkt.ls;
-	rio_resetBuffer(&pp->rio);
 	return pp;
 }
 
@@ -268,7 +267,6 @@ Peer *initial_join_server(Peer *pp){
 		  */
 		return NULL;
 	}
-	rio_resetBuffer(&pp->rio);
 	return pp;
 }
 
@@ -342,7 +340,6 @@ void *tap_handler(int *fd){
 			}
 			readEnd();
 		}
-		rio_resetBuffer(&rio_tap);
 	}
 }
 
@@ -385,7 +382,6 @@ void *eth_handler(Peer *pp){
 			remove_member(pp);
 			return NULL;
 		}
-		rio_resetBuffer(&pp->rio);
 		switch(prxyhdr.type){
 			case DATA:
 				if(Data(buffer, prxyhdr.length)<0)
@@ -488,7 +484,7 @@ void leave_handler(int signo){
 	HASH_ITER(hh, hash_table, pp, tmp){
 		//	Write the leave packet.
 		if((size=rio_write(&pp->rio, &lvpkt,
-			sizeof(leave_packet)))<0){
+			sizeof(leave_packet)))<=0){
 			/**
 			  *	error broadcasting leave packet
 			  */

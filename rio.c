@@ -21,12 +21,6 @@ void rio_readinit(rio_t *rp, int fd){
 	}
 }
 
-void rio_resetBuffer(rio_t *rp){
-	memset(rp->buf, 0, ETH_FRAME_LEN+PROXY_HLEN);
-	rp->bufp=rp->buf;
-	rp->cnt=0;
-}
-
 int Wait(int fd, int events){
 	/**
 	  *	poll structure for waiting until the file descriptor is ready.
