@@ -466,6 +466,54 @@ void *eth_handler(Peer *pp){
 }
 
 /**
+  *	Thread handler that closes a link upon link timeout.
+  *
+  *	NOTE: this thread shares access to the timestamp field of the peer
+  *	with other threads, but only for reading the timestamp to evaluate
+  *	whether or not a timeout occured. The only synchronization error
+  *	possible is if another thread updated the timestamp within
+  *	microseconds of when the link timeout occurs; in such a case, whether
+  *	the	program removes the peer from the membership list or not depends
+  *	on a few microseconds of temporal precision. The synchronization
+  *	problem is inconsequential.
+  */
+void *timeout_handler(Peer *pp){
+	static struct timespec ts;
+	memcpy(&ts, &pp->timestamp, sizeof(struct timespec));
+	ts.tv_sec+=config.link_timeout;
+	/**
+	  *	pthread_cond_timedwait() returns 0 if the condition pointed to by
+	  *	the first parameter is signaled within time timeout period, and
+	  *	returns a positive Exxx value upon error, such as the timeout.
+	  *
+	  *	The condition is only signaled if the peer is ready to be removed
+	  *	from the membership list. Therefore, the loop should break if the
+	  *	function returns 0. Otherwise, evaluate whether or not the link
+	  *	has been refreshed by a received link-state packet by comparing
+	  *	the current time with the latest timestamp.
+	  */
+	while(pthread_cond_timedwait(&pp->timeout_cond,
+		&pp->timeout_mutex, &pp->timestamp)>0){
+		clock_gettime(CLOCK_MONOTONIC, &ts);
+		ts.tv_sec-=pp->timestamp.tv_sec;
+		ts.tv_nsec-=pp->timestamp.tv_nsec;
+		if(ts.tv_nsec<0){
+			ts.tv_sec--;
+			//	Set nanoseconds to one billion minus the current value.
+			ts.tv_nsec=1000000000-ts.tv_nsec;
+		}
+		if(ts.tv_sec<config.link_timeout)
+			break;
+		memcpy(&ts, &pp->timestamp, sizeof(struct timespec));
+		ts.tv_sec+=config.link_timeout;
+	}
+	pthread_cancel(pp->tid);
+	close(pp->rio.fd);
+	free(pp);
+	return NULL;
+}
+
+/**
   *	This handles terminal signals and other terminal conditions.
   *	Before exiting, the proxy must broadcast a leave packet.
   */

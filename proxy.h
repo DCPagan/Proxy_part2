@@ -112,7 +112,9 @@ typedef struct{
 	link_state ls;
 	pthread_t tid;
 	rio_t rio;
-	unsigned long long timerID;
+	pthread_t timeout_tid;
+	pthread_mutex_t timeout_mutex;
+	pthread_cond_t timeout_cond;
 	struct timespec timestamp;
 	UT_hash_handle hh;
 } Peer;
@@ -151,6 +153,7 @@ extern Peer *initial_join_server(Peer *pp);
   */
 extern void *tap_handler(int *);
 extern void *eth_handler(Peer *);
+extern void *timeout_handler(Peer *);
 
 /**
   *	Link_State_Broadcast(int) handles the alarm signal for periodic
