@@ -1,0 +1,28 @@
+main.c: In function ‘main’:
+main.c:54:4: warning: format ‘%s’ expects argument of type ‘char *’, but argument 3 has type ‘char (*)[64]’ [-Wformat]
+main.c:55:4: warning: assignment from incompatible pointer type [enabled by default]
+main.c:66:4: warning: passing argument 2 of ‘getMAC’ from incompatible pointer type [enabled by default]
+In file included from main.c:1:0:
+proxy.h:137:12: note: expected ‘unsigned char *’ but argument is of type ‘unsigned char (*)[6]’
+main.c:67:4: warning: passing argument 2 of ‘getMAC’ from incompatible pointer type [enabled by default]
+In file included from main.c:1:0:
+proxy.h:137:12: note: expected ‘unsigned char *’ but argument is of type ‘unsigned char (*)[6]’
+main.c:71:2: warning: assignment from incompatible pointer type [enabled by default]
+main.c:79:21: error: expected expression before ‘{’ token
+main.c:80:20: error: expected expression before ‘{’ token
+main.c:81:3: warning: passing argument 3 of ‘pthread_create’ from incompatible pointer type [enabled by default]
+In file included from proxy.h:12:0,
+                 from main.c:1:
+/usr/include/pthread.h:232:12: note: expected ‘void * (*)(void *)’ but argument is of type ‘void * (*)(struct Peer *)’
+main.c:82:3: warning: passing argument 3 of ‘pthread_create’ from incompatible pointer type [enabled by default]
+In file included from proxy.h:12:0,
+                 from main.c:1:
+/usr/include/pthread.h:232:12: note: expected ‘void * (*)(void *)’ but argument is of type ‘void * (*)(struct Peer *)’
+main.c:85:2: warning: passing argument 3 of ‘pthread_create’ from incompatible pointer type [enabled by default]
+In file included from proxy.h:12:0,
+                 from main.c:1:
+/usr/include/pthread.h:232:12: note: expected ‘void * (*)(void *)’ but argument is of type ‘void * (*)(int *)’
+main.c:130:3: warning: passing argument 3 of ‘pthread_create’ from incompatible pointer type [enabled by default]
+In file included from proxy.h:12:0,
+                 from main.c:1:
+/usr/include/pthread.h:232:12: note: expected ‘void * (*)(void *)’ but argument is of type ‘void * (*)(struct Peer *)’

@@ -76,7 +76,10 @@ int main(int argc, char **argv){
 	}
 	writeBegin();
 	HASH_ITER(hh, hash_table, pp, tmp){
+		pp->timeout_mutex=PTHREAD_MUTEX_INITIALIZER;
+		pp->timeout_cond=PTHREAD_COND_INITIALIZER;
 		pthread_create(&pp->tid, NULL, eth_handler, pp);
+		pthread_create(&pp->timeout_tid, NULL, timeout_handler, pp);
 	}
 	writeEnd();
 	pthread_create(&tap_tid, NULL, tap_handler, &tapfd);

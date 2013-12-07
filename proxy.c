@@ -492,6 +492,7 @@ void *timeout_handler(Peer *pp){
 	  *	has been refreshed by a received link-state packet by comparing
 	  *	the current time with the latest timestamp.
 	  */
+	pthread_mutex_lock(&pp->timeout_mutex);
 	while(pthread_cond_timedwait(&pp->timeout_cond,
 		&pp->timeout_mutex, &pp->timestamp)>0){
 		clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -507,6 +508,7 @@ void *timeout_handler(Peer *pp){
 		memcpy(&ts, &pp->timestamp, sizeof(struct timespec));
 		ts.tv_sec+=config.link_timeout;
 	}
+	pthread_mutex_unlock(&pp->timeout_mutex);
 	pthread_cancel(pp->tid);
 	close(pp->rio.fd);
 	free(pp);
@@ -586,7 +588,7 @@ void Link_State_Broadcast(int signo){
 	  */
 	//	If there are no neighbors, then return.
 	if(hash_table==NULL)
-		return 0;
+		return;
 	readBegin();
 	N=HASH_COUNT(hash_table);
 	//	Write the fields of the proxy header.
@@ -666,7 +668,7 @@ void Link_State_Broadcast(int signo){
 			  *	Link-state error condition.
 			  */
 			free(buffer);
-			return -1;
+			return;
 		}
 	}
 	readEnd();
@@ -979,32 +981,33 @@ void add_member(Peer *node){
 	return;
 }
 
-void remove_member(Peer *node){
+/**
+  *	This is a write operation on shared data; to solve the
+  *	readers/writers problem, use mutual exclusion to privilege
+  *	the writer by granting exclusive access to the hash_table.
+  */
+/**
+  * Lock here. I don't know how to use MUTEX's yet.
+  *	I don't know how to use MUTEX's yet, so please do this for me,
+  *	John. Delete these last two lines of comments for me as well.
+  */
+void remove_member(Peer *pp){
+	/*
 	Peer *tmp;
-	/**
-	  *	This is a write operation on shared data; to solve the
-	  *	readers/writers problem, use mutual exclusion to privilege
-	  *	the writer by granting exclusive access to the hash_table.
-	  */
-	/**
-	  * Lock here. I don't know how to use MUTEX's yet.
-	  *	I don't know how to use MUTEX's yet, so please do this for me,
-	  *	John. Delete these last two lines of comments for me as well.
-	  */
 	writeBegin();
 	HASH_FIND(hh, hash_table, &node->ls.tapMAC, ETH_ALEN ,tmp);
 	if(tmp != NULL){
 		HASH_DEL(hash_table, node);
 	}
 	writeEnd();
-	/**
-	  *	Upon removing a peer from the membership list, terminate the
-	  *	thread associated with the connection, close its file descriptor,
-	  *	and free its memory.
-	  */
 	pthread_cancel(node->tid);
 	close(node->rio.fd);
 	free(node);
+	*/
+	//	Signal the peer's timeout handler.
+	pthread_mutex_lock(&pp->timeout_mutex);
+	pthread_cond_signal(&pp->timeout_cond);
+	pthread_mutex_unlock(&pp->timeout_mutex);
 	return;
 }
 

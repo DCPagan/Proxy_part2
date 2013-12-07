@@ -129,12 +129,12 @@ typedef struct{
 
 typedef struct{
 	char hostname[64];
-	unsigned int port;
+	unsigned short port;
 	struct llnode *next;
 } llnode;
 
 extern int allocate_tunnel(char *, int);
-extern int getMAC(char *, char *);
+extern int getMAC(char *, unsigned char *);
 extern unsigned short get_port(char *);
 extern int open_listenfd(unsigned short);
 extern Peer *open_clientfd(char *, unsigned short);
