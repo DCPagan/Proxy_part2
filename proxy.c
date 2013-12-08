@@ -411,9 +411,9 @@ int Link_State(void *data, unsigned short length){
 		}else{
 			//	Compare the packet's timestamp with the saved timestamp.
 			pp->timestamp.tv_sec=
-				ntohs(((link_state_record *)ptr)->ID.tv_sec);
+				ntohl(((link_state_record *)ptr)->ID.tv_sec);
 			pp->timestamp.tv_nsec=
-				ntohs(((link_state_record *)ptr)->ID.tv_nsec);
+				ntohl(((link_state_record *)ptr)->ID.tv_nsec);
 		}
 		ptr+=sizeof(link_state_record);
 	}

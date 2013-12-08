@@ -108,8 +108,6 @@ int main(int argc, char **argv){
 			close(listenfd);
 			exit(-1);
 		}
-		printf("Successfully connected to host at I.P. address %s.\n",
-			inet_ntoa(clientaddr.sin_addr));
 		/**
 		  *	Get local IP address via getsockname() if this is the first
 		  *	socket, which is the case if the local tap MAC is
