@@ -51,7 +51,7 @@ int main(int argc, char **argv){
 		  */
 		}else if(!strncmp(buf, "peer", 4)){
 			add=(llnode *)malloc(sizeof(llnode));
-			sscanf(buf, "%*s %s %hu\n", &add->hostname, &add->port);
+			sscanf(buf, "%*s %s %s\n", &add->hostname, &add->port);
 			LL_PREPEND(llhead, add);
 		}else if(!strncmp(buf, "quitAfter", 9)){
 			sscanf(buf, "%*s %u\n", &config.quit_timer);
@@ -69,7 +69,7 @@ int main(int argc, char **argv){
 	}
 	fclose(fp);
 	LL_FOREACH_SAFE(llhead, add, lltmp){
-		if((pp=open_clientfd(add->hostname, add->port))==NULL){
+		if((pp=connectbyname(add->hostname, add->port))==NULL){
 			perror("error opening ethernet device");
 			exit(-1);
 		}
@@ -112,9 +112,10 @@ int main(int argc, char **argv){
 			inet_ntoa(clientaddr.sin_addr));
 		/**
 		  *	Get local IP address via getsockname() if this is the first
-		  *	socket.
+		  *	socket, which is the case if the local tap MAC is
+		  *	uninitialized.
 		  */
-		if(hash_table==NULL){
+		if(!memcmp(&linkState.tapMAC, &BROADCAST_ADDR, ETH_ALEN)){
 			if(getsockname(connfd,
 				(struct sockaddr *)&clientaddr, &addrlen)<0){
 				perror("error: getsockname()");

@@ -129,7 +129,7 @@ typedef struct{
 
 typedef struct{
 	char hostname[64];
-	unsigned short port;
+	char port[8];
 	struct llnode *next;
 } llnode;
 
@@ -137,7 +137,8 @@ extern int allocate_tunnel(char *, int);
 extern int getMAC(char *, unsigned char *);
 extern unsigned short get_port(char *);
 extern int open_listenfd(unsigned short);
-extern Peer *open_clientfd(char *, unsigned short);
+extern Peer *connectbyname(char *, char *);
+extern Peer *connectbyaddr(unsigned int addr, unsigned short port);
 
 /**
   *	The difference between the client-side and the server-side of the

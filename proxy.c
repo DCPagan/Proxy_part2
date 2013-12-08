@@ -74,7 +74,7 @@ int open_listenfd(unsigned short port){
 	int listenfd;
 	struct sockaddr_in serveraddr;
 	int optval=1;
-	if((listenfd=socket(AF_INET, SOCK_STREAM, 0))<0){
+	if((listenfd=socket(AF_INET, SOCK_STREAM, IPPROTO_TCP))<0){
 		perror("error creating socket");
 		return -1;
 	}
@@ -103,15 +103,16 @@ int open_listenfd(unsigned short port){
 	return listenfd;
 }
 
-Peer *open_clientfd(char *hostname, unsigned short port){
+Peer *connectbyname(char *hostname, char *port){
 	int clientfd;
 	int optval=1;
-	struct hostent *hp;
-	struct in_addr addr;
 	struct sockaddr_in serveraddr;
-	socklen_t addrlen=sizeof(serveraddr);
+	static struct addrinfo hints=
+		{0, AF_INET, SOCK_STREAM, IPPROTO_TCP, 0, NULL, NULL, NULL};
+	struct addrinfo *res;
+	int error;
 	Peer *pp;
-	if((clientfd=socket(AF_INET, SOCK_STREAM, 0))<0){
+	if((clientfd=socket(AF_INET, SOCK_STREAM, IPPROTO_TCP))<0){
 		perror("error opening socket");
 		return NULL;
 	}
@@ -123,48 +124,65 @@ Peer *open_clientfd(char *hostname, unsigned short port){
 		return NULL;
 	}
 	/**
-	  * If the given hostname is an I.P. address in dotted decimal notation,
-	  * then parse it via gethostbyaddr().
-	  * Otherwise, parse the hostname via gethostbyname().
+	  *	getaddrinfo() is thread-safe, and multiple threads may be making
+	  *	TCP connection requests.
 	  */
-	if(inet_aton(hostname, &addr)!=0
-		&&(hp=gethostbyaddr((char *)&addr,
-			sizeof(struct in_addr), AF_INET))==NULL
-		||(hp=gethostbyname(hostname))==NULL){
+	if((error=getaddrinfo(hostname, port, &hints, &res))!=0){
 		perror("error retrieving host information");
 		close(clientfd);
 		return NULL;
 	}
-	printf("Connecting to host at I.P. address %s...\n",
-		inet_ntoa(**(struct in_addr **)hp->h_addr_list));
-	memset(&serveraddr, 0, sizeof(serveraddr));
-	serveraddr.sin_family=AF_INET;
-	memcpy(&serveraddr.sin_addr, *hp->h_addr_list, hp->h_length);
-	serveraddr.sin_port=htons(port);
-	if(connect(clientfd, (struct sockaddr *)&serveraddr,
-		sizeof(serveraddr))<0){
+	if(connect(clientfd, res->ai_addr, res->ai_addrlen)<0){
 		perror("error connecting to server");
 		close(clientfd);
 		return NULL;
 	}
-	printf("Successfully connected to host at I.P. address %s.\n",
-		inet_ntoa(serveraddr.sin_addr));
-	/**
-	  *	Get local IP address via getsockname() if this is the first
-	  *	socket.
-	  */
-	if(hash_table==NULL){
-		if(getsockname(clientfd,
-			(struct sockaddr *)&serveraddr, &addrlen)<0){
+	freeaddrinfo(res);
+	//	Initialize local tap MAC address
+	if(!memcmp(&linkState.tapMAC, &BROADCAST_ADDR, ETH_ALEN)){
+		if(getsockname(clientfd, &res->ai_addr, &res->ai_addrlen)<0){
 			perror("error: getsockname()");
 			exit(-1);
 		}
-		linkState.IPaddr=serveraddr.sin_addr;
+		linkState.IPaddr=((struct sockaddr_in *)res->ai_addr) ->sin_addr;
 	}
 	//	Commence the link-state packet exchange with the peer.
 	pp=(Peer *)malloc(sizeof(Peer));
 	memset(pp, 0, sizeof(Peer));
 	rio_readinit(&pp->rio, clientfd);
+	initial_join_client(pp);
+	add_member(pp);
+	return pp;
+}
+
+Peer *connectbyaddr(unsigned int addr, unsigned short port){
+	struct sockaddr_in peeraddr;
+	int peerfd;
+	static int optval=1;
+	Peer *pp;
+	if(peerfd=socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)){
+		perror("error opening socket");
+		return NULL;
+	}
+	if(setsockopt(peerfd, SOL_SOCKET, SO_REUSEADDR,
+		&optval, sizeof(optval))<0){
+		perror("setsockopt() error");
+		close(peerfd);
+		return NULL;
+	}
+	memset(&peeraddr, 0, sizeof(peeraddr));
+	peeraddr.sin_family=AF_INET;
+	peeraddr.sin_addr.s_addr=addr;
+	peeraddr.sin_port=port;
+	if(connect(peerfd, &peeraddr, sizeof(peeraddr))<0){
+		perror("error connecting to peer");
+		close(peerfd);
+		return NULL;
+	}
+	//	Commence the link-state packet exchange with the peer.
+	pp=(Peer *)malloc(sizeof(Peer));
+	memset(pp, 0, sizeof(Peer));
+	rio_readinit(&pp->rio, peerfd);
 	initial_join_client(pp);
 	add_member(pp);
 	return pp;
@@ -220,6 +238,7 @@ Peer *initial_join_client(Peer *pp){
 	}
 	pkt.ls.listenPort=ntohs(pkt.ls.listenPort);
 	pp->ls=pkt.ls;
+	clock_gettime(CLOCK_MONOTONIC, &pp->timestamp);
 	return pp;
 }
 
@@ -252,6 +271,7 @@ Peer *initial_join_server(Peer *pp){
 	}
 	pkt.ls.listenPort=ntohs(pkt.ls.listenPort);
 	pp->ls=pkt.ls;
+	clock_gettime(CLOCK_MONOTONIC, &pp->timestamp);
 	//	Write the local link-state packet after receiving from the client.
 	pkt.prxyhdr.type=htons(LINK_STATE);
 	pkt.prxyhdr.length=htons(sizeof(unsigned short)	//	number of neighbors
@@ -270,413 +290,6 @@ Peer *initial_join_server(Peer *pp){
 	return pp;
 }
 
-void *tap_handler(int *fd){
-	ssize_t size;
-	char buffer[ETH_FRAME_LEN+PROXY_HLEN];
-	proxy_header prxyhdr;
-	Peer *pp, *tmp;
-	for(;;){
-		memset(buffer, 0, ETH_FRAME_LEN+PROXY_HLEN);
-		/**
-	  	  *	Read the entire Ethernet frame.
-		  ****************************************************************
-		  *
-		  *	IMPORTANT NOTICE, PLEASE READ
-		  *
-		  ****************************************************************
-		  *	For whatever reason, the Ethernet frames of the tap device do
-		  *	not include the frame checksum. Because of this, when an extra
-		  * four bytes are read from the tap device, it instead reads from
-		  *	the first four bytes of the next frame. If the tap device does
-		  *	pass frame checksums at the end of frames, then add the macro
-		  *	ETH_FCS_LEN (valued at 4) to the third parameter of the following
-		  *	reading procedure.
-		  */
-		if((size=rio_read(&rio_tap, buffer+PROXY_HLEN,
-			PROXY_HLEN+ETH_FRAME_LEN))<=0){
-			perror("error reading from the tap device.\n");
-			exit(-1);
-		}
-		/**
-		  * Write the proxy header in network byte-order to the front of
-		  *	the buffer.
-		  *
-		  * The type field of the proxy header is always set to DATA.
-		  *	The size is given by the length field of the Ethernet frame
-		  *	header.
-		  */
-		prxyhdr.type=htons(DATA);
-		prxyhdr.length=htons(size);
-		memcpy(buffer, &prxyhdr, PROXY_HLEN);
-		/**
-		  *	Evaluate MAC addresses here. Dereference bufptr as
-		  *	(struct ethhdr *), and consult linux/if_ether.h.
-		  *
-		  *	The length of the payload cannot be evaluated from reading the
-		  *	two-octet field as expected; it must be derived from the IPv4
-		  *	packet header.
-		  */
-		if(!memcmp(&((struct ethhdr *)(buffer+PROXY_HLEN))->h_dest,
-			BROADCAST_ADDR, ETH_ALEN)){
-			readBegin();
-			HASH_ITER(hh, hash_table, pp, tmp){
-				if((size=rio_write(&pp->rio, buffer,
-					PROXY_HLEN+ntohs(prxyhdr.length)))<=0){
-					remove_member(pp);
-					return NULL;
-				}
-			}
-			readEnd();
-		}else{
-			readBegin();
-			HASH_FIND(hh, hash_table, &((link_state *)buffer)->tapMAC,
-				ETH_ALEN, pp);
-			//	Write the whole buffer to the Ethernet device.
-			if(pp!=NULL&&(size=rio_write(&pp->rio, buffer,
-				ntohs(prxyhdr.length)+PROXY_HLEN))<=0){
-				remove_member(pp);
-				readEnd();
-				return NULL;
-			}
-			readEnd();
-		}
-	}
-}
-
-void *eth_handler(Peer *pp){
-	/**
-  	  *	ethfd points to the socket descriptor to the Ethernet device that
-	  *	only this thread can read from. It is set to -1 after the thread
-	  *	closes.
-	  */
-	ssize_t size;
-	void *buffer;
-	proxy_header prxyhdr;
-	for(;;){
-		//	Read the proxy type directly into the proxy header structure.
-		if((size=rio_readnb(&pp->rio, &prxyhdr, PROXY_HLEN))<=0){
-			if(size<0)
-				fprintf(stderr,
-					"error reading from the Ethernet device.\n");
-			else
-				perror("connection severed\n");
-			close(pp->rio.fd);
-			return NULL;
-		}
-		/**
-	  	  *	Parse and evaluate the proxy header.
-		  *	Dynamically allocate memory for the data so that each packet
-		  *	could be evaluated concurrently. Free the dynamically allocated
-		  *	memory at the called helper functions.
-		  */
-		prxyhdr.type=ntohs(prxyhdr.type);
-		prxyhdr.length=ntohs(prxyhdr.length);
-		buffer=malloc(prxyhdr.length);
-		if((size=rio_readnb(&pp->rio, buffer, prxyhdr.length))<=0){
-			if(size<0)
-				fprintf(stderr,
-					"error reading from the Ethernet device.\n");
-			else
-				perror("connection severed\n");
-			free(buffer);
-			remove_member(pp);
-			return NULL;
-		}
-		switch(prxyhdr.type){
-			case DATA:
-				if(Data(buffer, prxyhdr.length)<0)
-					goto TYPE_ERROR;
-				break;
-			//	Leave (part 2)
-			case LEAVE:
-				if(Leave(buffer, prxyhdr.length)<0)
-					goto TYPE_ERROR;
-				break;
-			//	Quit
-			case QUIT:
-				if(Quit(buffer, prxyhdr.length)<0)
-					goto TYPE_ERROR;
-				break;
-			//	Link-state (part 2)
-			case LINK_STATE:
-				if(Link_State(buffer, prxyhdr.length)<0)
-					goto TYPE_ERROR;
-				break;
-			//	RTT Probe Request (part 3)
-			case RTT_PROBE_REQUEST:
-				if(RTT_Probe_Request(buffer, prxyhdr.length)<0)
-					goto TYPE_ERROR;
-				break;
-			//	RTT Probe Response (part 3)
-			case RTT_PROBE_RESPONSE:
-				if(RTT_Probe_Response(buffer, prxyhdr.length)<0)
-					goto TYPE_ERROR;
-				break;
-			//	Proxy Public Key (extra credit)
-			case PROXY_PUBLIC_KEY:
-				if(Proxy_Public_Key(buffer, prxyhdr.length)<0)
-					goto TYPE_ERROR;
-				break;
-			//	Signed Data (extra credit)
-			case SIGNED_DATA:
-				if(Signed_Data(buffer, prxyhdr.length)<0)
-					goto TYPE_ERROR;
-				break;
-			//	Proxy Secret key (extra credit)
-			case PROXY_SECRET_KEY:
-				if(Proxy_Secret_Key(buffer, prxyhdr.length)<0)
-					goto TYPE_ERROR;
-				break;
-			//	Encrypted Data (extra credit)
-			case ENCRYPTED_DATA:
-				if(Encrypted_Data(buffer, prxyhdr.length)<0)
-					goto TYPE_ERROR;
-				break;
-			//	Encrypted Link State (extra credit)
-			case ENCRYPTED_LINK_STATE:
-				if(Encrypted_Link_State(buffer, prxyhdr.length)<0)
-					goto TYPE_ERROR;
-				break;
-			//	Signed link-state (extra credit)
-			case SIGNED_LINK_STATE:
-				if(Signed_Link_State(buffer, prxyhdr.length)<0)
-					goto TYPE_ERROR;
-				break;
-			//	Bandwidth Probe Request
-			case BANDWIDTH_PROBE_REQUEST:
-				if(Bandwidth_Probe_Request(buffer, prxyhdr.length)<0)
-					goto TYPE_ERROR;
-				break;
-			//	Bandwidth Response
-			case BANDWIDTH_RESPONSE:
-				if(Bandwidth_Probe_Response(buffer, prxyhdr.length)<0)
-					goto TYPE_ERROR;
-				break;
-			default:
-				fprintf(stderr, "error, incorrect type\n");
-				TYPE_ERROR:
-					free(buffer);
-					writeBegin();
-					remove_member(pp);
-					writeEnd();
-					return NULL;
-		}
-		free(buffer);
-	}
-}
-
-/**
-  *	Thread handler that closes a link upon link timeout.
-  *
-  *	NOTE: this thread shares access to the timestamp field of the peer
-  *	with other threads, but only for reading the timestamp to evaluate
-  *	whether or not a timeout occured. The only synchronization error
-  *	possible is if another thread updated the timestamp within
-  *	microseconds of when the link timeout occurs; in such a case, whether
-  *	the	program removes the peer from the membership list or not depends
-  *	on a few microseconds of temporal precision. The synchronization
-  *	problem is inconsequential.
-  */
-void *timeout_handler(Peer *pp){
-	static struct timespec ts;
-	memcpy(&ts, &pp->timestamp, sizeof(struct timespec));
-	ts.tv_sec+=config.link_timeout;
-	/**
-	  *	pthread_cond_timedwait() returns 0 if the condition pointed to by
-	  *	the first parameter is signaled within time timeout period, and
-	  *	returns a positive Exxx value upon error, such as the timeout.
-	  *
-	  *	The condition is only signaled if the peer is ready to be removed
-	  *	from the membership list. Therefore, the loop should break if the
-	  *	function returns 0. Otherwise, evaluate whether or not the link
-	  *	has been refreshed by a received link-state packet by comparing
-	  *	the current time with the latest timestamp.
-	  */
-	pthread_mutex_lock(&pp->timeout_mutex);
-	while(pthread_cond_timedwait(&pp->timeout_cond,
-		&pp->timeout_mutex, &pp->timestamp)>0){
-		clock_gettime(CLOCK_MONOTONIC, &ts);
-		ts.tv_sec-=pp->timestamp.tv_sec;
-		ts.tv_nsec-=pp->timestamp.tv_nsec;
-		if(ts.tv_nsec<0){
-			ts.tv_sec--;
-			//	Set nanoseconds to one billion minus the current value.
-			ts.tv_nsec=1000000000-ts.tv_nsec;
-		}
-		if(ts.tv_sec<config.link_timeout)
-			break;
-		memcpy(&ts, &pp->timestamp, sizeof(struct timespec));
-		ts.tv_sec+=config.link_timeout;
-	}
-	pthread_mutex_unlock(&pp->timeout_mutex);
-	pthread_cancel(pp->tid);
-	close(pp->rio.fd);
-	free(pp);
-	return NULL;
-}
-
-/**
-  *	This handles terminal signals and other terminal conditions.
-  *	Before exiting, the proxy must broadcast a leave packet.
-  */
-void leave_handler(int signo){
-	Peer *pp, *tmp;
-	size_t size;
-	leave_packet lvpkt;
-	readBegin();
-	lvpkt.prxyhdr.type=htons(LEAVE);
-	lvpkt.lv.localIP=linkState.IPaddr;
-	lvpkt.lv.localListenPort=htons(linkState.listenPort);
-	memcpy(&lvpkt.lv.localMAC, &linkState.tapMAC, ETH_ALEN);
-	clock_gettime(CLOCK_MONOTONIC, &lvpkt.lv.ID);
-	lvpkt.lv.ID.tv_sec=htonl(lvpkt.lv.ID.tv_sec);
-	lvpkt.lv.ID.tv_nsec=htonl(lvpkt.lv.ID.tv_nsec);
-	HASH_ITER(hh, hash_table, pp, tmp){
-		//	Write the leave packet.
-		if((size=rio_write(&pp->rio, &lvpkt,
-			sizeof(leave_packet)))<=0){
-			/**
-			  *	error broadcasting leave packet
-			  */
-		}
-		//	Remove the peer from the system entirely.
-		HASH_DEL(hash_table, pp);
-		pthread_cancel(pp->tid);
-		close(pp->rio.fd);
-		free(pp);
-	}
-	readEnd();
-	exit(0);
-}
-
-/**
-  *	@param	int, void (*)(int): signal number, and the new signal handler
-  *	@return	void (*)(int):		the old handler for that signal.
-  */
-void (*Signal(int signo, void (*sig_handler)(int)))(int){
-	struct sigaction act, oact;	//	sigaction, old sigaction
-	sigemptyset(&act.sa_mask);
-	act.sa_flags=0;
-	/**
-	  *	Interrupt system calls when an alarm signal is received, as the
-	  *	purpose of the alarm is to place a timeout on an I/O operation.
-	  *	Otherwise, restart the system call.
-	  */
-	if(signo==SIGALRM){
-#ifdef SA_INTERRUPT
-		act.sa_flags|=SA_INTERRUPT;
-#endif
-	}else{
-#ifdef SA_RESTART
-		act.sa_flags|=SA_RESTART;
-#endif
-	}
-	if(sigaction(signo, &act, &oact)<0)
-		return SIG_ERR;
-	return oact.sa_handler;
-}
-
-void Link_State_Broadcast(int signo){
-	void *buffer, *ptr;
-	Peer *pp, *tmp;
-	proxy_header prxyhdr;
-	unsigned short N;
-	size_t size;
-	/**
-	  *	Broadcasting requires reading, but not writing, the membership
-	  *	list, so reader mutual exclusion procedures must be invoked.
-	  */
-	//	If there are no neighbors, then return.
-	if(hash_table==NULL)
-		return;
-	readBegin();
-	N=HASH_COUNT(hash_table);
-	//	Write the fields of the proxy header.
-	prxyhdr.type=htons(LINK_STATE);
-	prxyhdr.length=htons(sizeof(unsigned short)	//	number of neighbors
-		+sizeof(link_state_source)	//	source/origin link-state
-		+N*(N+1)*sizeof(link_state_record));	// N records
-	//	Allocate just enough data to write the link-state packet.
-	buffer=ptr=malloc(PROXY_HLEN+ntohs(prxyhdr.length));
-	/**
-	  *	Write the header, number of neighbors (twice), and the local
-	  *	proxy information.
-	  *
-	  *	Mind the byte-order
-	  */
-	*(proxy_header *)ptr=prxyhdr;
-	ptr+=sizeof(proxy_header);
-	*(unsigned short *)ptr=htons(N);
-	ptr+=sizeof(N);
-	*(link_state *)ptr=linkState;
-	ptr+=sizeof(link_state);
-	*(unsigned short *)ptr=htons(N);
-	ptr+=sizeof(N);
-	/**
-	  *	First write the link-state records of the edges from the origin
-	  *	proxy and its neighbors.
-	  */
-	HASH_ITER(hh, hash_table, pp, tmp){
-		clock_gettime(CLOCK_MONOTONIC, 
-			&((link_state_record *)ptr)->ID);
-		((link_state_record *)ptr)->proxy1=linkState;
-		((link_state_record *)ptr)->proxy2=pp->ls;
-		((link_state_record *)ptr)->linkWeight=ntohl(1);
-		ptr+=sizeof(link_state_record);
-	}
-	/**
-	  *	Loop on all pairs between hosts to write neighbor records.
-	  *	According to an email, there are N^2 records, one for each
-	  *	edge.
-	  *
-	  *	Read uthash.h to better understand the for-loop implementation.
-	  */
-	for(pp=hash_table; pp!=NULL; pp=pp->hh.next){
-		/**
-		  *	Write the link-state record of the edge from the neighbor to
-		  * the origin proxy before looping again through the neighbor
-		  *	list.
-		  */
-		clock_gettime(CLOCK_MONOTONIC,
-			&((link_state_record *)ptr)->ID);
-		((link_state_record *)ptr)->proxy1=pp->ls;
-		((link_state_record *)ptr)->proxy2=linkState;
-		((link_state_record *)ptr)->linkWeight=ntohl(1);
-		ptr+=sizeof(link_state_record);
-		/**
-		  *	This loop will cover all connections between all neighbors,
-		  *	excluding the origin proxy.
-		  */
-		for(tmp=hash_table; tmp!=NULL; tmp=tmp->hh.next){
-			if(pp==tmp)
-				continue;
-			clock_gettime(CLOCK_MONOTONIC,
-				&((link_state_record *)ptr)->ID);
-			((link_state_record *)ptr)->proxy1=pp->ls;
-			((link_state_record *)ptr)->proxy2=tmp->ls;
-			((link_state_record *)ptr)->linkWeight=ntohl(1);
-			ptr+=sizeof(link_state_record);
-		}
-	}
-	/**
-	  *	Write the packet to all neighbors.
-	  */
-	HASH_ITER(hh, hash_table, pp, tmp){
-		if((size=rio_write(&pp->rio, buffer,
-			PROXY_HLEN+ntohs(prxyhdr.length)))<0){
-			/**
-			  *	Link-state error condition.
-			  */
-			free(buffer);
-			return;
-		}
-	}
-	readEnd();
-	free(buffer);
-	alarm(config.link_period);
-	return;
-}
-
 /**
   *	Thread-safe implentation of inet_ntoa()
   *	Instead of returning a character pointer pointing to a string of the
@@ -692,74 +305,6 @@ void inet_ntoa_r(unsigned int addr, char *s){
 	return;
 }
 
-void printEthernet(struct ethhdr *data){
-	int i;
-	//	Print Ethernet frame header fields.
-	printf("%-25s ", "source MAC address:");
-	for(i=0; i<ETH_ALEN-1; i++)
-		printf("%.2x:", data->h_source[i]);
-	printf("%.2x\n", data->h_source[i]);
-	printf("%-25s ", "destination MAC address:");
-	for(i=0; i<ETH_ALEN-1; i++)
-		printf("%.2x:", data->h_dest[i]);
-	printf("%.2x\n", data->h_dest[i]);
-	printf("%-25s %#.4x\n",
-		"Ethertype:", ntohs(data->h_proto));
-	switch(ntohs(data->h_proto)){
-		//	IPv4
-		case ETH_P_IP:
-			printIP((void *)data+ETH_HLEN);
-			break;
-		//	ARP
-		case ETH_P_ARP:
-			printARP((void *)data+ETH_HLEN);
-			break;
-		//	Unknown or unimplemented Ethertype
-		default: break;
-	}
-	putchar('\n');
-}
-
-void printIP(struct iphdr *data){
-	/**
-	  *	data now points to the beginning of the IPv4 packet header;
-	  *	one may add code here to output IPv4 packet information.
-	  *	Consult linux/ip.h to find the fields of struct iphdr.
-	  */
-	char s[16];
-	printf("%-25s %u\n", "IP version:", data->version);
-	printf("%-25s %u\n", "IP packet size:", ntohs(data->tot_len));
-	printf("%-25s %#.2x\n", "protocol:", data->protocol);
-	inet_ntoa_r(data->saddr, s);
-	printf("%-25s %s\n", "source I.P. address:", s);
-	inet_ntoa_r(data->daddr, s);
-	printf("%-25s %s\n", "destination I.P. address:", s);
-	//	if the segment is an ICMP segment, print its fields.
-	switch(data->protocol){
-		//	ICMP protocol number
-		case 0x01:
-			printICMP((void *)data+IPv4_HLEN);
-			break;
-		//	Unknown or unimplemented protocol
-		default: break;
-	}
-	return;
-}
-
-void printARP(void *data){
-	return;
-}
-
-void printICMP(struct icmphdr *data){
-	printf("%-25s %#.2x\n", "ICMP type:", data->type);
-	printf("%-25s %#.2x\n", "ICMP code:", data->code);
-	printf("%-25s %#.4x\n", "ICMP checksum:", ntohs(data->checksum));
-	printf("%-25s %#.4x\n", "ICMP identifier:", ntohs(data->un.echo.id));
-	printf("%-25s %#.4x\n", "ICMP sequence:",
-		ntohs(data->un.echo.sequence));
-	return;
-}
-
 int Data(void *data, unsigned short length){
 	ssize_t size;
 	//	Write the payload to the tap device.
@@ -772,15 +317,12 @@ int Data(void *data, unsigned short length){
 
 int Leave(void *data, unsigned short length){
 	Peer *pp;
-	writeBegin();
+	readBegin();
 	HASH_FIND(hh, hash_table, &((link_state *)data)->tapMAC,
 		ETH_ALEN, pp);
+	readEnd();
 	if(pp!=NULL)
-		HASH_DEL(hash_table, pp);
-	writeEnd();
-	pthread_cancel(pp->tid);
-	close(pp->rio.fd);
-	free(pp);
+		remove_member(pp);
 	return 0;
 }
 
@@ -846,9 +388,8 @@ int Link_State(void *data, unsigned short length){
 	HASH_FIND(hh, hash_table,
 		&((link_state *)ptr)->tapMAC, ETH_ALEN, pp);
 	if(pp==NULL){
-		inet_ntoa_r((unsigned int)
-			((link_state *)ptr)->IPaddr.s_addr, addr);
-		pp=open_clientfd(addr, ntohs(((link_state *)ptr)->listenPort));
+		pp=connectbyaddr(((link_state *)ptr)->IPaddr.s_addr,
+			ntohs(((link_state *)ptr)->listenPort));
 		clock_gettime(CLOCK_MONOTONIC, &pp->timestamp);
 	}
 	ptr+=sizeof(link_state_source);
@@ -864,11 +405,8 @@ int Link_State(void *data, unsigned short length){
 		HASH_FIND(hh, hash_table,
 			&((link_state_record *)ptr)->proxy1.tapMAC, ETH_ALEN, pp);
 		if(pp==NULL){
-			inet_ntoa_r((unsigned int)
-				((link_state_record *)ptr)->proxy1.IPaddr.s_addr,
-				addr);
-			pp=open_clientfd(addr,
-				ntohs(((link_state_record *)ptr)->proxy1.listenPort));
+			pp=connectbyaddr(((link_state *)ptr)->IPaddr.s_addr,
+				ntohs(((link_state *)ptr)->listenPort));
 			clock_gettime(CLOCK_MONOTONIC, &pp->timestamp);
 		}else{
 			//	Compare the packet's timestamp with the saved timestamp.
@@ -981,70 +519,10 @@ void add_member(Peer *node){
 	return;
 }
 
-/**
-  *	This is a write operation on shared data; to solve the
-  *	readers/writers problem, use mutual exclusion to privilege
-  *	the writer by granting exclusive access to the hash_table.
-  */
-/**
-  * Lock here. I don't know how to use MUTEX's yet.
-  *	I don't know how to use MUTEX's yet, so please do this for me,
-  *	John. Delete these last two lines of comments for me as well.
-  */
+//	Signal the timeout thread of the respective peer.
 void remove_member(Peer *pp){
-	/*
-	Peer *tmp;
-	writeBegin();
-	HASH_FIND(hh, hash_table, &node->ls.tapMAC, ETH_ALEN ,tmp);
-	if(tmp != NULL){
-		HASH_DEL(hash_table, node);
-	}
-	writeEnd();
-	pthread_cancel(node->tid);
-	close(node->rio.fd);
-	free(node);
-	*/
-	//	Signal the peer's timeout handler.
 	pthread_mutex_lock(&pp->timeout_mutex);
 	pthread_cond_signal(&pp->timeout_cond);
 	pthread_mutex_unlock(&pp->timeout_mutex);
 	return;
 }
-
-/*
-int make_timer(Peer *peer, int timout){
-	struct sigevent te;
-	struct itimerspec its;
-	struct sigaction sa;
-	int sigNo = SIGRTMIN;
-
-	sa.sa_flags = SA_SIGINFO;
-	sa.sa_sigaction = timer_handler;
-	sigemptyset(&sa.sa_mask);
-	if(sigaction(sigNo, &sa, NULL) == -1){
-		//Failed to set up signal
-		return -1;
-	}
-
-	//	set and arm alarm
-	te.sigev_notify = SIGEV_SIGNAL;
-	te.sigev_signo = sigNo;
-	te.sigev_value.sival_ptr = peer;
-	//te.sigev_notify_thread_id = peer->tid;
-	timer_create(CLOCK_REALTIME, &te, (time_t)peer->timerID);
-
-	its.it_interval.tv_sec = 1;
-	its.it_interval.tv_nsec = 0;
-	its.it_value.tv_sec = timout;
-	its.it_value.tv_nsec = 0;
-	timer_settime(peer->timerID, 0, &its, NULL);
-
-	return 0;
-}
-
-void timer_handler( int sig, siginfo_t *si, void *uc){
-    Peer *peerID;
-    peerID = si->si_value.sival_ptr;
-	remove_member(peerID);
-}
-*/
