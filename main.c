@@ -76,8 +76,8 @@ int main(int argc, char **argv){
 	}
 	writeBegin();
 	HASH_ITER(hh, hash_table, pp, tmp){
-		pp->timeout_mutex=PTHREAD_MUTEX_INITIALIZER;
-		pp->timeout_cond=PTHREAD_COND_INITIALIZER;
+		pthread_mutex_init(&pp->timeout_mutex, NULL);
+		pthread_cond_init(&pp->timeout_cond, NULL);
 		pthread_create(&pp->tid, NULL, eth_handler, pp);
 		pthread_create(&pp->timeout_tid, NULL, timeout_handler, pp);
 	}
@@ -127,7 +127,10 @@ int main(int argc, char **argv){
 		rio_readinit(&pp->rio, connfd);
 		initial_join_server(pp);
 		add_member(pp);
+		pthread_mutex_init(&pp->timeout_mutex, NULL);
+		pthread_cond_init(&pp->timeout_cond, NULL);
 		pthread_create(&pp->tid, NULL, eth_handler, pp);
+		pthread_create(&pp->timeout_tid, NULL, timeout_handler, pp);
 		//	make_timer(pp, config.link_timeout);
 	}
 	return 0;

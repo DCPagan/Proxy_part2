@@ -43,7 +43,7 @@ int allocate_tunnel(char *dev, int flags) {
 	return fd;
 }
 
-int getMAC(char *dev, char *local_mac){
+int getMAC(char *dev, unsigned char *local_mac){
 	char buffer[64];
 	// Get device MAC address //
 	sprintf(buffer,"/sys/class/net/%s/address",dev);
@@ -952,8 +952,8 @@ void readEnd(){
 	if(--readcount==0)
 		pthread_mutex_unlock(&w);
 	pthread_mutex_unlock(&mutex1);
-	return; }
-
+	return;
+}
 
 void writeBegin(){
 	pthread_mutex_lock(&mutex2);
