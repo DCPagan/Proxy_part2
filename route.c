@@ -44,6 +44,7 @@ void remove_from_network(Peer *pp){
 	writeBegin();
 	HASH_FIND(hh, network, ls.tapMAC, ETH_ALEN, node);
 	if(node==NULL)
+		writeEnd();
 		return;
 	HASH_ITER(hh, node->nbrs, nbr, etmp){
 		HASH_DELETE(hh, node->nbrs, nbr);
