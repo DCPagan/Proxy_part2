@@ -374,7 +374,7 @@ void Link_State_Broadcast(int signo){
 			  *	Link-state error condition.
 			  */
 			free(buffer);
-			return;
+			remove_member(pp);
 		}
 	}
 	readEnd();

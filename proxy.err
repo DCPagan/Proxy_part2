@@ -1,0 +1,13 @@
+route.c: In function ‘Dijkstra’:
+route.c:77:3: warning: passing argument 1 of ‘heap_insert’ from incompatible pointer type [enabled by default]
+In file included from route.c:5:0:
+proxy.h:260:12: note: expected ‘struct Heap *’ but argument is of type ‘struct graph *’
+route.c:77:3: warning: passing argument 2 of ‘heap_insert’ makes pointer from integer without a cast [enabled by default]
+In file included from route.c:5:0:
+proxy.h:260:12: note: expected ‘struct graph *’ but argument is of type ‘uint32_t’
+route.c:77:3: error: too few arguments to function ‘heap_insert’
+In file included from route.c:5:0:
+proxy.h:260:12: note: declared here
+route.c:69:16: warning: unused variable ‘ntmp’ [-Wunused-variable]
+route.c: In function ‘downheap’:
+route.c:156:3: warning: suggest parentheses around ‘&&’ within ‘||’ [-Wparentheses]
