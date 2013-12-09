@@ -73,8 +73,21 @@ void Dijkstra(graph *dest){
 	if(node==NULL||node==dest)
 		return;
 	hp=heap_alloc(HASH_CNT(hh, network));
+	//	Insert the neighbors of the local proxy to the heap.
 	HASH_ITER(hh, node->nbrs, nbr, tmp){
-		heap_insert(nbr->node, nbr->linkWeight);
+		heap_insert(hp, nbr->node, nbr->linkWeight);
+	}
+	/**
+	  *	Iterate through the heap until there are no entries left.
+	  *
+	  *	Define a data structure that defines whether a node in the
+	  *	network is visited by Dijkstra's algorithm.
+	  *
+	  *	Associate each node with the previous hop from the local proxy
+	  *	to the destination. Use this for the routing table.
+	  */
+	while(hp->size>0){
+
 	}
 	writeEnd();
 	heap_free(hp);
