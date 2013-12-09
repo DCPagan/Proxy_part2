@@ -5,6 +5,7 @@ pthread_t tap_tid;
 rio_t rio_tap;
 Config config;
 link_state linkState;
+struct timespec timestamp;
 Peer *hash_table = NULL;
 llnode *llhead=NULL;
 int readcount, writecount;
@@ -56,8 +57,8 @@ int getMAC(char *dev, unsigned char *local_mac){
 	return 0;
 }
 
-unsigned short get_port(char *s){
-	unsigned short port;
+uint16_t get_port(char *s){
+	uint16_t port;
 	unsigned long x;
 	x=strtoul(s, NULL, 10);
 	//	Check for overflow error
@@ -66,11 +67,11 @@ unsigned short get_port(char *s){
 		perror("error: invalid port parameter");
 		exit(1);
 	}
-	port=(unsigned short)x;
+	port=(uint16_t)x;
 	return port;
 }
 
-int open_listenfd(unsigned short port){
+int open_listenfd(uint16_t port){
 	int listenfd;
 	struct sockaddr_in serveraddr;
 	int optval=1;
@@ -89,8 +90,7 @@ int open_listenfd(unsigned short port){
 	serveraddr.sin_family=AF_INET;
 	serveraddr.sin_addr.s_addr=htonl(INADDR_ANY);
 	serveraddr.sin_port=htons(port);
-	if(bind(listenfd, (struct sockaddr *)&serveraddr,
-		sizeof(serveraddr))<0){
+	if(bind(listenfd, &serveraddr, sizeof(serveraddr))<0){
 		perror("error binding socketfd to port");
 		close(listenfd);
 		return -1;
@@ -106,7 +106,8 @@ int open_listenfd(unsigned short port){
 Peer *connectbyname(char *hostname, char *port){
 	int clientfd;
 	int optval=1;
-	struct sockaddr_in serveraddr;
+	struct sockaddr_in addr;
+	static socklen_t addrlen=sizeof(addr);
 	static struct addrinfo hints=
 		{0, AF_INET, SOCK_STREAM, IPPROTO_TCP, 0, NULL, NULL, NULL};
 	struct addrinfo *res;
@@ -138,15 +139,14 @@ Peer *connectbyname(char *hostname, char *port){
 		return NULL;
 	}
 	freeaddrinfo(res);
-	//	Initialize local tap MAC address
-	if(!memcmp(&linkState.tapMAC, &BROADCAST_ADDR, ETH_ALEN)){
-		if(getsockname(clientfd, &res->ai_addr, &res->ai_addrlen)<0){
+	if(linkState.IPaddr.s_addr==-1){
+		if(getsockname(clientfd, &addr, &addrlen)<0){
 			perror("error: getsockname()");
 			exit(-1);
 		}
-		linkState.IPaddr=((struct sockaddr_in *)res->ai_addr) ->sin_addr;
+		linkState.IPaddr=addr.sin_addr;
 	}
-	//	Commence the link-state packet exchange with the peer.
+	//	Initialize local tap MAC address
 	pp=(Peer *)malloc(sizeof(Peer));
 	memset(pp, 0, sizeof(Peer));
 	rio_readinit(&pp->rio, clientfd);
@@ -155,7 +155,7 @@ Peer *connectbyname(char *hostname, char *port){
 	return pp;
 }
 
-Peer *connectbyaddr(unsigned int addr, unsigned short port){
+Peer *connectbyaddr(uint32_t addr, uint16_t port){
 	struct sockaddr_in peeraddr;
 	int peerfd;
 	static int optval=1;
@@ -202,7 +202,7 @@ Peer *initial_join_client(Peer *pp){
 	  *	size of a neighbor's record.
 	  */
 	pkt.prxyhdr.type=htons(LINK_STATE);
-	pkt.prxyhdr.length=htons(sizeof(unsigned short)	//	number of neighbors
+	pkt.prxyhdr.length=htons(sizeof(uint16_t)	//	number of neighbors
 		+sizeof(link_state_source));	//	source/origin link-state
 	/**
 	  *	Allocate memory for a structure to hold the struct for a
@@ -274,7 +274,7 @@ Peer *initial_join_server(Peer *pp){
 	clock_gettime(CLOCK_MONOTONIC, &pp->timestamp);
 	//	Write the local link-state packet after receiving from the client.
 	pkt.prxyhdr.type=htons(LINK_STATE);
-	pkt.prxyhdr.length=htons(sizeof(unsigned short)	//	number of neighbors
+	pkt.prxyhdr.length=htons(sizeof(uint16_t)	//	number of neighbors
 		+sizeof(link_state_source));	//	source/origin link-state
 	pkt.ls=linkState;
 	pkt.ls.listenPort=htons(pkt.ls.listenPort);
@@ -290,22 +290,7 @@ Peer *initial_join_server(Peer *pp){
 	return pp;
 }
 
-/**
-  *	Thread-safe implentation of inet_ntoa()
-  *	Instead of returning a character pointer pointing to a string of the
-  *	I.P. address, it writes the I.P. address as a character string to the
-  *	given character pointer.
-  */
-void inet_ntoa_r(unsigned int addr, char *s){
-	sprintf(s, "%hhu:%hhu:%hhu:%hhu",
-		*(unsigned char *)&addr,
-		*((unsigned char *)&addr+1),
-		*((unsigned char *)&addr+2),
-		*((unsigned char *)&addr+3));
-	return;
-}
-
-int Data(void *data, unsigned short length){
+int Data(void *data, uint16_t length){
 	ssize_t size;
 	//	Write the payload to the tap device.
 	if((size=rio_write(&rio_tap, data, length))<=0){
@@ -315,7 +300,7 @@ int Data(void *data, unsigned short length){
 	return 0;
 }
 
-int Leave(void *data, unsigned short length){
+int Leave(void *data, uint16_t length){
 	Peer *pp;
 	readBegin();
 	HASH_FIND(hh, hash_table, &((link_state *)data)->tapMAC,
@@ -326,7 +311,7 @@ int Leave(void *data, unsigned short length){
 	return 0;
 }
 
-int Quit(void *data, unsigned short length){
+int Quit(void *data, uint16_t length){
 	proxy_header prxyhdr= {ntohs(QUIT), ntohs(QUIT_LEN)};
 	char buffer[PROXY_HLEN+QUIT_LEN];
 	Peer *pp, *tmp;
@@ -346,11 +331,11 @@ int Quit(void *data, unsigned short length){
 	exit(0);
 }
 
-int Link_State(void *data, unsigned short length){
+int Link_State(void *data, uint16_t length){
 	Peer *pp;
 	char addr[16];
 	void *ptr;
-	unsigned short N;
+	uint16_t N;
 	/**
 	  * Check if you are connected to the host that sent the packet.
 	  *	Define a struct to dereference the tap MAC address correctly.
@@ -360,8 +345,8 @@ int Link_State(void *data, unsigned short length){
 	  *	writer-preferential.
 	  */
 	ptr=data;
-	N=ntohs(*(unsigned short *)ptr);
-	ptr+=sizeof(unsigned short);
+	N=ntohs(*(uint16_t *)ptr);
+	ptr+=sizeof(uint16_t);
 	if(2*sizeof(N)+sizeof(link_state)
 		+(N*N+N)*sizeof(link_state_record)!=length){
 		/**
@@ -409,7 +394,10 @@ int Link_State(void *data, unsigned short length){
 				ntohs(((link_state *)ptr)->listenPort));
 			clock_gettime(CLOCK_MONOTONIC, &pp->timestamp);
 		}else{
-			//	Compare the packet's timestamp with the saved timestamp.
+			/**
+			  *	Compare the packet's timestamp with the saved timestamp
+			  *	of the respective peer.
+			  */
 			pp->timestamp.tv_sec=
 				ntohl(((link_state_record *)ptr)->ID.tv_sec);
 			pp->timestamp.tv_nsec=
@@ -421,43 +409,43 @@ int Link_State(void *data, unsigned short length){
 	return 0;
 }
 
-int RTT_Probe_Request(void *data, unsigned short length){
+int RTT_Probe_Request(void *data, uint16_t length){
 	return 0;
 }
 
-int RTT_Probe_Response(void *data, unsigned short length){
+int RTT_Probe_Response(void *data, uint16_t length){
 	return 0;
 }
 
-int Proxy_Public_Key(void *data, unsigned short length){
+int Proxy_Public_Key(void *data, uint16_t length){
 	return 0;
 }
 
-int Signed_Data(void *data, unsigned short length){
+int Signed_Data(void *data, uint16_t length){
 	return 0;
 }
 
-int Proxy_Secret_Key(void *data, unsigned short length){
+int Proxy_Secret_Key(void *data, uint16_t length){
 	return 0;
 }
 
-int Encrypted_Data(void *data, unsigned short length){
+int Encrypted_Data(void *data, uint16_t length){
 	return 0;
 }
 
-int Encrypted_Link_State(void *data, unsigned short length){
+int Encrypted_Link_State(void *data, uint16_t length){
 	return 0;
 }
 
-int Signed_Link_State(void *data, unsigned short length){
+int Signed_Link_State(void *data, uint16_t length){
 	return 0;
 }
 
-int Bandwidth_Probe_Request(void *data, unsigned short length){
+int Bandwidth_Probe_Request(void *data, uint16_t length){
 	return 0;
 }
 
-int Bandwidth_Probe_Response(void *data, unsigned short length){
+int Bandwidth_Probe_Response(void *data, uint16_t length){
 	return 0;
 }
 
@@ -508,14 +496,18 @@ void writeEnd(){
 	pthread_mutex_unlock(&mutex2);
 	return;
 }
-void add_member(Peer *node){
+void add_member(Peer *pp){
 	Peer *tmp;
 	writeBegin();
-	HASH_FIND(hh, hash_table, &node->ls.tapMAC, ETH_ALEN, tmp);
+	HASH_FIND(hh, hash_table, &pp->ls.tapMAC, ETH_ALEN, tmp);
 	if(tmp == NULL){
-		HASH_ADD(hh, hash_table, ls.tapMAC, ETH_ALEN,node);
+		HASH_ADD(hh, hash_table, ls.tapMAC, ETH_ALEN, pp);
 	}
 	writeEnd();
+	pthread_mutex_init(&pp->timeout_mutex, NULL);
+	pthread_cond_init(&pp->timeout_cond, NULL);
+	pthread_create(&pp->tid, NULL, eth_handler, pp);
+	pthread_create(&pp->timeout_tid, NULL, timeout_handler, pp);
 	return;
 }
 

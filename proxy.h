@@ -21,8 +21,6 @@
 #include<net/if.h>
 #include<arpa/inet.h>
 #include<linux/if_ether.h>	//	for Ethernet structures and macros
-#include<linux/ip.h>		//	for IPv4 structures and macros
-#include<linux/icmp.h>		//	for ICMP structures and macros
 #include<linux/if_tun.h>
 #include"rio.h"
 #include"uthash.h"
@@ -66,13 +64,13 @@
 #define QUIT_LEN 20
 
 typedef struct __attribute__((packed)){
-	unsigned short type;
-	unsigned short length;
+	uint16_t type;
+	uint16_t length;
 } proxy_header;
 
 typedef struct __attribute__((packed)){
 	struct in_addr localIP;
-	unsigned short localListenPort;
+	uint16_t localListenPort;
 	unsigned char localMAC[ETH_ALEN];
 	struct timespec ID;
 } leave;
@@ -84,28 +82,28 @@ typedef struct __attribute__((packed)){
 
 typedef struct __attribute__((packed)){ 
 	struct in_addr IPaddr;
-	unsigned short listenPort;
+	uint16_t listenPort;
 	unsigned char tapMAC[ETH_ALEN];
 	unsigned char ethMAC[ETH_ALEN];
 } link_state;
 
 typedef struct __attribute__((packed)){
 	link_state ls;
-	unsigned short numNbrs;
+	uint16_t numNbrs;
 } link_state_source;
 
 typedef struct __attribute__((packed)){
 	struct timespec ID;
 	link_state proxy1;
 	link_state proxy2;
-	unsigned int linkWeight;
+	uint32_t linkWeight;
 } link_state_record;
 
 typedef struct __attribute__((packed)){
 	proxy_header prxyhdr;
-	unsigned short numNbrs1;
+	uint16_t numNbrs1;
 	link_state ls;
-	unsigned short numNbrs2;
+	uint16_t numNbrs2;
 }initial_join_packet;
 
 typedef struct{
@@ -119,11 +117,28 @@ typedef struct{
 	UT_hash_handle hh;
 } Peer;
 
+/**
+  *	The graph structure will have all the information necessary to
+  *	construct a link-state proxy.
+  */
 typedef struct{
-	unsigned short listen_port;
-	unsigned int link_period;
-	unsigned int link_timeout;
-	unsigned int quit_timer;
+	link_state ls;
+	uint32_t linkWeight;
+	struct edge *next;
+} edge;
+
+typedef struct{
+	struct timespec timestamp;
+	link_state ls;
+	edge *nbrs;
+	UT_hash_handle hh
+} graph;
+
+typedef struct{
+	uint16_t listen_port;
+	uint32_t link_period;
+	uint32_t link_timeout;
+	uint32_t quit_timer;
 	int tap;
 } Config;
 
@@ -135,10 +150,10 @@ typedef struct{
 
 extern int allocate_tunnel(char *, int);
 extern int getMAC(char *, unsigned char *);
-extern unsigned short get_port(char *);
-extern int open_listenfd(unsigned short);
+extern uint16_t get_port(char *);
+extern int open_listenfd(uint16_t);
 extern Peer *connectbyname(char *, char *);
-extern Peer *connectbyaddr(unsigned int addr, unsigned short port);
+extern Peer *connectbyaddr(uint32_t addr, uint16_t port);
 
 /**
   *	The difference between the client-side and the server-side of the
@@ -173,41 +188,24 @@ extern void leave_handler(int);
 extern void (*Signal(int, void (*)(int)))(int);
 
 /**
-  * thread-safe procedure for writing an IP address in dotted decimal
-  *	notation.
-  */
-extern void inet_ntoa_r(unsigned int addr, char *s);
-
-/**
-  *	These procedures are auxiliary and are only used for debugging or
-  *	for the curious who want to peek into each packet. They are normally
-  *	never called, but can be called to print packet information for
-  *	debugging purposes.
-  */
-extern void printEthernet(struct ethhdr *);
-extern void printIP(struct iphdr *);
-extern void printARP(void *);
-extern void printICMP(struct icmphdr *);
-
-/**
   *	All of the procedures for handling different packet types.
   *	Not all of them are implemented; the unimplemented ones merely
   *	return, doing nothing.
   */
-extern int Data(void *, unsigned short);
-extern int Leave(void *, unsigned short);
-extern int Quit(void *, unsigned short);
-extern int Link_State(void *, unsigned short);
-extern int RTT_Probe_Request(void *, unsigned short);
-extern int RTT_Probe_Response(void *, unsigned short);
-extern int Proxy_Public_Key(void *, unsigned short);
-extern int Signed_Data(void *, unsigned short);
-extern int Proxy_Secret_Key(void *, unsigned short);
-extern int Encrypted_Data(void *, unsigned short);
-extern int Encrypted_Link_State(void *, unsigned short);
-extern int Signed_Link_State(void *, unsigned short);
-extern int Bandwidth_Probe_Request(void *, unsigned short);
-extern int Bandwidth_Probe_Response(void *, unsigned short);
+extern int Data(void *, uint16_t);
+extern int Leave(void *, uint16_t);
+extern int Quit(void *, uint16_t);
+extern int Link_State(void *, uint16_t);
+extern int RTT_Probe_Request(void *, uint16_t);
+extern int RTT_Probe_Response(void *, uint16_t);
+extern int Proxy_Public_Key(void *, uint16_t);
+extern int Signed_Data(void *, uint16_t);
+extern int Proxy_Secret_Key(void *, uint16_t);
+extern int Encrypted_Data(void *, uint16_t);
+extern int Encrypted_Link_State(void *, uint16_t);
+extern int Signed_Link_State(void *, uint16_t);
+extern int Bandwidth_Probe_Request(void *, uint16_t);
+extern int Bandwidth_Probe_Response(void *, uint16_t);
 
 /**
   *	Simple interface to writer-preferential mutual exclusion.
@@ -239,6 +237,7 @@ extern Peer *hash_table;
 extern llnode *llhead;
 extern Config config;
 extern link_state linkState;
+extern struct timespec timestamp;
 extern const char BROADCAST_ADDR[ETH_ALEN];
 //	5 mutexes are required for write-preferential mutual exclusion
 extern int readcount, writecount;
