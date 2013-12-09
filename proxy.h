@@ -107,31 +107,39 @@ typedef struct __attribute__((packed)){
 }initial_join_packet;
 
 typedef struct{
+	struct timespec timestamp;
 	link_state ls;
-	pthread_t tid;
 	rio_t rio;
+	pthread_t tid;
 	pthread_t timeout_tid;
 	pthread_mutex_t timeout_mutex;
 	pthread_cond_t timeout_cond;
-	struct timespec timestamp;
 	UT_hash_handle hh;
 } Peer;
 
 /**
   *	The graph structure will have all the information necessary to
   *	construct a link-state proxy.
-  */
+  *
+  *	Let pp be a graph struct pointer in the graph hash table, and
+  *	let nbr be an edge struct pointer in the edge hash table pointed to
+  *	by pp->nbrs.
+  *
+  *	nbr is an edge from the proxy at pp->ls to the proxy at pp->nbr->ls.
+  *	pp->timestamp is the timestamp of all records of edges from pp.
+  *	nbr->linkWeight is the weight of that edge.
+ */
 typedef struct{
 	link_state ls;
 	uint32_t linkWeight;
-	struct edge *next;
+	UT_hash_handle hh;
 } edge;
 
 typedef struct{
 	struct timespec timestamp;
 	link_state ls;
 	edge *nbrs;
-	UT_hash_handle hh
+	UT_hash_handle hh;
 } graph;
 
 typedef struct{
