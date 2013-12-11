@@ -1,6 +1,6 @@
 cc=gcc -Wall -m32 -g 2>proxy.err
 proxy: main.o rio.o proxy.o handlers.o route.o
-	$(cc) -o proxy main.o rio.o proxy.o handlers.o -pthread -lrt
+	$(cc) -o proxy main.o rio.o proxy.o handlers.o route.o -pthread -lrt
 main.o: main.c proxy.h
 	$(cc) -c -o main.o main.c
 rio.o: rio.c rio.h
@@ -12,4 +12,4 @@ handlers.o: handlers.c proxy.h
 route.o: route.c proxy.h
 	$(cc) -c -o route.o route.c
 clean:
-	rm proxy main.o rio.o proxy.o handlers.o
+	rm proxy main.o rio.o proxy.o handlers.o route.o

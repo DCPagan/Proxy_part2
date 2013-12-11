@@ -66,7 +66,7 @@ void remove_from_network(graph *pp){
   */
 void Dijkstra(graph *dest){
 	Heap *hp;
-	graph *node, *ntmp;
+	graph *node;
 	edge *nbr, *tmp;
 	writeBegin();
 	HASH_FIND(hh, network, &linkState.tapMAC, ETH_ALEN, node);
@@ -87,7 +87,6 @@ void Dijkstra(graph *dest){
 	  *	to the destination. Use this for the routing table.
 	  */
 	while(hp->size>0){
-
 	}
 	writeEnd();
 	heap_free(hp);

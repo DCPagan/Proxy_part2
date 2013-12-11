@@ -238,7 +238,6 @@ Peer *initial_join_client(Peer *pp){
 	}
 	pkt.ls.listenPort=ntohs(pkt.ls.listenPort);
 	pp->ls=pkt.ls;
-	clock_gettime(CLOCK_MONOTONIC, &pp->timestamp);
 	return pp;
 }
 
@@ -271,7 +270,6 @@ Peer *initial_join_server(Peer *pp){
 	}
 	pkt.ls.listenPort=ntohs(pkt.ls.listenPort);
 	pp->ls=pkt.ls;
-	clock_gettime(CLOCK_MONOTONIC, &pp->timestamp);
 	//	Write the local link-state packet after receiving from the client.
 	pkt.prxyhdr.type=htons(LINK_STATE);
 	pkt.prxyhdr.length=htons(sizeof(uint16_t)	//	number of neighbors
@@ -333,77 +331,63 @@ int Quit(void *data, uint16_t length){
 
 int Link_State(void *data, uint16_t length){
 	Peer *pp;
-	char addr[16];
 	void *ptr;
 	uint16_t N;
-	/**
-	  * Check if you are connected to the host that sent the packet.
-	  *	Define a struct to dereference the tap MAC address correctly.
-	  *
-	  *	Finding data in a shared resource is a read operation, and mutual
-	  *	exclusion of the shared membership list must be
-	  *	writer-preferential.
-	  */
 	ptr=data;
 	N=ntohs(*(uint16_t *)ptr);
 	ptr+=sizeof(uint16_t);
+	//	Verify correct length of packet.
 	if(2*sizeof(N)+sizeof(link_state)
 		+(N*N+N)*sizeof(link_state_record)!=length){
-		/**
-		  *	The length of the packet must equal the size of the number
-		  *	of neighbors, the size of the source/origin information,
-		  *	and the size of all N*N+N link-state records.
-		  *
-		  *	If this is not the case, then an error has occured.
-		  */
 		return -1;
 	}
-	//	Check if the link-state packet came from this proxy.
+	/**
+	  *	Check if the link-state packet came from this proxy.
+	  *	Same code as in the loop.
+	  */
 	if(!memcmp(((link_state *)ptr)->tapMAC, linkState.tapMAC, ETH_ALEN))
 		return 0;
-	/**
-	  *	The source is connected to N neighbors.
-	  *	Therefore, the number of edges between all nodes, the source plus
-	  *	neighbors (N+1) equals (N+1)*N. There are N*N+N records in the
-	  *	packet.
-	  *
-	  *	If the peer is not in the membership list, then connect to it.
-	  */
 	writeBegin();
 	HASH_FIND(hh, hash_table,
 		&((link_state *)ptr)->tapMAC, ETH_ALEN, pp);
+	/**
+	  *	If the peer is not in the list, connect to it with the address
+	  *	Connection information is supplied in the packet.
+	  */
 	if(pp==NULL){
 		pp=connectbyaddr(((link_state *)ptr)->IPaddr.s_addr,
 			ntohs(((link_state *)ptr)->listenPort));
-		clock_gettime(CLOCK_MONOTONIC, &pp->timestamp);
+		clock_gettime(CLOCK_REALTIME, &pp->timestamp);
 	}
 	ptr+=sizeof(link_state_source);
 	/**
 	  *	ptr now points to the beginning of the membership list.
 	  *	Iterate through the records
 	  */
-	for(N=N*N+N; N>0; N--){
+	for(N=N*N+N; N>0; N--, ptr+=sizeof(link_state_record)){
 		//	If the tap MAC address is the same as this proxy, continue.
 		if(!memcmp(((link_state_record *)ptr)->proxy1.tapMAC,
 			linkState.tapMAC, ETH_ALEN))
 			continue;
 		HASH_FIND(hh, hash_table,
 			&((link_state_record *)ptr)->proxy1.tapMAC, ETH_ALEN, pp);
+		/**
+		  *	If the peer is not in the list, connect to it with the
+		  *	address information supplied in the packet.
+		  */
 		if(pp==NULL){
 			pp=connectbyaddr(((link_state *)ptr)->IPaddr.s_addr,
 				ntohs(((link_state *)ptr)->listenPort));
-			clock_gettime(CLOCK_MONOTONIC, &pp->timestamp);
+			clock_gettime(CLOCK_REALTIME, &pp->timestamp);
+		//	Otherwise, update the timestamp.
 		}else{
-			/**
-			  *	Compare the packet's timestamp with the saved timestamp
-			  *	of the respective peer.
-			  */
+			pthread_mutex_lock(&pp->timeout_mutex);
 			pp->timestamp.tv_sec=
 				ntohl(((link_state_record *)ptr)->ID.tv_sec);
 			pp->timestamp.tv_nsec=
 				ntohl(((link_state_record *)ptr)->ID.tv_nsec);
+			pthread_mutex_unlock(&pp->timeout_mutex);
 		}
-		ptr+=sizeof(link_state_record);
 	}
 	writeEnd();
 	return 0;
@@ -486,10 +470,12 @@ void writeBegin(){
 	if(++writecount==1)
 		pthread_mutex_lock(&r);
 	pthread_mutex_unlock(&mutex2);
+	pthread_mutex_lock(&w);
 	return;
 }
 
 void writeEnd(){
+	pthread_mutex_unlock(&w);
 	pthread_mutex_lock(&mutex2);
 	if(--writecount==0)
 		pthread_mutex_unlock(&r);
@@ -503,18 +489,21 @@ void add_member(Peer *pp){
 	if(tmp == NULL){
 		HASH_ADD(hh, hash_table, ls.tapMAC, ETH_ALEN, pp);
 	}
-	writeEnd();
+	clock_gettime(CLOCK_REALTIME, &pp->timestamp);
 	pthread_mutex_init(&pp->timeout_mutex, NULL);
 	pthread_cond_init(&pp->timeout_cond, NULL);
 	pthread_create(&pp->tid, NULL, eth_handler, pp);
 	pthread_create(&pp->timeout_tid, NULL, timeout_handler, pp);
+	writeEnd();
 	return;
 }
 
 //	Signal the timeout thread of the respective peer.
 void remove_member(Peer *pp){
+	writeBegin();
 	pthread_mutex_lock(&pp->timeout_mutex);
 	pthread_cond_signal(&pp->timeout_cond);
 	pthread_mutex_unlock(&pp->timeout_mutex);
+	writeEnd();
 	return;
 }

@@ -52,10 +52,11 @@ void *tap_handler(int *fd){
 			HASH_ITER(hh, hash_table, pp, tmp){
 				if((size=rio_write(&pp->rio, buffer,
 					PROXY_HLEN+ntohs(prxyhdr.length)))<=0){
+					readEnd();
 					remove_member(pp);
+					readBegin();
 				}
 			}
-			readEnd();
 		}else{
 			readBegin();
 			HASH_FIND(hh, hash_table, &((link_state *)buffer)->tapMAC,
@@ -199,7 +200,7 @@ void *eth_handler(Peer *pp){
   *	problem is inconsequential.
   */
 void *timeout_handler(Peer *pp){
-	static struct timespec ts;
+	struct timespec ts, tscmp;
 	memcpy(&ts, &pp->timestamp, sizeof(struct timespec));
 	ts.tv_sec+=config.link_timeout;
 	/**
@@ -219,24 +220,42 @@ void *timeout_handler(Peer *pp){
 	  */
 	pthread_mutex_lock(&pp->timeout_mutex);
 	while(pthread_cond_timedwait(&pp->timeout_cond,
-		&pp->timeout_mutex, &pp->timestamp)>0){
-		clock_gettime(CLOCK_MONOTONIC, &ts);
-		ts.tv_sec-=pp->timestamp.tv_sec;
-		ts.tv_nsec-=pp->timestamp.tv_nsec;
-		if(ts.tv_nsec<0){
-			ts.tv_sec--;
-			//	Set nanoseconds to one billion plus the current value.
-			ts.tv_nsec=1000000000+ts.tv_nsec;
+		&pp->timeout_mutex, &ts)>0){
+		/**
+		  *	Compare the current time to the timestamp of the connection's
+		  *	latest timestamp.
+		  */
+		clock_gettime(CLOCK_REALTIME, &tscmp);
+		tscmp.tv_sec-=pp->timestamp.tv_sec;
+		tscmp.tv_nsec-=pp->timestamp.tv_nsec;
+		/**
+		  *	In case the nanoseconds field is negative, decrement the
+		  *	seconds field and add one billion to the nanoseconds field.
+		  */
+		if(tscmp.tv_nsec<0){
+			tscmp.tv_sec--;
+			tscmp.tv_nsec+=1000000000;
 		}
-		if(ts.tv_sec>=config.link_timeout)
+		/**
+		  *	If the difference exceeds the link timeout, then sever the
+		  *	connection.
+		  */
+		if(tscmp.tv_sec>=config.link_timeout)
 			break;
+		/**
+		  *	Otherwise, calculate the absolute time when the link expires
+		  *	and restart the timed wait.
+		  */
 		memcpy(&ts, &pp->timestamp, sizeof(struct timespec));
 		ts.tv_sec+=config.link_timeout;
 	}
 	pthread_mutex_unlock(&pp->timeout_mutex);
+	writeBegin();
+	HASH_DEL(hash_table, pp);
 	pthread_cancel(pp->tid);
 	close(pp->rio.fd);
 	free(pp);
+	writeEnd();
 	return NULL;
 }
 
@@ -248,14 +267,14 @@ void leave_handler(int signo){
 	Peer *pp, *tmp;
 	size_t size;
 	leave_packet lvpkt;
-	readBegin();
+	writeBegin();
 	lvpkt.prxyhdr.type=htons(LEAVE);
+	lvpkt.prxyhdr.length=htons(sizeof(lvpkt));
 	lvpkt.lv.localIP=linkState.IPaddr;
 	lvpkt.lv.localListenPort=htons(linkState.listenPort);
 	memcpy(&lvpkt.lv.localMAC, &linkState.tapMAC, ETH_ALEN);
-	clock_gettime(CLOCK_MONOTONIC, &lvpkt.lv.ID);
-	lvpkt.lv.ID.tv_sec=htonl(lvpkt.lv.ID.tv_sec);
-	lvpkt.lv.ID.tv_nsec=htonl(lvpkt.lv.ID.tv_nsec);
+	lvpkt.lv.ID.tv_sec=htonl(timestamp.tv_sec);
+	lvpkt.lv.ID.tv_nsec=htonl(timestamp.tv_nsec);
 	HASH_ITER(hh, hash_table, pp, tmp){
 		//	Write the leave packet.
 		if((size=rio_write(&pp->rio, &lvpkt,
@@ -270,7 +289,7 @@ void leave_handler(int signo){
 		close(pp->rio.fd);
 		free(pp);
 	}
-	readEnd();
+	writeEnd();
 	exit(0);
 }
 
@@ -280,7 +299,7 @@ void Link_State_Broadcast(int signo){
 	proxy_header prxyhdr;
 	uint16_t N;
 	size_t size;
-	clock_gettime(CLOCK_MONOTONIC, &timestamp);
+	clock_gettime(CLOCK_REALTIME, &timestamp);
 	//	If there are no neighbors, then return.
 	if(hash_table==NULL)
 		return;
