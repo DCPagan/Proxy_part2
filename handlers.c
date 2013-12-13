@@ -54,7 +54,6 @@ void *tap_handler(int *fd){
 					PROXY_HLEN+ntohs(prxyhdr.length)))<=0){
 					readEnd();
 					remove_member(pp);
-					readBegin();
 				}
 			}
 		}else{
@@ -68,6 +67,7 @@ void *tap_handler(int *fd){
 			//	Write the whole buffer to the Ethernet device.
 			if(pp!=NULL&&(size=rio_write(&pp->rio, buffer,
 				ntohs(prxyhdr.length)+PROXY_HLEN))<=0){
+				readEnd();
 				remove_member(pp);
 			}
 			readEnd();
@@ -186,11 +186,6 @@ void *eth_handler(Peer *pp){
 				TYPE_ERROR:
 					free(buffer);
 					remove_member(pp);
-					/**
-					  *	continue to avoid interleaving that would result
-					  *	in a double-free.
-					  */
-					continue;
 		}
 		free(buffer);
 	}
