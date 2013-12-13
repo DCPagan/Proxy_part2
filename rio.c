@@ -80,8 +80,10 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 	  *	interrupted by a signal or encounters an error. This error-
 	  *	handling code is copied in rio_write().
 	  */
+	/*
 	if(Lock(rp->fd, F_RDLCK)<0)
 		return -1;
+		*/
 	while(rp->cnt<=0){
 		if(Wait(rp->fd, POLLIN)<0)
 			return -1;
@@ -89,22 +91,23 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 		if(rp->cnt<0){
 			//	signal interrupt case
 			if(errno!=EINTR){
-				Lock(rp->fd, F_UNLCK);
-					return -1;
+				//Lock(rp->fd, F_UNLCK);
 				return -1;
 			}
 		}
 		//	EOF case
 		else if(rp->cnt==0){
-			Lock(rp->fd, F_UNLCK);
+			//Lock(rp->fd, F_UNLCK);
 			return 0;
 		}
 		//	no error
 		else
 			rp->bufp=rp->buf;
 	}
+	/*
 	if(Lock(rp->fd, F_UNLCK)<0)
 		return -1;
+		*/
 	cnt=n;
 	//	if bytes read were less than demanded
 	if(rp->cnt<n)

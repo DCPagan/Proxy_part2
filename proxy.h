@@ -143,6 +143,17 @@ typedef struct{
 } graph;
 
 typedef struct{
+	graph *node;
+	uint32_t dist;
+} heapent;
+
+typedef struct{
+	graph *node;
+	uint32_t index;
+	UT_hash_handle hh;
+} heapindex;
+
+typedef struct{
 	uint16_t listen_port;
 	uint32_t link_period;
 	uint32_t link_timeout;

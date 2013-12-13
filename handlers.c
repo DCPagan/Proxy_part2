@@ -52,18 +52,24 @@ void *tap_handler(int *fd){
 			HASH_ITER(hh, hash_table, pp, tmp){
 				if((size=rio_write(&pp->rio, buffer,
 					PROXY_HLEN+ntohs(prxyhdr.length)))<=0){
+					readEnd();
 					remove_member(pp);
 				}
 			}
-			readEnd();
 		}else{
 			readBegin();
+			/**
+			  *	For part 3, we will have to consult a forwarding table
+			  *	instead of a membership list. Substitute accordingly.
+			  */
 			HASH_FIND(hh, hash_table, &((link_state *)buffer)->tapMAC,
 				ETH_ALEN, pp);
 			//	Write the whole buffer to the Ethernet device.
 			if(pp!=NULL&&(size=rio_write(&pp->rio, buffer,
 				ntohs(prxyhdr.length)+PROXY_HLEN))<=0){
+				readEnd();
 				remove_member(pp);
+				continue;
 			}
 			readEnd();
 		}
@@ -181,6 +187,7 @@ void *eth_handler(Peer *pp){
 				TYPE_ERROR:
 					free(buffer);
 					remove_member(pp);
+					continue;
 		}
 		free(buffer);
 	}
@@ -188,19 +195,10 @@ void *eth_handler(Peer *pp){
 
 /**
   *	Thread handler that closes a link upon link timeout.
-  *
-  *	NOTE: this thread shares access to the timestamp field of the peer
-  *	with other threads, but only for reading the timestamp to evaluate
-  *	whether or not a timeout occured. The only synchronization error
-  *	possible is if another thread updated the timestamp within
-  *	microseconds of when the link timeout occurs; in such a case, whether
-  *	the	program removes the peer from the membership list or not depends
-  *	on a few microseconds of temporal precision. The synchronization
-  *	problem is inconsequential.
   */
 void *timeout_handler(Peer *pp){
-	static struct timespec ts;
-	memcpy(&ts, &pp->timestamp, sizeof(struct timespec));
+	struct timespec ts, tscmp;
+	clock_gettime(CLOCK_REALTIME, &ts);
 	ts.tv_sec+=config.link_timeout;
 	/**
 	  *	pthread_cond_timedwait() returns 0 if the condition pointed to by
@@ -219,24 +217,42 @@ void *timeout_handler(Peer *pp){
 	  */
 	pthread_mutex_lock(&pp->timeout_mutex);
 	while(pthread_cond_timedwait(&pp->timeout_cond,
-		&pp->timeout_mutex, &pp->timestamp)>0){
-		clock_gettime(CLOCK_MONOTONIC, &ts);
-		ts.tv_sec-=pp->timestamp.tv_sec;
-		ts.tv_nsec-=pp->timestamp.tv_nsec;
-		if(ts.tv_nsec<0){
-			ts.tv_sec--;
-			//	Set nanoseconds to one billion plus the current value.
-			ts.tv_nsec=1000000000+ts.tv_nsec;
+		&pp->timeout_mutex, &ts)>0){
+		/**
+		  *	Compare the current time to the timestamp of the connection's
+		  *	latest timestamp.
+		  */
+		clock_gettime(CLOCK_REALTIME, &tscmp);
+		tscmp.tv_sec-=pp->timestamp.tv_sec;
+		tscmp.tv_nsec-=pp->timestamp.tv_nsec;
+		/**
+		  *	In case the nanoseconds field is negative, decrement the
+		  *	seconds field and add one billion to the nanoseconds field.
+		  */
+		if(tscmp.tv_nsec<0){
+			tscmp.tv_sec--;
+			tscmp.tv_nsec+=1000000000;
 		}
-		if(ts.tv_sec>=config.link_timeout)
+		/**
+		  *	If the difference exceeds the link timeout, then sever the
+		  *	connection.
+		  */
+		if(tscmp.tv_sec>=config.link_timeout)
 			break;
+		/**
+		  *	Otherwise, calculate the absolute time when the link expires
+		  *	and restart the timed wait.
+		  */
 		memcpy(&ts, &pp->timestamp, sizeof(struct timespec));
 		ts.tv_sec+=config.link_timeout;
 	}
 	pthread_mutex_unlock(&pp->timeout_mutex);
+	writeBegin();
+	HASH_DEL(hash_table, pp);
 	pthread_cancel(pp->tid);
 	close(pp->rio.fd);
 	free(pp);
+	writeEnd();
 	return NULL;
 }
 
@@ -248,29 +264,24 @@ void leave_handler(int signo){
 	Peer *pp, *tmp;
 	size_t size;
 	leave_packet lvpkt;
-	readBegin();
+	writeBegin();
 	lvpkt.prxyhdr.type=htons(LEAVE);
+	lvpkt.prxyhdr.length=htons(sizeof(lvpkt));
 	lvpkt.lv.localIP=linkState.IPaddr;
 	lvpkt.lv.localListenPort=htons(linkState.listenPort);
 	memcpy(&lvpkt.lv.localMAC, &linkState.tapMAC, ETH_ALEN);
-	clock_gettime(CLOCK_MONOTONIC, &lvpkt.lv.ID);
-	lvpkt.lv.ID.tv_sec=htonl(lvpkt.lv.ID.tv_sec);
-	lvpkt.lv.ID.tv_nsec=htonl(lvpkt.lv.ID.tv_nsec);
+	lvpkt.lv.ID.tv_sec=htonl(timestamp.tv_sec);
+	lvpkt.lv.ID.tv_nsec=htonl(timestamp.tv_nsec);
 	HASH_ITER(hh, hash_table, pp, tmp){
-		//	Write the leave packet.
 		if((size=rio_write(&pp->rio, &lvpkt,
 			sizeof(leave_packet)))<=0){
 			/**
 			  *	error broadcasting leave packet
 			  */
 		}
-		//	Remove the peer from the system entirely.
-		HASH_DEL(hash_table, pp);
-		pthread_cancel(pp->tid);
-		close(pp->rio.fd);
-		free(pp);
+		remove_member(pp);
 	}
-	readEnd();
+	writeEnd();
 	exit(0);
 }
 
@@ -280,10 +291,12 @@ void Link_State_Broadcast(int signo){
 	proxy_header prxyhdr;
 	uint16_t N;
 	size_t size;
-	clock_gettime(CLOCK_MONOTONIC, &timestamp);
+	clock_gettime(CLOCK_REALTIME, &timestamp);
 	//	If there are no neighbors, then return.
-	if(hash_table==NULL)
+	if(hash_table==NULL){
+		alarm(config.link_period);
 		return;
+	}
 	readBegin();
 	N=HASH_COUNT(hash_table);
 	//	Write the fields of the proxy header.
@@ -374,7 +387,8 @@ void Link_State_Broadcast(int signo){
 			  *	Link-state error condition.
 			  */
 			free(buffer);
-			return;
+			readEnd();
+			remove_member(pp);
 		}
 	}
 	readEnd();
