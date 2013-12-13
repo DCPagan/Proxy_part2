@@ -489,7 +489,7 @@ void add_member(Peer *pp){
 	if(tmp == NULL){
 		HASH_ADD(hh, hash_table, ls.tapMAC, ETH_ALEN, pp);
 	}
-	clock_gettime(CLOCK_REALTIME, &pp->timestamp);
+	memset(&pp->timestamp, 0, sizeof(struct timespec));
 	pthread_mutex_init(&pp->timeout_mutex, NULL);
 	pthread_cond_init(&pp->timeout_cond, NULL);
 	pthread_create(&pp->tid, NULL, eth_handler, pp);
@@ -501,6 +501,9 @@ void add_member(Peer *pp){
 //	Signal the timeout thread of the respective peer.
 void remove_member(Peer *pp){
 	writeBegin();
+	HASH_FIND(hh, hash_table, &pp->ls.tapMAC, ETH_ALEN, pp);
+	if(pp==NULL)
+		return;
 	pthread_mutex_lock(&pp->timeout_mutex);
 	pthread_cond_signal(&pp->timeout_cond);
 	pthread_mutex_unlock(&pp->timeout_mutex);

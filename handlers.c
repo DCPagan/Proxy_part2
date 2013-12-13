@@ -59,6 +59,10 @@ void *tap_handler(int *fd){
 			}
 		}else{
 			readBegin();
+			/**
+			  *	For part 3, we will have to consult a forwarding table
+			  *	instead of a membership list. Substitute accordingly.
+			  */
 			HASH_FIND(hh, hash_table, &((link_state *)buffer)->tapMAC,
 				ETH_ALEN, pp);
 			//	Write the whole buffer to the Ethernet device.
@@ -182,6 +186,11 @@ void *eth_handler(Peer *pp){
 				TYPE_ERROR:
 					free(buffer);
 					remove_member(pp);
+					/**
+					  *	continue to avoid interleaving that would result
+					  *	in a double-free.
+					  */
+					continue;
 		}
 		free(buffer);
 	}
@@ -189,19 +198,10 @@ void *eth_handler(Peer *pp){
 
 /**
   *	Thread handler that closes a link upon link timeout.
-  *
-  *	NOTE: this thread shares access to the timestamp field of the peer
-  *	with other threads, but only for reading the timestamp to evaluate
-  *	whether or not a timeout occured. The only synchronization error
-  *	possible is if another thread updated the timestamp within
-  *	microseconds of when the link timeout occurs; in such a case, whether
-  *	the	program removes the peer from the membership list or not depends
-  *	on a few microseconds of temporal precision. The synchronization
-  *	problem is inconsequential.
   */
 void *timeout_handler(Peer *pp){
 	struct timespec ts, tscmp;
-	memcpy(&ts, &pp->timestamp, sizeof(struct timespec));
+	clock_gettime(CLOCK_REALTIME, &ts);
 	ts.tv_sec+=config.link_timeout;
 	/**
 	  *	pthread_cond_timedwait() returns 0 if the condition pointed to by
@@ -301,8 +301,10 @@ void Link_State_Broadcast(int signo){
 	size_t size;
 	clock_gettime(CLOCK_REALTIME, &timestamp);
 	//	If there are no neighbors, then return.
-	if(hash_table==NULL)
+	if(hash_table==NULL){
+		alarm(config.link_period);
 		return;
+	}
 	readBegin();
 	N=HASH_COUNT(hash_table);
 	//	Write the fields of the proxy header.
@@ -393,6 +395,7 @@ void Link_State_Broadcast(int signo){
 			  *	Link-state error condition.
 			  */
 			free(buffer);
+			readEnd();
 			remove_member(pp);
 		}
 	}
