@@ -507,6 +507,7 @@ void remove_member(Peer *pp){
 	HASH_FIND(hh, hash_table, &pp->ls.tapMAC, ETH_ALEN, tmp);
 	if(tmp==NULL)
 		return;
+		return;
 	pthread_mutex_lock(&pp->timeout_mutex);
 	pthread_cond_signal(&pp->timeout_cond);
 	pthread_mutex_unlock(&pp->timeout_mutex);

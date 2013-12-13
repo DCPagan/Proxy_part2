@@ -129,18 +129,21 @@ typedef struct{
   *	pp->timestamp is the timestamp of all records of edges from pp.
   *	nbr->linkWeight is the weight of that edge.
  */
-typedef struct{
-	link_state ls;
+typedef struct graph graph;
+typedef struct edge edge;
+
+struct edge{
+	struct graph *node;
 	uint32_t linkWeight;
 	UT_hash_handle hh;
-} edge;
+};
 
-typedef struct{
+struct graph{
 	struct timespec timestamp;
 	link_state ls;
-	edge *nbrs;
+	struct edge *nbrs;
 	UT_hash_handle hh;
-} graph;
+};
 
 typedef struct{
 	graph *node;
@@ -152,6 +155,13 @@ typedef struct{
 	uint32_t index;
 	UT_hash_handle hh;
 } heapindex;
+
+typedef struct{
+	uint32_t size;
+	uint32_t max;
+	heapent **heap;
+	heapindex *index;
+} Heap;
 
 typedef struct{
 	uint16_t listen_port;
@@ -235,20 +245,24 @@ extern void readEnd();
 extern void writeBegin();
 extern void writeEnd();
 
-/*creates a head node for each list and initialized it to null*/
-/*Not needed for part 2*/
-//List *ll_create();
-//void ll_add(List list, List *node);
-//void ll_remove(List list, List *node);
-
-//void remove_expired_member(char* mac, List *node)nk;
+//	Membership list interface
 extern void add_member(Peer *);
 extern void remove_member(Peer *);
 
-//timer
-extern int make_timer(Peer *peer, int timout);
-extern void timer_handler(int sig, siginfo_t *si, void *uc);
+//	Graph and routing interface
+extern void evaluate_record(link_state_record *);
+extern void remove_from_network(graph *);
+extern void Dijkstra(graph *);
 
+//	Heap interface
+extern Heap *heap_alloc(uint32_t);
+extern void heap_free(Heap *hp);
+extern int heap_insert(Heap *, graph *, uint32_t);
+extern heapent *heap_delete(Heap *);
+extern void upheap(Heap *, uint32_t);
+extern void downheap(Heap *);
+
+//	Global variables
 extern int tapfd;
 extern pthread_t tap_tid;
 extern rio_t rio_tap;	//	Robust I/O struct for the tap device

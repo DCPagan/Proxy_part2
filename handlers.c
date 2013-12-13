@@ -54,6 +54,7 @@ void *tap_handler(int *fd){
 					PROXY_HLEN+ntohs(prxyhdr.length)))<=0){
 					readEnd();
 					remove_member(pp);
+					readBegin();
 				}
 			}
 		}else{

@@ -5,7 +5,7 @@ int main(int argc, char **argv){
 	struct sockaddr_in addr;
 	socklen_t addrlen=sizeof(addr);
 	char buf[256];
-	Peer *pp, *tmp;
+	Peer *pp;
 	FILE *fp;
 	llnode *add, *lltmp;
 	/**
