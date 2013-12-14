@@ -59,6 +59,88 @@ void remove_from_network(graph *pp){
 	return;
 }
 
+void shortest_path(graph *dest){
+	Queue *q;
+	graph *node;
+	edge *nbr, *tmp;
+	Visited *visited = NULL;
+	writeBegin();
+	HASH_FIND(hh, network, &linkState.tapMAC, ETH_ALEN, node);
+	if(node==NULL||node==dest)
+		return;
+	enqueue(q, node);
+	while(q!=NULL){
+		graph *tmpNode;
+		tmpNode = dequeue(q);
+		Visited *tmpVisit;
+		tmpVisit = (Visited *)malloc(sizeof(Visited));
+		tmpVisit->node = q->node;
+		node = q->node;
+		tmpVisit->prev = NULL;
+		HASH_ADD(hh, visited, node, sizeof(Visited), tmpVisit);
+		//go through each node in graph until the dest node is found
+		HASH_ITER(hh, tmpNode->nbrs, nbr, tmp){
+			if(nbr->node == dest){ //destination node found return shortest path
+				//prepare the fowarding table here as linked list, note table does not contain source node.
+				Queue *fowarding_table = prepare_fowarding_table(visited, nbr->node, tmpNode);
+				/*
+					Make the next hop here.....with what func?
+				*/
+				writeEnd();
+				return; 
+			}
+			HASH_FIND(hh, visited, nbr->node, ETH_ALEN, node); //find out if this proxy has already been visited
+			if(node == NULL){ //has not been visited add to struct visited and enqueue its neighbors
+				tmpVisit->node = node;
+				tmpVisit->prev = nbr->node;
+				HASH_ADD(hh, visited, node, ETH_ALEN, tmpVisit);
+				HASH_ITER(hh, tmpVisit->node->nbrs, nbr, tmp){
+					enqueue(q, nbr->node);
+				}
+			}
+		}
+	}
+}
+
+void enqueue(Queue *q, graph *peer){
+	Queue *newQ;
+	newQ=(Queue *)malloc(sizeof(Queue));
+	newQ->node = peer;
+	LL_PREPEND(q, newQ);
+}
+
+graph* dequeue(Queue *q){
+	Queue *tmp, *returnTmp; //not sure if these are needed, what happens when head of list is deleted?
+	tmp = q->next;
+	returnTmp = q;
+	LL_DELETE(q,q);
+	q = tmp;
+	return returnTmp->node;
+}
+
+Queue* prepare_fowarding_table(Visited *visited, graph *curr, graph *previous){
+	Queue *fowarding_table, *tmpQ;
+	Visited *v;
+	tmpQ = (Queue *)malloc(sizeof(Queue));
+	tmpQ->node = curr;
+	LL_PREPEND(fowarding_table, tmpQ);
+	HASH_FIND(hh, visited, previous, ETH_ALEN, v);
+	if(v == NULL){
+		printf("error node not in visited table\n");
+	}
+	while(v->prev != NULL){
+		tmpQ->node = v->node;
+		LL_PREPEND(fowarding_table, tmpQ);
+		Visited *anotherTmp;
+		anotherTmp->node = v->prev;
+		HASH_FIND(hh, visited, anotherTmp->node, ETH_ALEN, v);
+		if(v == NULL){
+			printf("error node not in visited\n");
+		}
+	}
+	return fowarding_table;
+}
+
 /**
   *	Link-state routing algorithm based on Dijkstra's algorithm.
   *	Write the next hop to a routing table, which will be consulted by

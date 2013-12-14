@@ -131,6 +131,8 @@ typedef struct{
  */
 typedef struct graph graph;
 typedef struct edge edge;
+typedef struct Visited Visited;
+typedef struct Queue Queue;
 
 struct edge{
 	struct graph *node;
@@ -142,6 +144,17 @@ struct graph{
 	struct timespec timestamp;
 	link_state ls;
 	struct edge *nbrs;
+	UT_hash_handle hh;
+};
+
+struct Queue{
+	graph *node;
+	struct Queue *next;
+};
+
+struct Visited{
+	graph *node;
+	graph *prev;
 	UT_hash_handle hh;
 };
 
@@ -252,15 +265,23 @@ extern void remove_member(Peer *);
 //	Graph and routing interface
 extern void evaluate_record(link_state_record *);
 extern void remove_from_network(graph *);
-extern void Dijkstra(graph *);
+extern void Dijkstra(graph *); //unused
+extern void shortest_path(graph *dest);
 
 //	Heap interface
+// unused
 extern Heap *heap_alloc(uint32_t);
 extern void heap_free(Heap *hp);
 extern int heap_insert(Heap *, graph *, uint32_t);
 extern heapent *heap_delete(Heap *);
 extern void upheap(Heap *, uint32_t);
 extern void downheap(Heap *);
+
+// Queue Interface
+extern void enqueue(Queue *q, graph *peer);
+extern graph* dequeue(Queue *q);
+extern void add2visited(Visited *visted, Visited *v);
+extern Queue* prepare_fowarding_table(Visited *v, graph *curr, graph *previous);
 
 //	Global variables
 extern int tapfd;
