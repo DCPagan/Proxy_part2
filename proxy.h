@@ -155,11 +155,10 @@ struct Visited{
 };
 
 struct ForwardingTable{
-	graph *node;
-	graph *prevHop;
-	graph *destNode;
+	Peer *nextHop;
+	graph dest;
 	int dist;
-	struct ForwadingTable *next;
+	UT_hash_handle hh;
 };
 
 typedef struct{
