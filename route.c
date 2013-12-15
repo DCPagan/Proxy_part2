@@ -61,77 +61,106 @@ void remove_from_network(graph *pp){
 
 void shortest_path(graph *dest){
 	Queue *q;
-	graph *node;
+	graph *node, *tmpNode;
 	edge *nbr, *tmp;
-	Visited *visited = NULL;
+	Visited *visited = NULL, *tmpVisit;
+	int distance = 0;
 	writeBegin();
 	HASH_FIND(hh, network, &linkState.tapMAC, ETH_ALEN, node);
-	if(node==NULL||node==dest)
+	if(node==NULL)
 		return;
 	enqueue(q, node);
+	//insert source node into visited
+	tmpVisit = (Visited *)malloc(sizeof(Visited));
+	tmpVisit->node = q->node;
+	tmpVisit->prev = NULL;
+	tmpVisit->dist = distance++;
+	HASH_ADD(hh, visited, node, sizeof(graph), tmpVisit);
 	while(q!=NULL){
-		graph *tmpNode;
 		tmpNode = dequeue(q);
-		Visited *tmpVisit;
-		tmpVisit = (Visited *)malloc(sizeof(Visited));
-		tmpVisit->node = q->node;
-		node = q->node;
-		tmpVisit->prev = NULL;
-		HASH_ADD(hh, visited, node, sizeof(Visited), tmpVisit);
 		//go through each node in graph until the dest node is found
 		HASH_ITER(hh, tmpNode->nbrs, nbr, tmp){
 			if(nbr->node == dest){ //destination node found return shortest path
-				//prepare the routing table here as linked list, note table does not contain source node.
-				Queue *routing_table = prepare_routing_table(visited, nbr->node, tmpNode);
+				//prepare the routing table here as a linked list
+
 				/*
-					Make the next hop here.....with what func?
+				 * Here is the code for a routing table
+				 * If you want the fowarding table, break up the routing table into individual pieces
+				 * I do not know what you want to do with this
+				 * I do not know why you want this global, since fowarding tables are specific to a given route
+				 * 
+				 * This code gives you the destination part of the fowarding table as a linked list
+				 * The list starts at the source node and points to the next hop in the route
+				 * The table  contains a field for Destination, Distancce from the source, and Previous Hop, the source's node's previous hop is NULL
+				*/
+				ForwardingTable *table; 
+				table = prepare_forwarding_table(visited, nbr->node, tmpNode, dest);
+
+				/*
+					TODO Make the next hop here.....with what func?
 				*/
 				writeEnd();
 				return; 
 			}
-			HASH_FIND(hh, visited, nbr->node, ETH_ALEN, node); //find out if this proxy has already been visited
-			if(node == NULL){ //has not been visited add to struct visited and enqueue its neighbors
+			HASH_FIND(hh, visited, nbr->node, sizeof(graph), node); //find out if this proxy has already been visited
+			if(node == NULL){ //has not been visited yet
+				// add new node to struct visited
 				tmpVisit->node = node;
 				tmpVisit->prev = nbr->node;
+				tmpVisit->dist = distance++;
 				HASH_ADD(hh, visited, node, ETH_ALEN, tmpVisit);
+				// enqueue its neighbors
 				HASH_ITER(hh, tmpVisit->node->nbrs, nbr, tmp){
 					enqueue(q, nbr->node);
 				}
 			}
 		}
 	}
+	writeEnd();
 	printf("no such paths exists for given destination");
+	return;
 }
 
 /*
 This will be used instead of reverse path fowarding
 Basically a copy of shortest_path()
-Will return a linked list of proxies that our source can send packets to	
+Will return a hash table of proxies that our source can send packets to	
 */
 Visited* bfs(){
+	char buffer[ETH_FRAME_LEN+PROXY_HLEN];
+	proxy_header prxyhdr;
 	Queue *q;
-	graph *node;
+	graph *node, *tmpNode;;
 	edge *nbr, *tmp;
-	Visited *visited = NULL;
+	Visited *visited = NULL, *tmpVisit;
+	int distance = 0;
 	writeBegin();
 	HASH_FIND(hh, network, &linkState.tapMAC, ETH_ALEN, node);
+	if(node == NULL){
+		return NULL;
+	}
+	//insert source node into Visited
+	tmpVisit = (Visited *)malloc(sizeof(Visited));
+	tmpVisit->node = q->node;
+	tmpVisit->prev = NULL;
+	tmpVisit->dist = distance++;
+	HASH_ADD(hh, visited, node, sizeof(graph), tmpVisit);
 	enqueue(q, node);
 	while(q!=NULL){
-		graph *tmpNode;
 		tmpNode = dequeue(q);
-		Visited *tmpVisit;
-		tmpVisit = (Visited *)malloc(sizeof(Visited));
-		tmpVisit->node = q->node;
-		node = q->node;
-		tmpVisit->prev = NULL;
-		HASH_ADD(hh, visited, node, sizeof(Visited), tmpVisit);
 		//go through each node in graph until the dest node is found
 		HASH_ITER(hh, tmpNode->nbrs, nbr, tmp){
 			HASH_FIND(hh, visited, nbr->node, ETH_ALEN, node); //find out if this proxy has already been visited
-			if(node == NULL){ //has not been visited add to struct visited and enqueue its neighbors
+			if(node == NULL){ //has not been visited yet
+				/*
+					TODO Broadcast the packet here
+				*/
+				//add new node to struct visited
 				tmpVisit->node = node;
 				tmpVisit->prev = nbr->node;
-				HASH_ADD(hh, visited, node, ETH_ALEN, tmpVisit);
+				tmpVisit->dist = distance++;
+				HASH_ADD(hh, visited, node, sizeof(graph), tmpVisit);
+				// enqueue its neighbors
 				HASH_ITER(hh, tmpVisit->node->nbrs, nbr, tmp){
 					enqueue(q, nbr->node);
 				}
@@ -147,7 +176,7 @@ void enqueue(Queue *q, graph *peer){
 	Queue *newQ;
 	newQ=(Queue *)malloc(sizeof(Queue));
 	newQ->node = peer;
-	LL_PREPEND(q, newQ);
+	LL_APPEND(q, newQ);
 }
 
 graph* dequeue(Queue *q){
@@ -159,27 +188,32 @@ graph* dequeue(Queue *q){
 	return returnTmp->node;
 }
 
-Queue* prepare_routing_table(Visited *visited, graph *curr, graph *previous){
-	Queue *routing_table, *tmpQ;
+// helper function to prepare the fowarding table
+ForwardingTable* prepare_forwarding_table(Visited *visited, graph *curr, graph *previous, graph *destination){
+	ForwardingTable *table, *tmpFT;
 	Visited *v;
-	tmpQ = (Queue *)malloc(sizeof(Queue));
-	tmpQ->node = curr;
-	LL_PREPEND(routing_table, tmpQ);
-	HASH_FIND(hh, visited, previous, ETH_ALEN, v);
+	tmpFT = (ForwardingTable *)malloc(sizeof(ForwardingTable));
+	// initialize destination node
+	tmpFT->node = curr;
+	tmpFT->prevHop = NULL;
+	tmpFT->dist = 0;
+	tmpFT->destNode = destination;
+	LL_PREPEND(table, tmpFT);
+	HASH_FIND(hh, visited, previous, sizeof(graph), v);
 	if(v == NULL){
 		printf("error node not in visited table\n");
+		return NULL;
 	}
-	while(v->prev != NULL){
-		tmpQ->node = v->node;
-		LL_PREPEND(routing_table, tmpQ);
-		Visited *anotherTmp;
-		anotherTmp->node = v->prev;
-		HASH_FIND(hh, visited, anotherTmp->node, ETH_ALEN, v);
-		if(v == NULL){
-			printf("error node not in visited\n");
-		}
+	while(v != NULL){
+		tmpFT->node = v->node;
+		tmpFT->prevHop = v->prev;
+		tmpFT->dist = v->dist;
+		// use prepend here so that list will be inorder from source
+		LL_PREPEND(table, tmpFT);
+		//find the next previous hop
+		HASH_FIND(hh, visited, v->prev, sizeof(graph), v);
 	}
-	return routing_table;
+	return table;
 }
 
 /**
@@ -202,7 +236,7 @@ void Dijkstra(graph *dest){
 	  */
 	writeBegin();
 	HASH_FIND(hh, network, &linkState.tapMAC, ETH_ALEN, node);
-	if(node==NULL||node==dest)
+	if(node==NULL)
 		return;
 	hp=heap_alloc(HASH_CNT(hh, network));
 	/**
@@ -235,8 +269,9 @@ void Dijkstra(graph *dest){
 		}
 	}
 	writeEnd();
-	heap_free(hp);
 	return;
+	//return visited //if you want to see the entire dijkstra's table
+	//visited has fields Distance from source, previous hop, and current node
 }
 
 Heap *heap_alloc(uint32_t max){

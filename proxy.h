@@ -127,6 +127,7 @@ typedef struct graph graph;
 typedef struct edge edge;
 typedef struct Visited Visited;
 typedef struct Queue Queue;
+typedef struct ForwardingTable ForwardingTable;
 
 struct edge{
 	struct graph *node;
@@ -149,7 +150,16 @@ struct Queue{
 struct Visited{
 	graph *node;
 	graph *prev;
+	int dist;
 	UT_hash_handle hh;
+};
+
+struct ForwardingTable{
+	graph *node;
+	graph *prevHop;
+	graph *destNode;
+	int dist;
+	struct ForwadingTable *next;
 };
 
 typedef struct{
@@ -264,6 +274,7 @@ extern void remove_from_network(graph *);
 extern void Dijkstra(graph *); //unused
 extern void shortest_path(graph *dest);
 extern Visited* bfs();
+extern ForwardingTable* prepare_forwarding_table(Visited *v, graph *curr, graph *previous, graph *dest);
 
 //	Heap interface
 // unused
@@ -278,7 +289,6 @@ extern void downheap(Heap *);
 extern void enqueue(Queue *q, graph *peer);
 extern graph* dequeue(Queue *q);
 extern void add2visited(Visited *visted, Visited *v);
-extern Queue* prepare_routing_table(Visited *v, graph *curr, graph *previous);
 
 //	Global variables
 extern int tapfd;
