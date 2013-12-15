@@ -263,7 +263,7 @@ void leave_handler(int signo){
 	size_t size;
 	leave_packet lvpkt;
 	lvpkt.prxyhdr.type=htons(LEAVE);
-	lvpkt.prxyhdr.length=htons(sizeof(lvpkt));
+	lvpkt.prxyhdr.length=htons(QUIT_LEN);
 	lvpkt.lv.localIP=linkState.IPaddr;
 	lvpkt.lv.localListenPort=htons(linkState.listenPort);
 	memcpy(&lvpkt.lv.localMAC, &linkState.tapMAC, ETH_ALEN);

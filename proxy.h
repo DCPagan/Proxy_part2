@@ -26,17 +26,11 @@
 #include"uthash.h"
 #include"utlist.h"
 
-#define CONNECTION_MAX 16
 #define BACKLOG 16
 /**
   * The MTU at layer 2, including the sizes of the ethernet frame header
   * and the layer 3 payload, is given in linux/if_ether.h is ETH_FRAME_LEN.
   */
-/**
-  *	This IPv4 header size only applies to basic IPv4 headers such that
-  *	IHL==5; if IHL>5, then the packet must be treated accordingly.
-  */
-#define IPv4_HLEN 20
 #define PROXY_HLEN 4
 /**
   * Each packet structure is used to dereference specific fields, such as
