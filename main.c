@@ -21,6 +21,30 @@ int main(int argc, char **argv){
 		perror("error opening proxy.conf");
 		exit(-1);
 	}
+	/**
+	  *	Associate a signal handler to the termination signal to
+	  *	construct and broadcast the leave packet.
+	  *
+	  *	Ignore SIGPIPE signal; broken pipes will be handled by
+	  *	rio_write().
+	  */
+	sigemptyset(&sigset);
+	sigaddset(&sigset, SIGINT);
+	sigaddset(&sigset, SIGPIPE);
+	sigaddset(&sigset, SIGALRM);
+	sigaddset(&sigset, SIGTERM);
+	Signal(SIGINT, leave_handler);
+	Signal(SIGPIPE, SIG_IGN);
+	Signal(SIGALRM, Link_State_Broadcast);
+	Signal(SIGTERM, leave_handler);
+	/**
+	  *	writeBegin() and writeEnd() will respectively block and unblock
+	  *	all signals included in sigset; SIGPIPE must always be ignored.
+	  *	Therefore, it should not be included in sigset after sigaction
+	  *	includes SIGPIPE, along with the other signals, int the signal
+	  *	handlers' signal mask.
+	  */
+	sigdelset(&sigset, SIGPIPE);
 	memset(&linkState, -1, sizeof(linkState));
 	memset(&config, -1, sizeof(config));
 	memset(&add, 0, sizeof(add));
@@ -68,30 +92,6 @@ int main(int argc, char **argv){
 		}
 	}
 	fclose(fp);
-	/**
-	  *	Associate a signal handler to the termination signal to
-	  *	construct and broadcast the leave packet.
-	  *
-	  *	Ignore SIGPIPE signal; broken pipes will be handled by
-	  *	rio_write().
-	  */
-	sigemptyset(&sigset);
-	sigaddset(&sigset, SIGINT);
-	sigaddset(&sigset, SIGPIPE);
-	sigaddset(&sigset, SIGALRM);
-	sigaddset(&sigset, SIGTERM);
-	Signal(SIGINT, leave_handler);
-	Signal(SIGPIPE, SIG_IGN);
-	Signal(SIGALRM, Link_State_Broadcast);
-	Signal(SIGTERM, leave_handler);
-	/**
-	  *	writeBegin() and writeEnd() will respectively block and unblock
-	  *	all signals included in sigset; SIGPIPE must always be ignored.
-	  *	Therefore, it should not be included in sigset after sigaction
-	  *	includes SIGPIPE, along with the other signals, int the signal
-	  *	handlers' signal mask.
-	  */
-	sigdelset(&sigset, SIGPIPE);
 	LL_FOREACH_SAFE(llhead, add, lltmp){
 		if((pp=connectbyname(add->hostname, add->port))==NULL){
 			perror("error opening ethernet device");

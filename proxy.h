@@ -245,7 +245,7 @@ extern int Leave(void *, uint16_t);
 extern int Quit(void *, uint16_t);
 extern int Link_State(void *, uint16_t);
 extern int RTT_Probe_Request(void *, uint16_t);
-extern int RTT_Probe_Response(void *, uint16_t);
+extern int RTT_Probe_Response(void *, uint16_t, Peer *);
 extern int Proxy_Public_Key(void *, uint16_t);
 extern int Signed_Data(void *, uint16_t);
 extern int Proxy_Secret_Key(void *, uint16_t);
@@ -253,7 +253,7 @@ extern int Encrypted_Data(void *, uint16_t);
 extern int Encrypted_Link_State(void *, uint16_t);
 extern int Signed_Link_State(void *, uint16_t);
 extern int Bandwidth_Probe_Request(void *, uint16_t);
-extern int Bandwidth_Probe_Response(void *, uint16_t);
+extern int Bandwidth_Probe_Response(void *, uint16_t, Peer *);
 
 /**
   *	Simple interface to writer-preferential mutual exclusion.

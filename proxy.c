@@ -398,7 +398,7 @@ int RTT_Probe_Request(void *data, uint16_t length){
 	return 0;
 }
 
-int RTT_Probe_Response(void *data, uint16_t length){
+int RTT_Probe_Response(void *data, uint16_t length, Peer *pp){
 	return 0;
 }
 
@@ -427,10 +427,23 @@ int Signed_Link_State(void *data, uint16_t length){
 }
 
 int Bandwidth_Probe_Request(void *data, uint16_t length){
+	struct{
+		proxy_header prxyhdr;
+		struct timespec ID;
+	} bwreq;
+	Peer *pp, *tmp;
+	HASH_ITER(hh, hash_table, pp, tmp){
+		clock_gettime(CLOCK_REALTIME, &bwreq.ID);
+	}
 	return 0;
 }
 
-int Bandwidth_Probe_Response(void *data, uint16_t length){
+int Bandwidth_Probe_Response(void *data, uint16_t length, Peer *pp){
+	//	Only change the type.
+	*(unsigned short *)data=htons(0xAB46);
+	//	Echo the rest.
+	if(rio_write(pp->rio.fd, data, length+PROXY_HLEN)<0)
+		return -1;
 	return 0;
 }
 
@@ -495,8 +508,8 @@ void add_member(Peer *pp){
 	clock_gettime(CLOCK_REALTIME, &pp->timestamp);
 	pthread_mutex_init(&pp->timeout_mutex, NULL);
 	pthread_cond_init(&pp->timeout_cond, NULL);
-	pthread_create(&pp->tid, NULL, eth_handler, pp);
 	pthread_create(&pp->timeout_tid, NULL, timeout_handler, pp);
+	pthread_create(&pp->tid, NULL, eth_handler, pp);
 	writeEnd();
 	return;
 }

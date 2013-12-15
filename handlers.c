@@ -145,7 +145,7 @@ void *eth_handler(Peer *pp){
 				break;
 			//	RTT Probe Response (part 3)
 			case RTT_PROBE_RESPONSE:
-				if(RTT_Probe_Response(buffer, prxyhdr.length)<0)
+				if(RTT_Probe_Response(buffer, prxyhdr.length, pp)<0)
 					goto TYPE_ERROR;
 				break;
 			//	Proxy Public Key (extra credit)
@@ -185,7 +185,7 @@ void *eth_handler(Peer *pp){
 				break;
 			//	Bandwidth Response
 			case BANDWIDTH_RESPONSE:
-				if(Bandwidth_Probe_Response(buffer, prxyhdr.length)<0)
+				if(Bandwidth_Probe_Response(buffer, prxyhdr.length, pp)<0)
 					goto TYPE_ERROR;
 				break;
 			default:

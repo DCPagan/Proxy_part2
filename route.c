@@ -35,7 +35,7 @@ void evaluate_record(link_state_record *lsr){
 }
 
 void remove_from_network(graph *pp){
-	graph *node, *gtmp;
+	graph *node, *vtmp;
 	edge *nbr, *etmp;
 	writeBegin();
 	HASH_FIND(hh, network, &pp->ls.tapMAC, ETH_ALEN, node);
@@ -48,7 +48,7 @@ void remove_from_network(graph *pp){
 	}
 	HASH_DELETE(hh, network, node);
 	free(node);
-	HASH_ITER(hh, network, node, gtmp){
+	HASH_ITER(hh, network, node, vtmp){
 		HASH_FIND(hh, node->nbrs, &pp->ls.tapMAC, ETH_ALEN, nbr);
 		if(nbr!=NULL){
 			HASH_DELETE(hh, node->nbrs, nbr);
@@ -80,21 +80,29 @@ void shortest_path(graph *dest){
 		tmpNode = dequeue(q);
 		//go through each node in graph until the dest node is found
 		HASH_ITER(hh, tmpNode->nbrs, nbr, tmp){
-			if(nbr->node == dest){ //destination node found return shortest path
-				//prepare the routing table here as a linked list
-
-				/*
-				 * Here is the code for a routing table
-				 * If you want the fowarding table, break up the routing table into individual pieces
-				 * I do not know what you want to do with this
-				 * I do not know why you want this global, since fowarding tables are specific to a given route
-				 * 
-				 * This code gives you the destination part of the fowarding table as a linked list
-				 * The list starts at the source node and points to the next hop in the route
-				 * The table  contains a field for Destination, Distancce from the source, and Previous Hop, the source's node's previous hop is NULL
-				*/
+			if(nbr->node == dest){
+				/**
+				  *	destination node found return shortest path
+				  *	prepare the routing table here as a linked list
+				  *
+				  * Here is the code for a routing table
+				  * If you want the fowarding table, break up the routing
+				  *	table into individual pieces
+				  * I do not know what you want to do with this
+				  * I do not know why you want this global, since
+				  *	fowarding tables are specific to a given route
+				  * 
+				  * This code gives you the destination part of the
+				  *	fowarding table as a linked list
+				  * The list starts at the source node and points to the
+				  *	next hop in the route
+				  * The table  contains a field for Destination, Distance
+				  *	from the source, and Previous Hop, the source's
+				  *	node's previous hop is NULL
+				  */
 				ForwardingTable *table; 
-				table = prepare_forwarding_table(visited, nbr->node, tmpNode, dest);
+				table = prepare_forwarding_table(visited,
+					nbr->node, tmpNode, dest);
 
 				/*
 					TODO Make the next hop here.....with what func?
@@ -102,7 +110,8 @@ void shortest_path(graph *dest){
 				writeEnd();
 				return; 
 			}
-			HASH_FIND(hh, visited, nbr->node, sizeof(graph), node); //find out if this proxy has already been visited
+			//find out if this proxy has already been visited
+			HASH_FIND(hh, visited, nbr->node, sizeof(graph), node);
 			if(node == NULL){ //has not been visited yet
 				// add new node to struct visited
 				tmpVisit->node = node;
@@ -220,6 +229,8 @@ ForwardingTable* prepare_forwarding_table(Visited *visited, graph *curr, graph *
   *	Link-state routing algorithm based on Dijkstra's algorithm.
   *	Write the next hop to a routing table, which will be consulted by
   *	any procedure that needs to forward packets to specific destinations.
+  *
+  *	UNUSED
   */
 void Dijkstra(graph *dest){
 	Heap *hp;
