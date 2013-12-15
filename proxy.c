@@ -532,8 +532,7 @@ void remove_member(Peer *pp){
 	/**
 	  *	Cancelling the thread must be the very last thing done, because
 	  *	the canceled thread may be the same thread that is calling
-	  *	remove_member(). Call pthread_join() to pause the calling thread
-	  *	in case the calling thread is the thread to be cancelled.
+	  *	remove_member().
 	  *
 	  *	However, the thread ID must be saved before freeing pp.
 	  */
