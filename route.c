@@ -5,6 +5,7 @@
 #include"proxy.h"
 
 graph *network=NULL;
+ForwardingTable *table; 
 
 void evaluate_record(link_state_record *lsr){
 	graph *pp;
@@ -100,10 +101,8 @@ void shortest_path(graph *dest){
 				  *	from the source, and Previous Hop, the source's
 				  *	node's previous hop is NULL
 				  */
-				ForwardingTable *table; 
 				table = prepare_forwarding_table(visited,
 					nbr->node, tmpNode, dest);
-
 				/*
 					TODO Make the next hop here.....with what func?
 				*/
@@ -198,7 +197,8 @@ graph* dequeue(Queue *q){
 }
 
 // helper function to prepare the fowarding table
-ForwardingTable* prepare_forwarding_table(Visited *visited, graph *curr, graph *previous, graph *destination){
+ForwardingTable* prepare_forwarding_table(
+	Visited *visited, graph *curr, graph *previous, graph *destination){
 	ForwardingTable *table, *tmpFT;
 	Visited *v;
 	tmpFT = (ForwardingTable *)malloc(sizeof(ForwardingTable));
