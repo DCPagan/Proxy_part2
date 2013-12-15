@@ -106,7 +106,7 @@ void shortest_path(graph *dest){
 /*
 This will be used instead of reverse path fowarding
 Basically a copy of shortest_path()
-Will return a linked list of proxies that our source can send packets to	
+Will return a hash table of proxies that our source can send packets to	
 */
 Visited* bfs(){
 	char buffer[ETH_FRAME_LEN+PROXY_HLEN];
