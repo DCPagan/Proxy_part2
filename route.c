@@ -211,29 +211,32 @@ graph* dequeue(Queue *q){
 }
 
 // helper function to prepare the fowarding table
-ForwardingTable* prepare_forwarding_table(
+void prepare_forwarding_table(
 	Visited *visited, graph *curr, graph *previous, graph *destination){
 	ForwardingTable *table, *tmpFT;
 	Visited *v;
+	Peer p;
 	tmpFT = (ForwardingTable *)malloc(sizeof(ForwardingTable));
 	// initialize destination node
-	tmpFT->node = curr;
-	tmpFT->prevHop = NULL;
-	tmpFT->dist = 0;
-	tmpFT->destNode = destination;
-	LL_PREPEND(table, tmpFT);
+	// tmpFT->node = curr;
+	// tmpFT->prevHop = NULL;
+	// tmpFT->dist = 0;
+	// tmpFT->destNode = destination;
+	// LL_PREPEND(table, tmpFT);
 	HASH_FIND(hh, visited, previous, sizeof(graph), v);
 	if(v == NULL){
 		printf("error node not in visited table\n");
 		return NULL;
 	}
-	while(v != NULL){
-		tmpFT->node = v->node;
-		tmpFT->prevHop = v->prev;
-		tmpFT->dist = v->dist;
-		// use prepend here so that list will be inorder from source
-		LL_PREPEND(table, tmpFT);
-		//find the next previous hop
+	while(v->prev != NULL){ //stop at source
+		tmpFT->nextHop = v->prev->node->ls.tapMAC;
+		tmpFT->dest = destination;
+		/*
+			This part is wrong as it will key every 
+			node except the source node in the path
+			to the destination MAC
+		*/
+		HASH_ADD(hh, table, destination->ls.tapMAC, ETH_ALEN, tmpFT);
 		HASH_FIND(hh, visited, v->prev, sizeof(graph), v);
 	}
 	return table;
