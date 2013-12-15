@@ -5,7 +5,7 @@ int main(int argc, char **argv){
 	struct sockaddr_in addr;
 	socklen_t addrlen=sizeof(addr);
 	char buf[256];
-	Peer *pp, *tmp;
+	Peer *pp;
 	FILE *fp;
 	llnode *add, *lltmp;
 	/**
@@ -68,6 +68,22 @@ int main(int argc, char **argv){
 		}
 	}
 	fclose(fp);
+	/**
+	  *	Associate a signal handler to the termination signal to
+	  *	construct and broadcast the leave packet.
+	  *
+	  *	Ignore SIGPIPE signal; broken pipes will be handled by
+	  *	rio_write().
+	  */
+	sigemptyset(&sigset);
+	sigaddset(&sigset, SIGINT);
+	sigaddset(&sigset, SIGPIPE);
+	sigaddset(&sigset, SIGALRM);
+	sigaddset(&sigset, SIGTERM);
+	Signal(SIGINT, leave_handler);
+	Signal(SIGPIPE, SIG_IGN);
+	Signal(SIGALRM, Link_State_Broadcast);
+	Signal(SIGTERM, leave_handler);
 	LL_FOREACH_SAFE(llhead, add, lltmp){
 		if((pp=connectbyname(add->hostname, add->port))==NULL){
 			perror("error opening ethernet device");
@@ -78,22 +94,9 @@ int main(int argc, char **argv){
 	}
 	pthread_create(&tap_tid, NULL, tap_handler, &tapfd);
 	/**
-	  *	Associate a signal handler to the termination signal to
-	  *	construct and broadcast the leave packet.
-	  *
-	  *	For some reason, I am encountering a segmentation fault every
-	  *	time that I send a keyboard termination signal.
-	  *
-	signal(SIGINT, leave_handler);
-	signal(SIGTERM, leave_handler);
-	  */
-	signal(SIGINT, leave_handler);
-	signal(SIGTERM, leave_handler);
-	/**
 	  *	set up a timer to periodically broadcast link-state packets.
 	  */
 	clock_gettime(CLOCK_MONOTONIC, &timestamp);
-	signal(SIGALRM, Link_State_Broadcast);
 	alarm(config.link_period);
 	for(;;){
 		//	Accept a connection request.

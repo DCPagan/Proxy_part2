@@ -247,8 +247,8 @@ void *timeout_handler(Peer *pp){
 	pthread_mutex_unlock(&pp->timeout_mutex);
 	writeBegin();
 	HASH_DEL(hash_table, pp);
-	pthread_cancel(pp->tid);
 	close(pp->rio.fd);
+	pthread_cancel(pp->tid);
 	free(pp);
 	writeEnd();
 	return NULL;
@@ -262,7 +262,6 @@ void leave_handler(int signo){
 	Peer *pp, *tmp;
 	size_t size;
 	leave_packet lvpkt;
-	writeBegin();
 	lvpkt.prxyhdr.type=htons(LEAVE);
 	lvpkt.prxyhdr.length=htons(sizeof(lvpkt));
 	lvpkt.lv.localIP=linkState.IPaddr;
@@ -271,20 +270,18 @@ void leave_handler(int signo){
 	lvpkt.lv.ID.tv_sec=htonl(timestamp.tv_sec);
 	lvpkt.lv.ID.tv_nsec=htonl(timestamp.tv_nsec);
 	HASH_ITER(hh, hash_table, pp, tmp){
-		//	Write the leave packet.
+		pthread_cancel(pp->timeout_tid);
 		if((size=rio_write(&pp->rio, &lvpkt,
 			sizeof(leave_packet)))<=0){
 			/**
 			  *	error broadcasting leave packet
 			  */
 		}
-		//	Remove the peer from the system entirely.
 		HASH_DEL(hash_table, pp);
-		pthread_cancel(pp->tid);
 		close(pp->rio.fd);
+		pthread_cancel(pp->tid);
 		free(pp);
 	}
-	writeEnd();
 	exit(0);
 }
 
@@ -300,7 +297,6 @@ void Link_State_Broadcast(int signo){
 		alarm(config.link_period);
 		return;
 	}
-	readBegin();
 	N=HASH_COUNT(hash_table);
 	//	Write the fields of the proxy header.
 	prxyhdr.type=htons(LINK_STATE);
@@ -389,12 +385,13 @@ void Link_State_Broadcast(int signo){
 			/**
 			  *	Link-state error condition.
 			  */
-			free(buffer);
-			readEnd();
-			remove_member(pp);
+			HASH_DEL(hash_table, pp);
+			close(pp->rio.fd);
+			pthread_cancel(pp->timeout_tid);
+			pthread_cancel(pp->tid);
+			free(pp);
 		}
 	}
-	readEnd();
 	free(buffer);
 	alarm(config.link_period);
 	return;
@@ -405,23 +402,13 @@ void Link_State_Broadcast(int signo){
   *	@return	void (*)(int):		the old handler for that signal.
   */
 void (*Signal(int signo, void (*sig_handler)(int)))(int){
-	struct sigaction act, oact;	//	sigaction, old sigaction
-	sigemptyset(&act.sa_mask);
+	static struct sigaction act, oact;
+	act.sa_handler=sig_handler;
+	act.sa_mask=sigset;
 	act.sa_flags=0;
-	/**
-	  *	Interrupt system calls when an alarm signal is received, as the
-	  *	purpose of the alarm is to place a timeout on an I/O operation.
-	  *	Otherwise, restart the system call.
-	  */
-	if(signo==SIGALRM){
-#ifdef SA_INTERRUPT
-		act.sa_flags|=SA_INTERRUPT;
-#endif
-	}else{
 #ifdef SA_RESTART
-		act.sa_flags|=SA_RESTART;
+	act.sa_flags|=SA_RESTART;
 #endif
-	}
 	if(sigaction(signo, &act, &oact)<0)
 		return SIG_ERR;
 	return oact.sa_handler;

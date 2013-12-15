@@ -14,6 +14,7 @@ pthread_mutex_t mutex1=PTHREAD_MUTEX_INITIALIZER,
 	mutex3=PTHREAD_MUTEX_INITIALIZER,
 	r=PTHREAD_MUTEX_INITIALIZER,
 	w=PTHREAD_MUTEX_INITIALIZER;
+sigset_t sigset;
 
 const char BROADCAST_ADDR[ETH_ALEN]=
 	{'\xFF', '\xFF', '\xFF', '\xFF', '\xFF', '\xFF'};
@@ -489,7 +490,7 @@ void add_member(Peer *pp){
 	if(tmp == NULL){
 		HASH_ADD(hh, hash_table, ls.tapMAC, ETH_ALEN, pp);
 	}
-	memset(&pp->timestamp, 0, sizeof(struct timespec));
+	clock_gettime(CLOCK_REALTIME, &pp->timestamp);
 	pthread_mutex_init(&pp->timeout_mutex, NULL);
 	pthread_cond_init(&pp->timeout_cond, NULL);
 	pthread_create(&pp->tid, NULL, eth_handler, pp);
@@ -507,10 +508,11 @@ void remove_member(Peer *pp){
 	HASH_FIND(hh, hash_table, &pp->ls.tapMAC, ETH_ALEN, tmp);
 	if(tmp==NULL)
 		return;
-	pthread_mutex_lock(&pp->timeout_mutex);
-	pthread_cond_signal(&pp->timeout_cond);
-	pthread_mutex_unlock(&pp->timeout_mutex);
+	pthread_cancel(pp->timeout_tid);
+	HASH_DEL(hash_table, pp);
+	close(pp->rio.fd);
+	pthread_cancel(pp->tid);
+	free(pp);
 	writeEnd();
-	pause();
 	return;
 }

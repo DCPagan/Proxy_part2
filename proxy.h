@@ -275,3 +275,4 @@ extern const char BROADCAST_ADDR[ETH_ALEN];
 //	5 mutexes are required for write-preferential mutual exclusion
 extern int readcount, writecount;
 extern pthread_mutex_t mutex1, mutex2, mutex3, r, w;
+extern sigset_t sigset;
