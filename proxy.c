@@ -504,6 +504,7 @@ void add_member(Peer *pp){
 //	Signal the timeout thread of the respective peer.
 void remove_member(Peer *pp){
 	Peer *tmp;
+	pthread_t tid;
 	writeBegin();
 	if(pp==NULL)
 		return;
@@ -512,9 +513,20 @@ void remove_member(Peer *pp){
 		return;
 	pthread_cancel(pp->timeout_tid);
 	HASH_DEL(hash_table, pp);
-	close(pp->rio.fd);
-	pthread_cancel(pp->tid);
-	free(pp);
 	writeEnd();
+	close(pp->rio.fd);
+	//	Save the thread ID; pp->tid cannot be accessed after pp is freed.
+	tid=pp->tid;
+	free(pp);
+	/**
+	  *	Cancelling the thread must be the very last thing done, because
+	  *	the canceled thread may be the same thread that is calling
+	  *	remove_member(). Call pthread_join() to pause the calling thread
+	  *	in case the calling thread is the thread to be cancelled.
+	  *
+	  *	However, the thread ID must be saved before freeing pp.
+	  */
+	pthread_cancel(tid);
+	pthread_join(tid, NULL);
 	return;
 }

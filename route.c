@@ -189,27 +189,50 @@ Queue* prepare_routing_table(Visited *visited, graph *curr, graph *previous){
   */
 void Dijkstra(graph *dest){
 	Heap *hp;
-	graph *node;
-	edge *nbr, *tmp;
+	graph *node, *vtmp;
+	edge *nbr, *ntmp;
+	heapent *ent;
+	heapindex *hi;
+	uint32_t i;
+	/**
+	  *	in Dijkstra's algorithm, each node in a graph has three values:
+	  *	whether it is visited, its distance from the source, and its
+	  *	previous hop in the shortest path. The distance is used as a key
+	  *	for the heap.
+	  */
 	writeBegin();
 	HASH_FIND(hh, network, &linkState.tapMAC, ETH_ALEN, node);
 	if(node==NULL||node==dest)
 		return;
 	hp=heap_alloc(HASH_CNT(hh, network));
-	//	Insert the neighbors of the local proxy to the heap.
-	HASH_ITER(hh, node->nbrs, nbr, tmp){
-		heap_insert(hp, nbr->node, nbr->linkWeight);
-	}
 	/**
-	  *	Iterate through the heap until there are no entries left.
-	  *
-	  *	Define a data structure that defines whether a node in the
-	  *	network is visited by Dijkstra's algorithm.
-	  *
-	  *	Associate each node with the previous hop from the local proxy
-	  *	to the destination. Use this for the routing table.
+	  *	Start with all nodes in the heap set to maximum distance,
+	  *	unvisited and with no previous hop.
 	  */
+	HASH_ITER(hh, network, node, vtmp){
+		i=heap_insert(hp, node, -1);
+		hp->heap[i]->prev=NULL;
+		hp->heap[i]->visited=0;
+	}
+	//	Find the source proxy
+	HASH_FIND(hh, hp->index, &linkState.tapMAC, ETH_ALEN, hi);
+	if(hi==NULL){
+		heap_free(hp);
+		return;
+	}
+	i=hi->index;
+	//	Initialize it, and commence the minimum-priority BFS.
+	hp->heap[i]->dist=0;
+	hp->heap[i]->visited=1;
+	//	swap the source node with the top of the heap.
+	ent=hp->heap[0];
+	hp->heap[0]=hp->heap[i];
+	hp->heap[i]=ent;
 	while(hp->size>0){
+		ent=heap_delete(hp);
+		//	Iterate through its neighbors
+		HASH_ITER(hh, node->nbrs, node, vtmp){
+		}
 	}
 	writeEnd();
 	heap_free(hp);
@@ -232,7 +255,7 @@ void heap_free(Heap *hp){
 	return;
 }
 
-int heap_insert(Heap *hp, graph *node, uint32_t dist){
+uint32_t heap_insert(Heap *hp, graph *node, uint32_t dist){
 	heapent *ent;
 	if(hp->size>=hp->max)
 		return -1;

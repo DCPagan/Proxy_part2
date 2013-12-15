@@ -154,7 +154,9 @@ struct Visited{
 
 typedef struct{
 	graph *node;
+	graph *prev;
 	uint32_t dist;
+	uint8_t visited;
 } heapent;
 
 typedef struct{
@@ -267,7 +269,7 @@ extern Visited* bfs();
 // unused
 extern Heap *heap_alloc(uint32_t);
 extern void heap_free(Heap *hp);
-extern int heap_insert(Heap *, graph *, uint32_t);
+extern uint32_t heap_insert(Heap *, graph *, uint32_t);
 extern heapent *heap_delete(Heap *);
 extern void upheap(Heap *, uint32_t);
 extern void downheap(Heap *);
