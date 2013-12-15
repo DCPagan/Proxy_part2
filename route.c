@@ -81,8 +81,8 @@ void shortest_path(graph *dest){
 		//go through each node in graph until the dest node is found
 		HASH_ITER(hh, tmpNode->nbrs, nbr, tmp){
 			if(nbr->node == dest){ //destination node found return shortest path
-				//prepare the fowarding table here as linked list, note table does not contain source node.
-				Queue *fowarding_table = prepare_fowarding_table(visited, nbr->node, tmpNode);
+				//prepare the routing table here as linked list, note table does not contain source node.
+				Queue *routing_table = prepare_routing_table(visited, nbr->node, tmpNode);
 				/*
 					Make the next hop here.....with what func?
 				*/
@@ -100,6 +100,47 @@ void shortest_path(graph *dest){
 			}
 		}
 	}
+	printf("no such paths exists for given destination");
+}
+
+/*
+This will be used instead of reverse path fowarding
+Basically a copy of shortest_path()
+Will return a linked list of proxies that our source can send packets to	
+*/
+Visited* bfs(){
+	Queue *q;
+	graph *node;
+	edge *nbr, *tmp;
+	Visited *visited = NULL;
+	writeBegin();
+	HASH_FIND(hh, network, &linkState.tapMAC, ETH_ALEN, node);
+	enqueue(q, node);
+	while(q!=NULL){
+		graph *tmpNode;
+		tmpNode = dequeue(q);
+		Visited *tmpVisit;
+		tmpVisit = (Visited *)malloc(sizeof(Visited));
+		tmpVisit->node = q->node;
+		node = q->node;
+		tmpVisit->prev = NULL;
+		HASH_ADD(hh, visited, node, sizeof(Visited), tmpVisit);
+		//go through each node in graph until the dest node is found
+		HASH_ITER(hh, tmpNode->nbrs, nbr, tmp){
+			HASH_FIND(hh, visited, nbr->node, ETH_ALEN, node); //find out if this proxy has already been visited
+			if(node == NULL){ //has not been visited add to struct visited and enqueue its neighbors
+				tmpVisit->node = node;
+				tmpVisit->prev = nbr->node;
+				HASH_ADD(hh, visited, node, ETH_ALEN, tmpVisit);
+				HASH_ITER(hh, tmpVisit->node->nbrs, nbr, tmp){
+					enqueue(q, nbr->node);
+				}
+			}
+		}
+	}
+	writeEnd();
+	printf("done");
+	return visited;
 }
 
 void enqueue(Queue *q, graph *peer){
@@ -118,19 +159,19 @@ graph* dequeue(Queue *q){
 	return returnTmp->node;
 }
 
-Queue* prepare_fowarding_table(Visited *visited, graph *curr, graph *previous){
-	Queue *fowarding_table, *tmpQ;
+Queue* prepare_routing_table(Visited *visited, graph *curr, graph *previous){
+	Queue *routing_table, *tmpQ;
 	Visited *v;
 	tmpQ = (Queue *)malloc(sizeof(Queue));
 	tmpQ->node = curr;
-	LL_PREPEND(fowarding_table, tmpQ);
+	LL_PREPEND(routing_table, tmpQ);
 	HASH_FIND(hh, visited, previous, ETH_ALEN, v);
 	if(v == NULL){
 		printf("error node not in visited table\n");
 	}
 	while(v->prev != NULL){
 		tmpQ->node = v->node;
-		LL_PREPEND(fowarding_table, tmpQ);
+		LL_PREPEND(routing_table, tmpQ);
 		Visited *anotherTmp;
 		anotherTmp->node = v->prev;
 		HASH_FIND(hh, visited, anotherTmp->node, ETH_ALEN, v);
@@ -138,7 +179,7 @@ Queue* prepare_fowarding_table(Visited *visited, graph *curr, graph *previous){
 			printf("error node not in visited\n");
 		}
 	}
-	return fowarding_table;
+	return routing_table;
 }
 
 /**

@@ -267,6 +267,7 @@ extern void evaluate_record(link_state_record *);
 extern void remove_from_network(graph *);
 extern void Dijkstra(graph *); //unused
 extern void shortest_path(graph *dest);
+extern Visited* bfs();
 
 //	Heap interface
 // unused
@@ -281,7 +282,7 @@ extern void downheap(Heap *);
 extern void enqueue(Queue *q, graph *peer);
 extern graph* dequeue(Queue *q);
 extern void add2visited(Visited *visted, Visited *v);
-extern Queue* prepare_fowarding_table(Visited *v, graph *curr, graph *previous);
+extern Queue* prepare_routing_table(Visited *v, graph *curr, graph *previous);
 
 //	Global variables
 extern int tapfd;
