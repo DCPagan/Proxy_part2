@@ -140,12 +140,12 @@ void *eth_handler(Peer *pp){
 				break;
 			//	RTT Probe Request (part 3)
 			case RTT_PROBE_REQUEST:
-				if(RTT_Probe_Request(buffer, prxyhdr.length)<0)
+				if(RTT_Probe_Request(buffer, prxyhdr.length, pp)<0)
 					goto TYPE_ERROR;
 				break;
 			//	RTT Probe Response (part 3)
 			case RTT_PROBE_RESPONSE:
-				if(RTT_Probe_Response(buffer, prxyhdr.length, pp)<0)
+				if(RTT_Probe_Response(buffer, prxyhdr.length)<0)
 					goto TYPE_ERROR;
 				break;
 			//	Proxy Public Key (extra credit)
@@ -180,12 +180,12 @@ void *eth_handler(Peer *pp){
 				break;
 			//	Bandwidth Probe Request
 			case BANDWIDTH_PROBE_REQUEST:
-				if(Bandwidth_Probe_Request(buffer, prxyhdr.length)<0)
+				if(Bandwidth_Probe_Request(buffer, prxyhdr.length, pp)<0)
 					goto TYPE_ERROR;
 				break;
 			//	Bandwidth Response
 			case BANDWIDTH_RESPONSE:
-				if(Bandwidth_Probe_Response(buffer, prxyhdr.length, pp)<0)
+				if(Bandwidth_Probe_Response(buffer, prxyhdr.length)<0)
 					goto TYPE_ERROR;
 				break;
 			default:

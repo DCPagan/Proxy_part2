@@ -8,29 +8,29 @@ graph *network=NULL;
 ForwardingTable *table; 
 
 void evaluate_record(link_state_record *lsr){
-	graph *pp;
-	edge *nbr;
+	graph *v;
+	edge *e;
 	writeBegin();
-	HASH_FIND(hh, network, &lsr->proxy1.tapMAC, ETH_ALEN, pp);
-	if(pp==NULL){
-		pp=(graph *)malloc(sizeof(graph));
-		nbr=(edge *)malloc(sizeof(edge));
-		pp->ls=lsr->proxy1;
-		pp->nbrs=NULL;
-		nbr->node->ls=lsr->proxy2;
-		HASH_ADD(hh, network, ls.tapMAC, ETH_ALEN, pp);
-		HASH_ADD(hh, pp->nbrs, node->ls.tapMAC, ETH_ALEN, nbr);
+	HASH_FIND(hh, network, &lsr->proxy1.tapMAC, ETH_ALEN, v);
+	if(v==NULL){
+		v=(graph *)malloc(sizeof(graph));
+		e=(edge *)malloc(sizeof(edge));
+		v->ls=lsr->proxy1;
+		v->nbrs=NULL;
+		e->node->ls=lsr->proxy2;
+		HASH_ADD(hh, network, ls.tapMAC, ETH_ALEN, v);
+		HASH_ADD(hh, v->nbrs, node->ls.tapMAC, ETH_ALEN, e);
 	}else{
-		HASH_FIND(hh, pp->nbrs, &lsr->proxy2.tapMAC, ETH_ALEN, nbr);
-		if(nbr==NULL){
-			nbr=(edge *)malloc(sizeof(edge));
-			nbr->node->ls=lsr->proxy2;
-			HASH_ADD(hh, pp->nbrs, node->ls.tapMAC, ETH_ALEN, nbr);
+		HASH_FIND(hh, v->nbrs, &lsr->proxy2.tapMAC, ETH_ALEN, e);
+		if(e==NULL){
+			e=(edge *)malloc(sizeof(edge));
+			e->node->ls=lsr->proxy2;
+			HASH_ADD(hh, v->nbrs, node->ls.tapMAC, ETH_ALEN, e);
 		}
 	}
-	pp->timestamp.tv_sec=ntohl(lsr->ID.tv_sec);
-	pp->timestamp.tv_nsec=ntohl(lsr->ID.tv_nsec);
-	nbr->linkWeight=ntohl(lsr->linkWeight);
+	v->timestamp.tv_sec=ntohl(lsr->ID.tv_sec);
+	v->timestamp.tv_nsec=ntohl(lsr->ID.tv_nsec);
+	e->linkWeight=ntohl(lsr->linkWeight);
 	writeEnd();
 	return;
 }
@@ -57,6 +57,20 @@ void remove_from_network(graph *pp){
 		}
 	}
 	writeEnd();
+	return;
+}
+
+void graph_free(graph *g){
+	graph *v, *vtmp;
+	edge *e, *etmp;
+	HASH_ITER(hh, g, v, vtmp){
+		HASH_ITER(hh, v->nbrs, e, etmp){
+			HASH_DEL(v->nbrs, e);
+			free(e);
+		}
+		HASH_DEL(g, v);
+		free(v);
+	}
 	return;
 }
 
@@ -347,7 +361,7 @@ void upheap(Heap *hp, uint32_t index){
 	if(hip!=NULL)
 		hip->index=index;
 	return;
-} 
+}
 
 void downheap(Heap *hp){
 	uint32_t index, left, right;

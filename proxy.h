@@ -81,6 +81,11 @@ typedef struct __attribute__((packed)){
 	unsigned char ethMAC[ETH_ALEN];
 } link_state;
 
+typedef struct{
+	proxy_header prxyhdr;
+	struct timespec ID;
+} probe_req;
+
 typedef struct __attribute__((packed)){
 	link_state ls;
 	uint16_t numNbrs;
@@ -108,6 +113,7 @@ typedef struct{
 	pthread_t timeout_tid;
 	pthread_mutex_t timeout_mutex;
 	pthread_cond_t timeout_cond;
+	struct timespec probe_timestamp;
 	UT_hash_handle hh;
 } Peer;
 
@@ -244,16 +250,16 @@ extern int Data(void *, uint16_t);
 extern int Leave(void *, uint16_t);
 extern int Quit(void *, uint16_t);
 extern int Link_State(void *, uint16_t);
-extern int RTT_Probe_Request(void *, uint16_t);
-extern int RTT_Probe_Response(void *, uint16_t, Peer *);
+extern int RTT_Probe_Request(void *, uint16_t, Peer *);
+extern int RTT_Probe_Response(void *, uint16_t);
 extern int Proxy_Public_Key(void *, uint16_t);
 extern int Signed_Data(void *, uint16_t);
 extern int Proxy_Secret_Key(void *, uint16_t);
 extern int Encrypted_Data(void *, uint16_t);
 extern int Encrypted_Link_State(void *, uint16_t);
 extern int Signed_Link_State(void *, uint16_t);
-extern int Bandwidth_Probe_Request(void *, uint16_t);
-extern int Bandwidth_Probe_Response(void *, uint16_t, Peer *);
+extern int Bandwidth_Probe_Request(void *, uint16_t, Peer *);
+extern int Bandwidth_Probe_Response(void *, uint16_t);
 
 /**
   *	Simple interface to writer-preferential mutual exclusion.
@@ -304,4 +310,5 @@ extern const char BROADCAST_ADDR[ETH_ALEN];
 extern int readcount, writecount;
 extern pthread_mutex_t mutex1, mutex2, mutex3, r, w;
 extern sigset_t sigset;
+extern graph *network;
 extern ForwardingTable *table;
