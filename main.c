@@ -77,7 +77,6 @@ int main(int argc, char **argv){
 	  */
 	sigemptyset(&sigset);
 	sigaddset(&sigset, SIGINT);
-	sigaddset(&sigset, SIGPIPE);
 	sigaddset(&sigset, SIGALRM);
 	sigaddset(&sigset, SIGTERM);
 	Signal(SIGINT, leave_handler);

@@ -467,6 +467,7 @@ void readEnd(){
 }
 
 void writeBegin(){
+	pthread_sigmask(SIG_BLOCK, &sigset, NULL);
 	pthread_mutex_lock(&mutex2);
 	if(++writecount==1)
 		pthread_mutex_lock(&r);
@@ -481,6 +482,7 @@ void writeEnd(){
 	if(--writecount==0)
 		pthread_mutex_unlock(&r);
 	pthread_mutex_unlock(&mutex2);
+	pthread_sigmask(SIG_BLOCK, &sigset, NULL);
 	return;
 }
 void add_member(Peer *pp){
