@@ -5,6 +5,7 @@
 #include"proxy.h"
 
 graph *network=NULL;
+ForwardingTable *table; 
 
 void evaluate_record(link_state_record *lsr){
 	graph *pp;
@@ -93,7 +94,6 @@ void shortest_path(graph *dest){
 				 * The list starts at the source node and points to the next hop in the route
 				 * The table  contains a field for Destination, Distancce from the source, and Previous Hop, the source's node's previous hop is NULL
 				*/
-				ForwardingTable *table; 
 				table = prepare_forwarding_table(visited, nbr->node, tmpNode, dest);
 
 				/*
