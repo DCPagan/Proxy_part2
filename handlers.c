@@ -46,18 +46,21 @@ void *tap_handler(int *fd){
 		  *	two-octet field as expected; it must be derived from the IPv4
 		  *	packet header.
 		  */
+		writeBegin();
 		if(!memcmp(&((struct ethhdr *)(buffer+PROXY_HLEN))->h_dest,
 			BROADCAST_ADDR, ETH_ALEN)){
-			readBegin();
 			HASH_ITER(hh, hash_table, pp, tmp){
 				if((size=rio_write(&pp->rio, buffer,
 					PROXY_HLEN+ntohs(prxyhdr.length)))<=0){
-					readEnd();
-					remove_member(pp);
+					//	Remove member while holding the mutex.
+					pthread_cancel(pp->timeout_tid);
+					HASH_DEL(hash_table, pp);
+					close(pp->rio.fd);
+					pthread_cancel(pp->tid);
+					free(pp);
 				}
 			}
 		}else{
-			readBegin();
 			/**
 			  *	For part 3, we will have to consult a forwarding table
 			  *	instead of a membership list. Substitute accordingly.
@@ -67,11 +70,15 @@ void *tap_handler(int *fd){
 			//	Write the whole buffer to the Ethernet device.
 			if(pp!=NULL&&(size=rio_write(&pp->rio, buffer,
 				ntohs(prxyhdr.length)+PROXY_HLEN))<=0){
-				readEnd();
-				remove_member(pp);
+				//	Remove member while holding the mutex.
+				pthread_cancel(pp->timeout_tid);
+				HASH_DEL(hash_table, pp);
+				close(pp->rio.fd);
+				pthread_cancel(pp->tid);
+				free(pp);
 			}
-			readEnd();
 		}
+		writeEnd();
 	}
 }
 
