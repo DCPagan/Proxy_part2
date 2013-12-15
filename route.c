@@ -109,6 +109,8 @@ Basically a copy of shortest_path()
 Will return a linked list of proxies that our source can send packets to	
 */
 Visited* bfs(){
+	char buffer[ETH_FRAME_LEN+PROXY_HLEN];
+	proxy_header prxyhdr;
 	Queue *q;
 	graph *node;
 	edge *nbr, *tmp;
@@ -129,6 +131,9 @@ Visited* bfs(){
 		HASH_ITER(hh, tmpNode->nbrs, nbr, tmp){
 			HASH_FIND(hh, visited, nbr->node, ETH_ALEN, node); //find out if this proxy has already been visited
 			if(node == NULL){ //has not been visited add to struct visited and enqueue its neighbors
+				/*
+					Broadcast the packet here
+				*/
 				tmpVisit->node = node;
 				tmpVisit->prev = nbr->node;
 				HASH_ADD(hh, visited, node, ETH_ALEN, tmpVisit);
