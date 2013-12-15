@@ -538,6 +538,5 @@ void remove_member(Peer *pp){
 	  *	However, the thread ID must be saved before freeing pp.
 	  */
 	pthread_cancel(tid);
-	pthread_join(tid, NULL);
 	return;
 }
