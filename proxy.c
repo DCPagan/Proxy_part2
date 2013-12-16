@@ -445,39 +445,70 @@ int Bandwidth_Probe_Response(void *data, uint16_t length, Peer *pp){
 	struct timespec ts;
 	graph *v, *vtmp;
 	edge *e;
-	uint32_t i;
 	float RTT;
-	//	Echo of a request from the past. Drop and do nothing.
-	if((i=memcmp(data, &pp->probe_timestamp, 8))<0)
+	/**
+	  *	Get the time immediately for the most accurate calculation of
+	  *	the RTT.
+	  */
+	clock_gettime(CLOCK_REALTIME, &ts);
+	/**
+	  *	If the probe timestamp is zero, then no probe request has been
+	  *	sent. Drop the packet and do nothing.
+	  */
+	if(pp->probe_ts.tv_sec==0&&pp->probe_ts.tv_nsec==0)
 		return 0;
-	//	Echo of the latest request. Evaluate the bandwidth.
-	else if(i==0){
-		clock_gettime(CLOCK_REALTIME, &ts);
-		RTT=(float)(ts.tv_sec);
-		RTT+=(float)(ts.tv_nsec)/1000000000;
-		//	RTT now equals the time, in seconds, of the RTT.
-		pp->bandwidth=(float)(66)/RTT;
-		/**
-		  *	size of packet =
-		  		size of Ethernet header	(14)
-		  		+ size of IPv4 header	(20)
-				+ size of TCP header	(20)
-				+ size of probe segment (12) = 66
-		  *	bandwidth = size of packet / RTT
-		  */
-		//	Iterate through the vertices of the graph.
-		HASH_ITER(hh, network, v, vtmp){
-			HASH_FIND(hh, v->nbrs, &pp->ls.tapMAC, ETH_ALEN, e);
-			if(e!=NULL)
-				//	bandwidth = size of packet / RTT
-				//	1/bandwidth = RTT / size of packet
-				e->linkWeight=RTT/(float)(66);
+	/**
+	  *	The timestamp of the latest probe request is saved in the peer
+	  *	structure. Check if the timestamp was from an old request.
+	  */
+	if(((struct timespec *)data)->tv_sec<pp->probe_ts.tv_sec)
+		return 0;
+	/**
+	  *	Or old in the order of nanoseconds (in case of a bug or an attack
+	  *	in which requests are sent at a high frequency
+	  */
+	else if(((struct timespec *)data)->tv_sec==pp->probe_ts.tv_sec){
+		if(((struct timespec *)data)->tv_nsec<pp->probe_ts.tv_nsec)
+			return 0;
+		//	Echo of the latest request. Evaluate the bandwidth.
+		else if(((struct timespec *)data)->tv_nsec
+			==pp->probe_ts.tv_nsec){
+			RTT=(float)(ts.tv_sec);
+			RTT+=(float)(ts.tv_nsec)/1000000000;
+			/**
+			  *	Divide the RTT by 2 to get the propagation delay.
+			  *	Neglect the processing delay.
+			  */
+			RTT/=2;
+			//	RTT now equals the time, in seconds, of the RTT.
+			pp->bandwidth=(float)(66)/RTT;
+			pp->linkWeight=RTT/(float)(66);
+			/**
+			  *	size of packet =
+					size of Ethernet header	(14)
+					+ size of IPv4 header	(20)
+					+ size of TCP header	(20)
+					+ size of probe segment (12) = 66
+			  *	bandwidth = size of packet / RTT
+			  *	linkWeight = 1 / bandwidth = RTT / size of packet
+			  */
+			//	Find the local proxy in the graph.
+			HASH_FIND(hh, network, &linkState.tapMAC, ETH_ALEN, v);
+			if(v!=NULL){
+				//	Find the peer in the graph.
+				//	link weights are stored in the edges.
+				HASH_FIND(hh, v->nbrs, &pp->ls.tapMAC, ETH_ALEN, e);
+				if(e!=NULL)
+					e->linkWeight=pp->linkWeight;
+			}
 		}
+		//	or the probe is from a few nanoseconds in the future.
+		else
+			return -1;
 	}
 	//	Echo of a request from the future? Error
-	else{
+	else
 		return -1;
-	}
 }
 
 /**
