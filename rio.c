@@ -51,15 +51,12 @@ int Lock(int fd, int type){
 	static struct flock lock={0, 0, 0, 0, 0};
 	lock.l_type=type;
 	//	Loop a blocking lock call in case of signal interruption.
-	do{
-		if(fcntl(fd, F_SETLKW, &lock)<0){
+	do
+		if(fcntl(fd, F_SETLKW, &lock)<0)
 			//	If fcntl() encounters an error, return error status.
-			if(errno!=EINTR){
-				perror("F_SETLKW error");
+			if(errno!=EINTR)
 				return -1;
-			}
-		}
-	}while(errno==EINTR);
+	while(errno==EINTR);
 	return 0;
 }
 
@@ -90,7 +87,7 @@ ssize_t rio_read(rio_t *rp, void *usrbuf, size_t n){
 		rp->cnt=read(rp->fd, rp->buf, sizeof(rp->buf));
 		if(rp->cnt<0){
 			//	signal interrupt case
-			if(errno!=EINTR){
+			if(errno!=EINTR&&errno!=EAGAIN){
 				//Lock(rp->fd, F_UNLCK);
 				return -1;
 			}
