@@ -8,35 +8,35 @@ graph *network=NULL;
 ForwardingTable *table; 
 
 void evaluate_record(link_state_record *lsr){
-	graph *pp;
-	edge *nbr;
+	graph *v;
+	edge *e;
 	writeBegin();
-	HASH_FIND(hh, network, &lsr->proxy1.tapMAC, ETH_ALEN, pp);
-	if(pp==NULL){
-		pp=(graph *)malloc(sizeof(graph));
-		nbr=(edge *)malloc(sizeof(edge));
-		pp->ls=lsr->proxy1;
-		pp->nbrs=NULL;
-		nbr->node->ls=lsr->proxy2;
-		HASH_ADD(hh, network, ls.tapMAC, ETH_ALEN, pp);
-		HASH_ADD(hh, pp->nbrs, node->ls.tapMAC, ETH_ALEN, nbr);
+	HASH_FIND(hh, network, &lsr->proxy1.tapMAC, ETH_ALEN, v);
+	if(v==NULL){
+		v=(graph *)malloc(sizeof(graph));
+		e=(edge *)malloc(sizeof(edge));
+		v->ls=lsr->proxy1;
+		v->nbrs=NULL;
+		e->node->ls=lsr->proxy2;
+		HASH_ADD(hh, network, ls.tapMAC, ETH_ALEN, v);
+		HASH_ADD(hh, v->nbrs, node->ls.tapMAC, ETH_ALEN, e);
 	}else{
-		HASH_FIND(hh, pp->nbrs, &lsr->proxy2.tapMAC, ETH_ALEN, nbr);
-		if(nbr==NULL){
-			nbr=(edge *)malloc(sizeof(edge));
-			nbr->node->ls=lsr->proxy2;
-			HASH_ADD(hh, pp->nbrs, node->ls.tapMAC, ETH_ALEN, nbr);
+		HASH_FIND(hh, v->nbrs, &lsr->proxy2.tapMAC, ETH_ALEN, e);
+		if(e==NULL){
+			e=(edge *)malloc(sizeof(edge));
+			e->node->ls=lsr->proxy2;
+			HASH_ADD(hh, v->nbrs, node->ls.tapMAC, ETH_ALEN, e);
 		}
 	}
-	pp->timestamp.tv_sec=ntohl(lsr->ID.tv_sec);
-	pp->timestamp.tv_nsec=ntohl(lsr->ID.tv_nsec);
-	nbr->linkWeight=ntohl(lsr->linkWeight);
+	v->timestamp.tv_sec=ntohl(lsr->ID.tv_sec);
+	v->timestamp.tv_nsec=ntohl(lsr->ID.tv_nsec);
+	e->linkWeight=ntohl(lsr->linkWeight);
 	writeEnd();
 	return;
 }
 
 void remove_from_network(graph *pp){
-	graph *node, *gtmp;
+	graph *node, *vtmp;
 	edge *nbr, *etmp;
 	writeBegin();
 	HASH_FIND(hh, network, &pp->ls.tapMAC, ETH_ALEN, node);
@@ -49,7 +49,7 @@ void remove_from_network(graph *pp){
 	}
 	HASH_DELETE(hh, network, node);
 	free(node);
-	HASH_ITER(hh, network, node, gtmp){
+	HASH_ITER(hh, network, node, vtmp){
 		HASH_FIND(hh, node->nbrs, &pp->ls.tapMAC, ETH_ALEN, nbr);
 		if(nbr!=NULL){
 			HASH_DELETE(hh, node->nbrs, nbr);
@@ -57,6 +57,20 @@ void remove_from_network(graph *pp){
 		}
 	}
 	writeEnd();
+	return;
+}
+
+void graph_free(graph *g){
+	graph *v, *vtmp;
+	edge *e, *etmp;
+	HASH_ITER(hh, g, v, vtmp){
+		HASH_ITER(hh, v->nbrs, e, etmp){
+			HASH_DEL(v->nbrs, e);
+			free(e);
+		}
+		HASH_DEL(g, v);
+		free(v);
+	}
 	return;
 }
 
@@ -93,14 +107,11 @@ void shortest_path(graph *dest){
 				 * the node's next hop is NULL
 				*/
 				prepare_forwarding_table(visited, nbr->node, tmpNode, dest);
-
-				/*
-					TODO Make the next hop here.....with what func?
-				*/
 				writeEnd();
 				return; 
 			}
-			HASH_FIND(hh, visited, nbr->node, sizeof(graph), node); //find out if this proxy has already been visited
+			//find out if this proxy has already been visited
+			HASH_FIND(hh, visited, nbr->node, sizeof(graph), node);
 			if(node == NULL){ //has not been visited yet
 				// add new node to struct visited
 				tmpVisit->node = node;
@@ -187,7 +198,8 @@ graph* dequeue(Queue *q){
 }
 
 // helper function to prepare the fowarding table
-void prepare_forwarding_table(Visited *visited, graph *curr, graph *previous, graph *destination){
+void prepare_forwarding_table(
+	Visited *visited, graph *curr, graph *previous, graph *destination){
 	ForwardingTable *table, *tmpFT;
 	Visited *v;
 	Peer *p;
@@ -225,6 +237,8 @@ void prepare_forwarding_table(Visited *visited, graph *curr, graph *previous, gr
   *	Link-state routing algorithm based on Dijkstra's algorithm.
   *	Write the next hop to a routing table, which will be consulted by
   *	any procedure that needs to forward packets to specific destinations.
+  *
+  *	UNUSED
   */
 void Dijkstra(graph *dest){
 	Heap *hp;
@@ -341,7 +355,7 @@ void upheap(Heap *hp, uint32_t index){
 	if(hip!=NULL)
 		hip->index=index;
 	return;
-} 
+}
 
 void downheap(Heap *hp){
 	uint32_t index, left, right;

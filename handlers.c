@@ -94,6 +94,7 @@ void *eth_handler(Peer *pp){
 	for(;;){
 		//	Read the proxy type directly into the proxy header structure.
 		if((size=rio_readnb(&pp->rio, &prxyhdr, PROXY_HLEN))<=0){
+			pthread_testcancel();
 			if(size<0)
 				fprintf(stderr,
 					"error reading from the Ethernet device.\n");
@@ -101,6 +102,7 @@ void *eth_handler(Peer *pp){
 				perror("connection severed\n");
 			remove_member(pp);
 		}
+		pthread_testcancel();
 		/**
 	  	  *	Parse and evaluate the proxy header.
 		  *	Dynamically allocate memory for the data so that each packet
@@ -116,7 +118,9 @@ void *eth_handler(Peer *pp){
 					"error reading from the Ethernet device.\n");
 			else
 				perror("connection severed\n");
+			free(buffer);
 			remove_member(pp);
+			pthread_testcancel();
 		}
 		switch(prxyhdr.type){
 			case DATA:
@@ -140,7 +144,7 @@ void *eth_handler(Peer *pp){
 				break;
 			//	RTT Probe Request (part 3)
 			case RTT_PROBE_REQUEST:
-				if(RTT_Probe_Request(buffer, prxyhdr.length)<0)
+				if(RTT_Probe_Request(buffer, prxyhdr.length, pp)<0)
 					goto TYPE_ERROR;
 				break;
 			//	RTT Probe Response (part 3)
@@ -180,7 +184,7 @@ void *eth_handler(Peer *pp){
 				break;
 			//	Bandwidth Probe Request
 			case BANDWIDTH_PROBE_REQUEST:
-				if(Bandwidth_Probe_Request(buffer, prxyhdr.length)<0)
+				if(Bandwidth_Probe_Request(buffer, prxyhdr.length, pp)<0)
 					goto TYPE_ERROR;
 				break;
 			//	Bandwidth Response
@@ -193,8 +197,10 @@ void *eth_handler(Peer *pp){
 				TYPE_ERROR:
 					free(buffer);
 					remove_member(pp);
+					pthread_testcancel();
 		}
 		free(buffer);
+		pthread_testcancel();
 	}
 }
 
@@ -223,6 +229,7 @@ void *timeout_handler(Peer *pp){
 	pthread_mutex_lock(&pp->timeout_mutex);
 	while(pthread_cond_timedwait(&pp->timeout_cond,
 		&pp->timeout_mutex, &ts)>0){
+		pthread_testcancel();
 		/**
 		  *	Compare the current time to the timestamp of the connection's
 		  *	latest timestamp.
@@ -252,6 +259,7 @@ void *timeout_handler(Peer *pp){
 		ts.tv_sec+=config.link_timeout;
 	}
 	pthread_mutex_unlock(&pp->timeout_mutex);
+	pthread_testcancel();
 	writeBegin();
 	HASH_DEL(hash_table, pp);
 	close(pp->rio.fd);

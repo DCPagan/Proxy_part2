@@ -332,6 +332,8 @@ int Quit(void *data, uint16_t length){
 
 int Link_State(void *data, uint16_t length){
 	Peer *pp;
+	graph *v;
+	edge *e;
 	void *ptr;
 	uint16_t N;
 	ptr=data;
@@ -370,6 +372,7 @@ int Link_State(void *data, uint16_t length){
 		if(!memcmp(((link_state_record *)ptr)->proxy1.tapMAC,
 			linkState.tapMAC, ETH_ALEN))
 			continue;
+		evaluate_record(ptr);
 		HASH_FIND(hh, hash_table,
 			&((link_state_record *)ptr)->proxy1.tapMAC, ETH_ALEN, pp);
 		/**
@@ -394,7 +397,7 @@ int Link_State(void *data, uint16_t length){
 	return 0;
 }
 
-int RTT_Probe_Request(void *data, uint16_t length){
+int RTT_Probe_Request(void *data, uint16_t length, Peer *pp){
 	return 0;
 }
 
@@ -426,11 +429,19 @@ int Signed_Link_State(void *data, uint16_t length){
 	return 0;
 }
 
-int Bandwidth_Probe_Request(void *data, uint16_t length){
+//	Upon receiving a probe request, echo a probe response.
+int Bandwidth_Probe_Request(void *data, uint16_t length, Peer *pp){
+	probe_req bwreq;
+	bwreq.prxyhdr.type=htons(0xAB46);
+	bwreq.prxyhdr.length=htons(8);
+	memcpy(&bwreq.ID, data, 8);
+	if(rio_write(pp->rio.fd, data, 12)<0)
+		return -1;
 	return 0;
 }
 
 int Bandwidth_Probe_Response(void *data, uint16_t length){
+	Peer *pp, *tmp;
 	return 0;
 }
 
@@ -495,8 +506,8 @@ void add_member(Peer *pp){
 	clock_gettime(CLOCK_REALTIME, &pp->timestamp);
 	pthread_mutex_init(&pp->timeout_mutex, NULL);
 	pthread_cond_init(&pp->timeout_cond, NULL);
-	pthread_create(&pp->tid, NULL, eth_handler, pp);
 	pthread_create(&pp->timeout_tid, NULL, timeout_handler, pp);
+	pthread_create(&pp->tid, NULL, eth_handler, pp);
 	writeEnd();
 	return;
 }
@@ -521,12 +532,10 @@ void remove_member(Peer *pp){
 	/**
 	  *	Cancelling the thread must be the very last thing done, because
 	  *	the canceled thread may be the same thread that is calling
-	  *	remove_member(). Call pthread_join() to pause the calling thread
-	  *	in case the calling thread is the thread to be cancelled.
+	  *	remove_member().
 	  *
 	  *	However, the thread ID must be saved before freeing pp.
 	  */
 	pthread_cancel(tid);
-	pthread_join(tid, NULL);
 	return;
 }
