@@ -156,7 +156,7 @@ struct Visited{
 
 struct ForwardingTable{
 	Peer *nextHop;
-	graph dest;
+	graph *dest;
 	int dist;
 	UT_hash_handle hh;
 };
@@ -273,7 +273,7 @@ extern void remove_from_network(graph *);
 extern void Dijkstra(graph *); //unused
 extern void shortest_path(graph *dest);
 extern Visited* bfs();
-extern ForwardingTable* prepare_forwarding_table(Visited *v, graph *curr, graph *previous, graph *dest);
+extern void prepare_forwarding_table(Visited *v, graph *curr, graph *previous, graph *dest);
 
 //	Heap interface
 // unused

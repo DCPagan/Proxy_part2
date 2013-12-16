@@ -84,17 +84,15 @@ void shortest_path(graph *dest){
 			if(nbr->node == dest){ //destination node found return shortest path
 				//prepare the routing table here as a linked list
 
-				/*
-				 * Here is the code for a routing table
-				 * If you want the fowarding table, break up the routing table into individual pieces
-				 * I do not know what you want to do with this
-				 * I do not know why you want this global, since fowarding tables are specific to a given route
-				 * 
-				 * This code gives you the destination part of the fowarding table as a linked list
-				 * The list starts at the source node and points to the next hop in the route
-				 * The table  contains a field for Destination, Distancce from the source, and Previous Hop, the source's node's previous hop is NULL
+				/* 
+				 * This code gives you the destination part of the
+				 * fowarding table as a linked list
+				 * The list starts at the source node and points to the next hop
+				 * in the route
+				 * The table  contains a field for Destination, 
+				 * the node's next hop is NULL
 				*/
-				table = prepare_forwarding_table(visited, nbr->node, tmpNode, dest);
+				prepare_forwarding_table(visited, nbr->node, tmpNode, dest);
 
 				/*
 					TODO Make the next hop here.....with what func?
@@ -192,7 +190,8 @@ graph* dequeue(Queue *q){
 void prepare_forwarding_table(Visited *visited, graph *curr, graph *previous, graph *destination){
 	ForwardingTable *table, *tmpFT;
 	Visited *v;
-	Peer p;
+	Peer *p;
+	link_state dest;
 	tmpFT = (ForwardingTable *)malloc(sizeof(ForwardingTable));
 	// initialize destination node
 	// tmpFT->node = curr;
@@ -203,20 +202,23 @@ void prepare_forwarding_table(Visited *visited, graph *curr, graph *previous, gr
 	HASH_FIND(hh, visited, previous, sizeof(graph), v);
 	if(v == NULL){
 		printf("error node not in visited table\n");
-		return NULL;
+		return;
 	}
 	while(v->prev != NULL){ //stop at source
-		tmpFT->nextHop = v->prev->node->ls.tapMAC;
+		HASH_FIND(hh, hash_table, v->node->ls.tapMAC, ETH_ALEN, p);
+		if(p == NULL){
+			return;
+		}
+		tmpFT->nextHop = p;
 		tmpFT->dest = destination;
 		/*
 			This part is wrong as it will key every 
 			node except the source node in the path
 			to the destination MAC
 		*/
-		HASH_ADD(hh, table, destination->ls.tapMAC, ETH_ALEN, tmpFT);
+		HASH_ADD(hh, table, dest->ls.tapMAC, ETH_ALEN, tmpFT);
 		HASH_FIND(hh, visited, v->prev, sizeof(graph), v);
 	}
-	return table;
 }
 
 /**
