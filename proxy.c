@@ -140,14 +140,6 @@ Peer *connectbyname(char *hostname, char *port){
 		return NULL;
 	}
 	freeaddrinfo(res);
-	if(linkState.IPaddr.s_addr==-1){
-		if(getsockname(clientfd, &addr, &addrlen)<0){
-			perror("error: getsockname()");
-			exit(-1);
-		}
-		linkState.IPaddr=addr.sin_addr;
-	}
-	//	Initialize local tap MAC address
 	pp=(Peer *)malloc(sizeof(Peer));
 	memset(pp, 0, sizeof(Peer));
 	rio_readinit(&pp->rio, clientfd);
@@ -576,16 +568,37 @@ void add_member(Peer *pp){
 	pthread_cond_init(&pp->timeout_cond, NULL);
 	pthread_create(&pp->timeout_tid, NULL, timeout_handler, pp);
 	pthread_create(&pp->tid, NULL, eth_handler, pp);
-	HASH_FIND(hh, network, &linkState.tapMAC, ETH_ALEN, v);
-	if(v==NULL){
+	if(linkState.IPaddr.s_addr==-1){
+		//	Evaluate the local I.P. address if it is still uninitialized.
+		if(getsockname(connfd, &addr, &addrlen)<0){
+			perror("error: getsockname()");
+			exit(-1);
+		}
+		linkState.IPaddr=addr.sin_addr;
+		/**
+		  *	Now that the local IP address and the neighbor's host
+		  *	information has been evaluated, the local proxy can be
+		  *	added to the graph.
+		  */
 		v=(graph *)malloc(sizeof(graph));
-		v->ls=pp->ls;
+		e=(edge *)malloc(sizeof(edge));
+		v->ls=linkState;
 		v->nbrs=NULL;
-	}
-	HASH_FIND(hh, network, &linkState.tapMAC, ETH_ALEN, e);
-	if(e!=NULL)
 		HASH_ADD(hh, v->nbrs, node->ls.tapMAC, ETH_ALEN, e);
-	e->timestamp=pp->timestamp;
+		memset(&e->timestamp, 0, 8);
+		e->linkWeight=1;
+	}else{
+		HASH_FIND(hh, network, &linkState.tapMAC, ETH_ALEN, v);
+		if(v==NULL){
+			v=(graph *)malloc(sizeof(graph));
+			v->ls=pp->ls;
+			v->nbrs=NULL;
+		}
+		HASH_FIND(hh, network, &linkState.tapMAC, ETH_ALEN, e);
+		if(e!=NULL)
+			HASH_ADD(hh, v->nbrs, node->ls.tapMAC, ETH_ALEN, e);
+		e->timestamp=pp->timestamp;
+	}
 	writeEnd();
 	return;
 }

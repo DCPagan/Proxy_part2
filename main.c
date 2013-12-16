@@ -9,6 +9,7 @@ int main(int argc, char **argv){
 	FILE *fp;
 	llnode *add, *lltmp;
 	graph *v;
+	edge *e;
 	/**
 	  *	The old parameter scheme may become redundant when we include
 	  *	code for handling the configuration file. Revise all instances
@@ -113,15 +114,6 @@ int main(int argc, char **argv){
 			perror("error opening socket to client");
 			close(listenfd);
 			exit(-1);
-		}
-		if(linkState.IPaddr.s_addr==-1){
-			if(getsockname(connfd, &addr, &addrlen)<0){
-				perror("error: getsockname()");
-				exit(-1);
-			}
-			linkState.IPaddr=addr.sin_addr;
-			//	Initialize the vertex node for the local proxy.
-			v=(graph *)malloc(sizeof(graph));
 		}
 		pp=(Peer *)malloc(sizeof(Peer));
 		memset(pp, 0, sizeof(Peer));
