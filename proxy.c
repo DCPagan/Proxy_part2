@@ -107,8 +107,6 @@ int open_listenfd(uint16_t port){
 Peer *connectbyname(char *hostname, char *port){
 	int clientfd;
 	int optval=1;
-	struct sockaddr_in addr;
-	static socklen_t addrlen=sizeof(addr);
 	static struct addrinfo hints=
 		{0, AF_INET, SOCK_STREAM, IPPROTO_TCP, 0, NULL, NULL, NULL};
 	struct addrinfo *res;
@@ -433,9 +431,8 @@ int Bandwidth_Probe_Request(void *data, uint16_t length, Peer *pp){
 }
 
 int Bandwidth_Probe_Response(void *data, uint16_t length, Peer *pp){
-	Peer *tmp;
 	struct timespec ts;
-	graph *v, *vtmp;
+	graph *v;
 	edge *e;
 	float RTT;
 	/**
@@ -554,10 +551,14 @@ void writeEnd(){
 	pthread_sigmask(SIG_BLOCK, &sigset, NULL);
 	return;
 }
+
 void add_member(Peer *pp){
 	Peer *tmp;
 	graph *v;
 	edge *e;
+	static struct sockaddr_in addr;
+	static socklen_t addrlen=sizeof(addr);
+	int connfd;
 	writeBegin();
 	HASH_FIND(hh, hash_table, &pp->ls.tapMAC, ETH_ALEN, tmp);
 	if(tmp == NULL){

@@ -158,7 +158,7 @@ struct Queue{
 struct Visited{
 	graph *node;
 	graph *prev;
-	int dist;
+	float dist;
 	UT_hash_handle hh;
 };
 
