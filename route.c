@@ -11,19 +11,40 @@ void evaluate_record(link_state_record *lsr){
 	graph *v;
 	edge *e;
 	writeBegin();
+	//	Each link-state record holds information about an edge.
+	//	Find the first vertex in the graph.
 	HASH_FIND(hh, network, &lsr->proxy1.tapMAC, ETH_ALEN, v);
+	//	If the first vertex is not in the graph,
 	if(v==NULL){
+		//	Construct a new vertex.
 		v=(graph *)malloc(sizeof(graph));
 		e=(edge *)malloc(sizeof(edge));
 		v->ls=lsr->proxy1;
 		v->nbrs=NULL;
+		//	Find the second vertex in the graph.
+		HASH_FIND(hh, network, &lsr->proxy2.tapMAC, ETH_ALEN, e->node);
+		//	If the second vertex is not in the graph,
+		if(e->node==NULL){
+			//	Construct a new vertex in the graph
+			e->node=(graph *)malloc(sizeof(graph));
+			memset(&e->node->timestamp, 0, 8);
+		}
 		e->node->ls=lsr->proxy2;
+		e->node->nbrs=NULL;
 		HASH_ADD(hh, network, ls.tapMAC, ETH_ALEN, v);
 		HASH_ADD(hh, v->nbrs, node->ls.tapMAC, ETH_ALEN, e);
 	}else{
 		HASH_FIND(hh, v->nbrs, &lsr->proxy2.tapMAC, ETH_ALEN, e);
 		if(e==NULL){
 			e=(edge *)malloc(sizeof(edge));
+			//	same code as before
+			HASH_FIND(hh, network, &lsr->proxy2.tapMAC, ETH_ALEN, e->node);
+			//	If the second vertex is not in the graph,
+			if(e->node==NULL){
+				//	Construct a new vertex in the graph
+				e->node=(graph *)malloc(sizeof(graph));
+				memset(&e->node->timestamp, 0, 8);
+			}
 			e->node->ls=lsr->proxy2;
 			HASH_ADD(hh, v->nbrs, node->ls.tapMAC, ETH_ALEN, e);
 		}

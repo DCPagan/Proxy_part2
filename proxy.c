@@ -401,7 +401,7 @@ int RTT_Probe_Request(void *data, uint16_t length, Peer *pp){
 	return 0;
 }
 
-int RTT_Probe_Response(void *data, uint16_t length){
+int RTT_Probe_Response(void *data, uint16_t length, Peer *pp){
 	return 0;
 }
 
@@ -440,9 +440,44 @@ int Bandwidth_Probe_Request(void *data, uint16_t length, Peer *pp){
 	return 0;
 }
 
-int Bandwidth_Probe_Response(void *data, uint16_t length){
-	Peer *pp, *tmp;
-	return 0;
+int Bandwidth_Probe_Response(void *data, uint16_t length, Peer *pp){
+	Peer *tmp;
+	struct timespec ts;
+	graph *v, *vtmp;
+	edge *e;
+	uint32_t i;
+	float RTT;
+	//	Echo of a request from the past. Drop and do nothing.
+	if((i=memcmp(data, &pp->probe_timestamp, 8))<0)
+		return 0;
+	//	Echo of the latest request. Evaluate the bandwidth.
+	else if(i==0){
+		clock_gettime(CLOCK_REALTIME, &ts);
+		RTT=(float)(ts.tv_sec);
+		RTT+=(float)(ts.tv_nsec)/1000000000;
+		//	RTT now equals the time, in seconds, of the RTT.
+		pp->bandwidth=(float)(66)/RTT;
+		/**
+		  *	size of packet =
+		  		size of Ethernet header	(14)
+		  		+ size of IPv4 header	(20)
+				+ size of TCP header	(20)
+				+ size of probe segment (12) = 66
+		  *	bandwidth = size of packet / RTT
+		  */
+		//	Iterate through the vertices of the graph.
+		HASH_ITER(hh, network, v, vtmp){
+			HASH_FIND(hh, v->nbrs, &pp->ls.tapMAC, ETH_ALEN, e);
+			if(e!=NULL)
+				//	bandwidth = size of packet / RTT
+				//	1/bandwidth = RTT / size of packet
+				e->linkWeight=RTT/(float)(66);
+		}
+	}
+	//	Echo of a request from the future? Error
+	else{
+		return -1;
+	}
 }
 
 /**
