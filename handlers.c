@@ -188,7 +188,7 @@ void *eth_handler(Peer *pp){
 					goto TYPE_ERROR;
 				break;
 			//	Bandwidth Response
-			case BANDWIDTH_RESPONSE:
+			case BANDWIDTH_PROBE_RESPONSE:
 				if(Bandwidth_Probe_Response(buffer, prxyhdr.length, pp)<0)
 					goto TYPE_ERROR;
 				break;
@@ -306,6 +306,7 @@ void Link_State_Broadcast(int signo){
 	proxy_header prxyhdr;
 	uint16_t N;
 	size_t size;
+	probe_req bwreq;
 	clock_gettime(CLOCK_REALTIME, &timestamp);
 	//	If there are no neighbors, then return.
 	if(hash_table==NULL){
@@ -397,6 +398,24 @@ void Link_State_Broadcast(int signo){
 	HASH_ITER(hh, hash_table, pp, tmp){
 		if((size=rio_write(&pp->rio, buffer,
 			PROXY_HLEN+ntohs(prxyhdr.length)))<0){
+			/**
+			  *	Link-state error condition.
+			  */
+			HASH_DEL(hash_table, pp);
+			close(pp->rio.fd);
+			pthread_cancel(pp->timeout_tid);
+			pthread_cancel(pp->tid);
+			free(pp);
+		}
+	}
+	//	extra credit: broadcast bandwidth probe requests
+	bwreq.prxyhdr.type=htons(BANDWIDTH_PROBE_REQUEST);
+	bwreq.prxyhdr.length=htons(8);
+	HASH_ITER(hh, hash_table, pp, tmp){
+		clock_gettime(CLOCK_REALTIME, &bwreq.ID);
+		bwreq.ID.tv_sec=htons(bwreq.ID.tv_sec);
+		bwreq.ID.tv_nsec=htons(bwreq.ID.tv_nsec);
+		if((size=rio_write(&pp->rio, &bwreq, 12))<0){
 			/**
 			  *	Link-state error condition.
 			  */

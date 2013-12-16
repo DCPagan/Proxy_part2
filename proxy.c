@@ -422,7 +422,7 @@ int Signed_Link_State(void *data, uint16_t length){
 //	Upon receiving a probe request, echo a probe response.
 int Bandwidth_Probe_Request(void *data, uint16_t length, Peer *pp){
 	probe_req bwreq;
-	bwreq.prxyhdr.type=htons(0xAB46);
+	bwreq.prxyhdr.type=htons(BANDWIDTH_PROBE_RESPONSE);
 	bwreq.prxyhdr.length=htons(8);
 	memcpy(&bwreq.ID, data, 8);
 	if(rio_write(pp->rio.fd, data, 12)<0)

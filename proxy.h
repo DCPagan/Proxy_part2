@@ -53,7 +53,7 @@
 #define ENCRYPTED_LINK_STATE 0XABAB		//	extra credit
 #define SIGNED_LINK_STATE 0XABAD		//	extra credit
 #define BANDWIDTH_PROBE_REQUEST 0XAB45	//	extra credit
-#define BANDWIDTH_RESPONSE 0XAB46		//	extra credit
+#define BANDWIDTH_PROBE_RESPONSE 0XAB46		//	extra credit
 
 #define QUIT_LEN 20
 
