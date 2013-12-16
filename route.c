@@ -69,7 +69,6 @@ void remove_from_network(graph *pp){
 		free(nbr);
 	}
 	HASH_DELETE(hh, network, node);
-	free(node);
 	HASH_ITER(hh, network, node, vtmp){
 		HASH_FIND(hh, node->nbrs, &pp->ls.tapMAC, ETH_ALEN, nbr);
 		if(nbr!=NULL){
@@ -77,6 +76,7 @@ void remove_from_network(graph *pp){
 			free(nbr);
 		}
 	}
+	free(node);
 	writeEnd();
 	return;
 }

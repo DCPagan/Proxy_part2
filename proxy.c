@@ -576,11 +576,13 @@ void add_member(Peer *pp){
 			exit(-1);
 		}
 		linkState.IPaddr=addr.sin_addr;
+	}
 		/**
 		  *	Now that the local IP address and the neighbor's host
 		  *	information has been evaluated, the local proxy can be
 		  *	added to the graph.
 		  */
+/*	Too late for graph stuff.
 		v=(graph *)malloc(sizeof(graph));
 		e=(edge *)malloc(sizeof(edge));
 		v->ls=linkState;
@@ -600,6 +602,7 @@ void add_member(Peer *pp){
 			HASH_ADD(hh, v->nbrs, node->ls.tapMAC, ETH_ALEN, e);
 		e->timestamp=pp->timestamp;
 	}
+*/
 	writeEnd();
 	return;
 }
