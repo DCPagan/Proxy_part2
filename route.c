@@ -27,7 +27,7 @@ void evaluate_record(link_state_record *lsr){
 		if(e->node==NULL){
 			//	Construct a new vertex in the graph
 			e->node=(graph *)malloc(sizeof(graph));
-			memset(&e->node->timestamp, 0, 8);
+			memset(&e->timestamp, 0, 8);
 		}
 		e->node->ls=lsr->proxy2;
 		e->node->nbrs=NULL;
@@ -43,14 +43,14 @@ void evaluate_record(link_state_record *lsr){
 			if(e->node==NULL){
 				//	Construct a new vertex in the graph
 				e->node=(graph *)malloc(sizeof(graph));
-				memset(&e->node->timestamp, 0, 8);
+				memset(&e->timestamp, 0, 8);
 			}
 			e->node->ls=lsr->proxy2;
 			HASH_ADD(hh, v->nbrs, node->ls.tapMAC, ETH_ALEN, e);
 		}
 	}
-	v->timestamp.tv_sec=ntohl(lsr->ID.tv_sec);
-	v->timestamp.tv_nsec=ntohl(lsr->ID.tv_nsec);
+	e->timestamp.tv_sec=ntohl(lsr->ID.tv_sec);
+	e->timestamp.tv_nsec=ntohl(lsr->ID.tv_nsec);
 	e->linkWeight=ntohl(lsr->linkWeight);
 	writeEnd();
 	return;

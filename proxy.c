@@ -579,13 +579,13 @@ void add_member(Peer *pp){
 	HASH_FIND(hh, network, &linkState.tapMAC, ETH_ALEN, v);
 	if(v==NULL){
 		v=(graph *)malloc(sizeof(graph));
-		memset(&v->timestamp, 0, 8);
 		v->ls=pp->ls;
 		v->nbrs=NULL;
 	}
 	HASH_FIND(hh, network, &linkState.tapMAC, ETH_ALEN, e);
 	if(e!=NULL)
 		HASH_ADD(hh, v->nbrs, node->ls.tapMAC, ETH_ALEN, e);
+	e->timestamp=pp->timestamp;
 	writeEnd();
 	return;
 }

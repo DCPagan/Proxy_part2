@@ -139,12 +139,12 @@ typedef struct ForwardingTable ForwardingTable;
 
 struct edge{
 	struct graph *node;
+	struct timespec timestamp;
 	float linkWeight;
 	UT_hash_handle hh;
 };
 
 struct graph{
-	struct timespec timestamp;
 	link_state ls;
 	struct edge *nbrs;
 	UT_hash_handle hh;

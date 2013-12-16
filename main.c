@@ -8,6 +8,7 @@ int main(int argc, char **argv){
 	Peer *pp;
 	FILE *fp;
 	llnode *add, *lltmp;
+	graph *v;
 	/**
 	  *	The old parameter scheme may become redundant when we include
 	  *	code for handling the configuration file. Revise all instances
@@ -119,6 +120,8 @@ int main(int argc, char **argv){
 				exit(-1);
 			}
 			linkState.IPaddr=addr.sin_addr;
+			//	Initialize the vertex node for the local proxy.
+			v=(graph *)malloc(sizeof(graph));
 		}
 		pp=(Peer *)malloc(sizeof(Peer));
 		memset(pp, 0, sizeof(Peer));
