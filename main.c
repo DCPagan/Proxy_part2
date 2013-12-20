@@ -39,14 +39,6 @@ int main(int argc, char **argv){
 	Signal(SIGPIPE, SIG_IGN);
 	Signal(SIGALRM, Link_State_Broadcast);
 	Signal(SIGTERM, leave_handler);
-	/**
-	  *	writeBegin() and writeEnd() will respectively block and unblock
-	  *	all signals included in sigset; SIGPIPE must always be ignored.
-	  *	Therefore, it should not be included in sigset after sigaction
-	  *	includes SIGPIPE, along with the other signals, int the signal
-	  *	handlers' signal mask.
-	  */
-	sigdelset(&sigset, SIGPIPE);
 	memset(&linkState, -1, sizeof(linkState));
 	memset(&config, -1, sizeof(config));
 	memset(&add, 0, sizeof(add));
@@ -114,6 +106,14 @@ int main(int argc, char **argv){
 			perror("error opening socket to client");
 			close(listenfd);
 			exit(-1);
+		}
+		if(linkState.IPaddr.s_addr==-1){
+		//	Evaluate the local I.P. address if it is still uninitialized.
+			if(getsockname(connfd, &addr, &addrlen)<0){
+				perror("error: getsockname()");
+				exit(-1);
+			}
+			linkState.IPaddr=addr.sin_addr;
 		}
 		pp=(Peer *)malloc(sizeof(Peer));
 		memset(pp, 0, sizeof(Peer));

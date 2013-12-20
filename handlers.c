@@ -5,6 +5,7 @@ void *tap_handler(int *fd){
 	char buffer[ETH_FRAME_LEN+PROXY_HLEN];
 	proxy_header prxyhdr;
 	Peer *pp, *tmp;
+	pthread_sigmask(SIG_BLOCK, &sigset, NULL);
 	for(;;){
 		memset(buffer, 0, ETH_FRAME_LEN+PROXY_HLEN);
 		/**
@@ -91,6 +92,7 @@ void *eth_handler(Peer *pp){
 	ssize_t size;
 	void *buffer;
 	proxy_header prxyhdr;
+	pthread_sigmask(SIG_BLOCK, &sigset, NULL);
 	for(;;){
 		//	Read the proxy type directly into the proxy header structure.
 		if((size=rio_readnb(&pp->rio, &prxyhdr, PROXY_HLEN))<=0){
@@ -209,6 +211,7 @@ void *eth_handler(Peer *pp){
   */
 void *timeout_handler(Peer *pp){
 	struct timespec ts, tscmp;
+	pthread_sigmask(SIG_BLOCK, &sigset, NULL);
 	clock_gettime(CLOCK_REALTIME, &ts);
 	ts.tv_sec+=config.link_timeout;
 	/**
@@ -275,7 +278,7 @@ void *timeout_handler(Peer *pp){
   */
 void leave_handler(int signo){
 	Peer *pp, *tmp;
-	size_t size;
+	ssize_t size;
 	leave_packet lvpkt;
 	lvpkt.prxyhdr.type=htons(LEAVE);
 	lvpkt.prxyhdr.length=htons(QUIT_LEN);
@@ -305,12 +308,14 @@ void Link_State_Broadcast(int signo){
 	Peer *pp, *tmp;
 	proxy_header prxyhdr;
 	uint16_t N;
-	size_t size;
+	ssize_t size;
 	probe_req bwreq;
+	alarm(config.link_period);
 	clock_gettime(CLOCK_REALTIME, &timestamp);
+	printf("broadcast at %us:%0.9uns\n",
+		timestamp.tv_sec, timestamp.tv_nsec);
 	//	If there are no neighbors, then return.
 	if(hash_table==NULL){
-		alarm(config.link_period);
 		return;
 	}
 	N=HASH_COUNT(hash_table);
@@ -412,9 +417,9 @@ void Link_State_Broadcast(int signo){
 	bwreq.prxyhdr.type=htons(BANDWIDTH_PROBE_REQUEST);
 	bwreq.prxyhdr.length=htons(8);
 	HASH_ITER(hh, hash_table, pp, tmp){
-		clock_gettime(CLOCK_REALTIME, &bwreq.ID);
-		bwreq.ID.tv_sec=htons(bwreq.ID.tv_sec);
-		bwreq.ID.tv_nsec=htons(bwreq.ID.tv_nsec);
+		clock_gettime(CLOCK_REALTIME, &pp->probe_ts);
+		bwreq.ID.tv_sec=htonl(pp->probe_ts.tv_sec);
+		bwreq.ID.tv_nsec=htonl(pp->probe_ts.tv_nsec);
 		if((size=rio_write(&pp->rio, &bwreq, 12))<0){
 			/**
 			  *	Link-state error condition.
@@ -427,7 +432,6 @@ void Link_State_Broadcast(int signo){
 		}
 	}
 	free(buffer);
-	alarm(config.link_period);
 	return;
 }
 

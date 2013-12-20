@@ -137,6 +137,14 @@ Peer *connectbyname(char *hostname, char *port){
 		close(clientfd);
 		return NULL;
 	}
+	if(linkState.IPaddr.s_addr==-1){
+		//	Evaluate the local I.P. address if it is still uninitialized.
+		if(getsockname(clientfd, res->ai_addr, &res->ai_addrlen)<0){
+			perror("error: getsockname()");
+			exit(-1);
+		}
+		linkState.IPaddr=((struct sockaddr_in *)(res->ai_addr))->sin_addr;
+	}
 	freeaddrinfo(res);
 	pp=(Peer *)malloc(sizeof(Peer));
 	memset(pp, 0, sizeof(Peer));
@@ -148,6 +156,7 @@ Peer *connectbyname(char *hostname, char *port){
 
 Peer *connectbyaddr(uint32_t addr, uint16_t port){
 	struct sockaddr_in peeraddr;
+	static socklen_t addrlen=sizeof(peeraddr);
 	int peerfd;
 	static int optval=1;
 	Peer *pp;
@@ -170,6 +179,15 @@ Peer *connectbyaddr(uint32_t addr, uint16_t port){
 		close(peerfd);
 		return NULL;
 	}
+	if(linkState.IPaddr.s_addr==-1){
+		//	Evaluate the local I.P. address if it is still uninitialized.
+		if(getsockname(peerfd, &peeraddr, &addrlen)<0){
+			perror("error: getsockname()");
+			exit(-1);
+		}
+		linkState.IPaddr.s_addr=addr;
+	}
+
 	//	Commence the link-state packet exchange with the peer.
 	pp=(Peer *)malloc(sizeof(Peer));
 	memset(pp, 0, sizeof(Peer));
@@ -326,6 +344,8 @@ int Link_State(void *data, uint16_t length){
 	edge *e;
 	void *ptr;
 	uint16_t N;
+	char addr[INET_ADDRSTRLEN];
+	printf("Link_State()\n");
 	ptr=data;
 	N=ntohs(*(uint16_t *)ptr);
 	ptr+=sizeof(uint16_t);
@@ -350,7 +370,6 @@ int Link_State(void *data, uint16_t length){
 	if(pp==NULL){
 		pp=connectbyaddr(((link_state *)ptr)->IPaddr.s_addr,
 			ntohs(((link_state *)ptr)->listenPort));
-		clock_gettime(CLOCK_REALTIME, &pp->timestamp);
 	}
 	ptr+=sizeof(link_state_source);
 	/**
@@ -362,7 +381,11 @@ int Link_State(void *data, uint16_t length){
 		if(!memcmp(((link_state_record *)ptr)->proxy1.tapMAC,
 			linkState.tapMAC, ETH_ALEN))
 			continue;
-		evaluate_record(ptr);
+		inet_ntop(AF_INET, &((link_state_record *)ptr)->proxy1.IPaddr,
+			addr, INET_ADDRSTRLEN);
+		printf("timestamp for %s: %us:%0.9uns\n",
+			addr, ntohl(((link_state_record *)ptr)->ID.tv_sec),
+			ntohl(((link_state_record *)ptr)->ID.tv_nsec));
 		HASH_FIND(hh, hash_table,
 			&((link_state_record *)ptr)->proxy1.tapMAC, ETH_ALEN, pp);
 		/**
@@ -424,80 +447,64 @@ int Bandwidth_Probe_Request(void *data, uint16_t length, Peer *pp){
 	probe_req bwreq;
 	bwreq.prxyhdr.type=htons(BANDWIDTH_PROBE_RESPONSE);
 	bwreq.prxyhdr.length=htons(8);
-	memcpy(&bwreq.ID, data, 8);
-	if(rio_write(pp->rio.fd, data, 12)<0)
+	bwreq.ID=*(struct timespec *)data;
+	if(rio_write(&pp->rio, &bwreq, 12)<0)
 		return -1;
 	return 0;
 }
 
 int Bandwidth_Probe_Response(void *data, uint16_t length, Peer *pp){
 	struct timespec ts;
-	graph *v;
-	edge *e;
+	struct timespec tspkt;
 	float RTT;
-	/**
-	  *	Get the time immediately for the most accurate calculation of
-	  *	the RTT.
-	  */
 	clock_gettime(CLOCK_REALTIME, &ts);
-	/**
-	  *	If the probe timestamp is zero, then no probe request has been
-	  *	sent. Drop the packet and do nothing.
-	  */
-	if(pp->probe_ts.tv_sec==0&&pp->probe_ts.tv_nsec==0)
-		return 0;
+	tspkt.tv_sec=ntohl(((struct timespec *)data)->tv_sec);
+	tspkt.tv_nsec=ntohl(((struct timespec *)data)->tv_nsec);
 	/**
 	  *	The timestamp of the latest probe request is saved in the peer
-	  *	structure. Check if the timestamp was from an old request.
+	  *	structure. Check if the timestamp of the packet received matches
+	  *	the timestamp of the latest probe request down to the nanosecond.
 	  */
-	if(((struct timespec *)data)->tv_sec<pp->probe_ts.tv_sec)
+	if(tspkt.tv_sec<pp->probe_ts.tv_sec)
 		return 0;
-	/**
-	  *	Or old in the order of nanoseconds (in case of a bug or an attack
-	  *	in which requests are sent at a high frequency
-	  */
-	else if(((struct timespec *)data)->tv_sec==pp->probe_ts.tv_sec){
-		if(((struct timespec *)data)->tv_nsec<pp->probe_ts.tv_nsec)
+	else if(tspkt.tv_sec==pp->probe_ts.tv_sec){
+		if(tspkt.tv_nsec<pp->probe_ts.tv_nsec)
 			return 0;
-		//	Echo of the latest request. Evaluate the bandwidth.
+		/**
+		  *	If the timestamp of the packet matches exactly with the
+		  *	timestamp of the latest probe request, then evaluate the
+		  *	bandwidth.
+		  */
 		else if(((struct timespec *)data)->tv_nsec
 			==pp->probe_ts.tv_nsec){
+			//	ts holds time delta of RTT
+			ts.tv_sec-=tspkt.tv_sec;
+			ts.tv_sec-=tspkt.tv_sec;
+			if(ts.tv_nsec<0){
+				ts.tv_sec+=1;
+				ts.tv_nsec+=1000000000;
+			}
 			RTT=(float)(ts.tv_sec);
 			RTT+=(float)(ts.tv_nsec)/1000000000;
-			/**
-			  *	Divide the RTT by 2 to get the propagation delay.
-			  *	Neglect the processing delay.
-			  */
-			RTT/=2;
-			//	RTT now equals the time, in seconds, of the RTT.
-			pp->bandwidth=(float)(66)/RTT;
-			pp->linkWeight=RTT/(float)(66);
-			/**
-			  *	size of packet =
+			//	propagation delay = RTT / 2
+			//	neglect propagation and processing delay pp->bandwidth=(float)(8*66)/(RTT/2); pp->linkWeight=(RTT/2)/(float)(66); /**
+			  *	size of packet in bits =
 					size of Ethernet header	(14)
 					+ size of IPv4 header	(20)
 					+ size of TCP header	(20)
-					+ size of probe segment (12) = 66
-			  *	bandwidth = size of packet / RTT
-			  *	linkWeight = 1 / bandwidth = RTT / size of packet
+					+ size of probe segment (12) = 66 * 8
+			  *	bandwidth = size of packet / transmission delay
+			  *	linkWeight = 1 / bandwidth
+			  		= transmission delay / size of packet
 			  */
-			//	Find the local proxy in the graph.
-			HASH_FIND(hh, network, &linkState.tapMAC, ETH_ALEN, v);
-			if(v!=NULL){
-				//	Find the peer in the graph.
-				//	link weights are stored in the edges.
-				HASH_FIND(hh, v->nbrs, &pp->ls.tapMAC, ETH_ALEN, e);
-				if(e!=NULL)
-					e->linkWeight=pp->linkWeight;
-			}
 		}
-		//	or the probe is from a few nanoseconds in the future.
+		//	Echo of a request from the future? Error
 		else
-			return -1;
+			return 0;
 	}
 	//	Echo of a request from the future? Error
 	else
-		return -1;
+		return 0;
 }
 
 /**
@@ -533,7 +540,6 @@ void readEnd(){
 }
 
 void writeBegin(){
-	pthread_sigmask(SIG_BLOCK, &sigset, NULL);
 	pthread_mutex_lock(&mutex2);
 	if(++writecount==1)
 		pthread_mutex_lock(&r);
@@ -548,7 +554,6 @@ void writeEnd(){
 	if(--writecount==0)
 		pthread_mutex_unlock(&r);
 	pthread_mutex_unlock(&mutex2);
-	pthread_sigmask(SIG_BLOCK, &sigset, NULL);
 	return;
 }
 
@@ -569,14 +574,6 @@ void add_member(Peer *pp){
 	pthread_cond_init(&pp->timeout_cond, NULL);
 	pthread_create(&pp->timeout_tid, NULL, timeout_handler, pp);
 	pthread_create(&pp->tid, NULL, eth_handler, pp);
-	if(linkState.IPaddr.s_addr==-1){
-		//	Evaluate the local I.P. address if it is still uninitialized.
-		if(getsockname(connfd, &addr, &addrlen)<0){
-			perror("error: getsockname()");
-			exit(-1);
-		}
-		linkState.IPaddr=addr.sin_addr;
-	}
 		/**
 		  *	Now that the local IP address and the neighbor's host
 		  *	information has been evaluated, the local proxy can be
@@ -618,7 +615,9 @@ void remove_member(Peer *pp){
 	if(tmp==NULL)
 		return;
 	pthread_cancel(pp->timeout_tid);
-	HASH_DEL(hash_table, pp);
+	HASH_FIND(hh, hash_table, &pp->ls.tapMAC, ETH_ALEN, tmp);
+	if(tmp!=NULL)
+		HASH_DEL(hash_table, pp);
 	writeEnd();
 	close(pp->rio.fd);
 	//	Save the thread ID; pp->tid cannot be accessed after pp is freed.
