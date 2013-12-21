@@ -312,8 +312,6 @@ void Link_State_Broadcast(int signo){
 	probe_req bwreq;
 	alarm(config.link_period);
 	clock_gettime(CLOCK_REALTIME, &timestamp);
-	printf("broadcast at %us:%0.9uns\n",
-		timestamp.tv_sec, timestamp.tv_nsec);
 	//	If there are no neighbors, then return.
 	if(hash_table==NULL){
 		return;

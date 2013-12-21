@@ -345,7 +345,6 @@ int Link_State(void *data, uint16_t length){
 	void *ptr;
 	uint16_t N;
 	char addr[INET_ADDRSTRLEN];
-	printf("Link_State()\n");
 	ptr=data;
 	N=ntohs(*(uint16_t *)ptr);
 	ptr+=sizeof(uint16_t);
@@ -457,6 +456,7 @@ int Bandwidth_Probe_Response(void *data, uint16_t length, Peer *pp){
 	struct timespec ts;
 	struct timespec tspkt;
 	float RTT;
+	char addr[INET_ADDRSTRLEN];
 	clock_gettime(CLOCK_REALTIME, &ts);
 	tspkt.tv_sec=ntohl(((struct timespec *)data)->tv_sec);
 	tspkt.tv_nsec=ntohl(((struct timespec *)data)->tv_nsec);
@@ -465,44 +465,40 @@ int Bandwidth_Probe_Response(void *data, uint16_t length, Peer *pp){
 	  *	structure. Check if the timestamp of the packet received matches
 	  *	the timestamp of the latest probe request down to the nanosecond.
 	  */
-	if(tspkt.tv_sec<pp->probe_ts.tv_sec)
-		return 0;
-	else if(tspkt.tv_sec==pp->probe_ts.tv_sec){
-		if(tspkt.tv_nsec<pp->probe_ts.tv_nsec)
-			return 0;
+	if(tspkt.tv_sec==pp->probe_ts.tv_sec&&
+		tspkt.tv_nsec==pp->probe_ts.tv_nsec){
 		/**
 		  *	If the timestamp of the packet matches exactly with the
 		  *	timestamp of the latest probe request, then evaluate the
 		  *	bandwidth.
 		  */
-		else if(((struct timespec *)data)->tv_nsec
-			==pp->probe_ts.tv_nsec){
-			//	ts holds time delta of RTT
-			ts.tv_sec-=tspkt.tv_sec;
-			ts.tv_sec-=tspkt.tv_sec;
-			if(ts.tv_nsec<0){
-				ts.tv_sec+=1;
-				ts.tv_nsec+=1000000000;
-			}
-			RTT=(float)(ts.tv_sec);
-			RTT+=(float)(ts.tv_nsec)/1000000000;
-			//	propagation delay = RTT / 2
-			//	neglect propagation and processing delay pp->bandwidth=(float)(8*66)/(RTT/2); pp->linkWeight=(RTT/2)/(float)(66); /**
-			  *	size of packet in bits =
-					size of Ethernet header	(14)
-					+ size of IPv4 header	(20)
-					+ size of TCP header	(20)
-					+ size of probe segment (12) = 66 * 8
-			  *	bandwidth = size of packet / transmission delay
-			  *	linkWeight = 1 / bandwidth
-			  		= transmission delay / size of packet
-			  */
+		ts.tv_sec-=tspkt.tv_sec;
+		ts.tv_nsec-=tspkt.tv_nsec;
+		if(ts.tv_nsec<0){
+			ts.tv_sec+=1;
+			ts.tv_nsec+=1000000000;
 		}
-		//	Echo of a request from the future? Error
-		else
-			return 0;
+		RTT=(float)(ts.tv_sec);
+		RTT+=(float)(ts.tv_nsec)/1000000000;
+		//	propagation delay = RTT / 2
+		//	neglect propagation and processing delay
+		pp->bandwidth=(float)(8*66)/(RTT/2);
+		pp->linkWeight=(RTT/2)/(float)(66);
+		inet_ntop(AF_INET, &pp->ls.IPaddr, addr, INET_ADDRSTRLEN);
+		printf("bandwidth to %s: %e\n", addr, pp->bandwidth);
+		return 0;
+		/**
+		  *	size of packet in bits =
+				size of Ethernet header	(14)
+				+ size of IPv4 header	(20)
+				+ size of TCP header	(20)
+				+ size of probe segment (12) = 66 * 8
+		  *	bandwidth = size of packet / transmission delay
+		  *	linkWeight = 1 / bandwidth
+				= transmission delay / size of packet
+		  */
 	}
-	//	Echo of a request from the future? Error
+	//	Echo does not match latest probe timestamp
 	else
 		return 0;
 }
