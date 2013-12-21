@@ -382,7 +382,7 @@ int Link_State(void *data, uint16_t length){
 			continue;
 		inet_ntop(AF_INET, &((link_state_record *)ptr)->proxy1.IPaddr,
 			addr, INET_ADDRSTRLEN);
-		printf("timestamp for %s: %us:%0.9uns\n",
+		printf("timestamp of %s: %us:%0.9uns\n",
 			addr, ntohl(((link_state_record *)ptr)->ID.tv_sec),
 			ntohl(((link_state_record *)ptr)->ID.tv_nsec));
 		HASH_FIND(hh, hash_table,
@@ -485,7 +485,7 @@ int Bandwidth_Probe_Response(void *data, uint16_t length, Peer *pp){
 		pp->bandwidth=(float)(8*66)/(RTT/2);
 		pp->linkWeight=(RTT/2)/(float)(66);
 		inet_ntop(AF_INET, &pp->ls.IPaddr, addr, INET_ADDRSTRLEN);
-		printf("bandwidth to %s: %ebps\n", addr, pp->bandwidth);
+		printf("bandwidth of %s: %ebps\n", addr, pp->bandwidth);
 		return 0;
 		/**
 		  *	size of packet in bits =
