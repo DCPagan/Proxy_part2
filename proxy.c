@@ -485,7 +485,7 @@ int Bandwidth_Probe_Response(void *data, uint16_t length, Peer *pp){
 		pp->bandwidth=(float)(8*66)/(RTT/2);
 		pp->linkWeight=(RTT/2)/(float)(66);
 		inet_ntop(AF_INET, &pp->ls.IPaddr, addr, INET_ADDRSTRLEN);
-		printf("bandwidth to %s: %e\n", addr, pp->bandwidth);
+		printf("bandwidth to %s: %ebps\n", addr, pp->bandwidth);
 		return 0;
 		/**
 		  *	size of packet in bits =
